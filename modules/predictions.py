@@ -334,14 +334,17 @@ padding-top:3px;
             )
 
         with col_1:
-            if st.button(
-                "1",
-                key=f"btn_1_{match_id}",
-                use_container_width=True,
-                disabled=disabled,
-            ):
-                set_prediction(match_id, "1")
-                st.rerun()
+
+    label1 = "🟩 1" if selected == "1" else "1"
+
+    if st.button(
+        label1,
+        key=f"btn_1_{match_id}",
+        use_container_width=True,
+        disabled=disabled,
+    ):
+        set_prediction(match_id, "1")
+        st.rerun()
 
         with col_x:
             if st.button(
