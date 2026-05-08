@@ -18,25 +18,28 @@ def flag_img(code):
 def prediction_badge(prediction):
     prediction = str(prediction or "").strip().upper()
 
-    colors = {
-        "1": ("#dcfce7", "#166534", "1"),
-        "X": ("#e0f2fe", "#075985", "X"),
-        "2": ("#fee2e2", "#991b1b", "2"),
-    }
-
-    bg, fg, label = colors.get(prediction, ("#f1f5f9", "#334155", "-"))
+    if prediction == "1":
+        bg = "#dcfce7"
+        fg = "#166534"
+        label = "1"
+    elif prediction == "X":
+        bg = "#dbeafe"
+        fg = "#1d4ed8"
+        label = "X"
+    elif prediction == "2":
+        bg = "#fee2e2"
+        fg = "#991b1b"
+        label = "2"
+    else:
+        bg = "#e2e8f0"
+        fg = "#334155"
+        label = "-"
 
     return (
         f'<span style="display:inline-block;min-width:28px;text-align:center;'
         f'padding:3px 8px;border-radius:999px;background:{bg};color:{fg};'
         f'font-weight:900;border:1px solid rgba(0,0,0,0.08);">{label}</span>'
     )
-
-
-def score_text(score1, score2):
-    if str(score1) != "" and str(score2) != "":
-        return f"{score1} - {score2}"
-    return ""
 
 
 def show_my_predictions(user, matches_df, predictions_df):
@@ -58,6 +61,7 @@ def show_my_predictions(user, matches_df, predictions_df):
         return
 
     merged = df.merge(matches_df, on="match_id", how="left")
+
     merged = merged.sort_values(
         ["groep", "datum", "tijd", "match_id"],
         kind="stable",
@@ -70,58 +74,53 @@ def show_my_predictions(user, matches_df, predictions_df):
             f1 = flag_img(row.get("team1_code", ""))
             f2 = flag_img(row.get("team2_code", ""))
 
-            prediction = row.get("prediction", "")
-            score = score_text(row.get("score1", ""), row.get("score2", ""))
-            status = str(row.get("status", "") or "")
+            prediction = str(row.get("prediction", "")).upper()
+            status = str(row.get("status", "")).upper()
+
+            score1 = str(row.get("score1", ""))
+            score2 = str(row.get("score2", ""))
 
             score_part = ""
-            if score:
+
+            if score1 != "" and score2 != "":
                 score_part = (
-                    f'<span style="font-weight:800;color:#0f172a;">'
-                    f'{score}</span>'
+                    f'<span style="font-size:0.82rem;font-weight:800;color:#334155;">'
+                    f'{score1} - {score2}'
+                    f'</span>'
                 )
 
-            status_color = "#64748b"
-            if status.upper() == "FINAL":
+            status_color = "#92400e"
+
+            if status == "FINAL":
                 status_color = "#166534"
-            elif status.upper() == "DRAFT":
+            elif status == "DRAFT":
                 status_color = "#92400e"
 
-            st.markdown(
-                f"""
-<div style="
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:10px;
-    border:1px solid #e2e8f0;
-    border-radius:10px;
-    padding:8px 10px;
-    margin-bottom:6px;
-    background:#ffffff;
-">
-    <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1;">
-        <span style="font-size:0.82rem;color:#64748b;min-width:92px;">
-            {row.get('datum', '')} {row.get('tijd', '')}
-        </span>
-        <span style="font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-            {f1} {row.get('team1', '')}
-            <span style="color:#64748b;margin:0 4px;">-</span>
-            {f2} {row.get('team2', '')}
-        </span>
-    </div>
+            html = f"""
+<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px;margin-bottom:6px;background:white;">
+  <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1;overflow:hidden;">
+    <span style="font-size:0.78rem;color:#64748b;min-width:92px;">
+      {row.get('datum', '')} {row.get('tijd', '')}
+    </span>
 
-    <div style="display:flex;align-items:center;gap:8px;white-space:nowrap;">
-        {score_part}
-        {prediction_badge(prediction)}
-        <span style="font-size:0.78rem;color:{status_color};font-weight:800;">
-            {status}
-        </span>
-    </div>
+    <span style="font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+      {f1} {row.get('team1', '')}
+      <span style="color:#64748b;margin:0 4px;">-</span>
+      {f2} {row.get('team2', '')}
+    </span>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:8px;white-space:nowrap;">
+    {score_part}
+    {prediction_badge(prediction)}
+    <span style="font-size:0.78rem;color:{status_color};font-weight:800;">
+      {status}
+    </span>
+  </div>
 </div>
-""",
-                unsafe_allow_html=True,
-            )
+"""
+
+            st.markdown(html, unsafe_allow_html=True)
 
 
 def show_scoreboard(users_df, matches_df, predictions_df, results_df):
@@ -158,7 +157,12 @@ def show_scoreboard(users_df, matches_df, predictions_df, results_df):
         ]
 
         existing = [c for c in columns if c in detail.columns]
-        st.dataframe(detail[existing], use_container_width=True, hide_index=True)
+
+        st.dataframe(
+            detail[existing],
+            use_container_width=True,
+            hide_index=True,
+        )
 
 
 def show_rules():
