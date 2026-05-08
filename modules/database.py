@@ -2,8 +2,11 @@ import streamlit as st
 import pandas as pd
 import gspread
 from google.oauth2.service_account import Credentials
+
 from modules.settings import REQUIRED_SHEETS
 from modules.utils import timestamp
+from modules.knockout_engine import apply_knockout_engine
+
 
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
@@ -55,13 +58,59 @@ def load_sheet(name):
     return df
 
 
+def ensure_match_columns(matches_df):
+    required_cols = [
+        "match_id",
+        "speeldag",
+        "ronde",
+        "groep",
+        "team1",
+        "team2",
+        "datum",
+        "tijd",
+        "team1_code",
+        "team2_code",
+        "speelstad",
+        "score1",
+        "score2",
+        "winner",
+        "team1_placeholder",
+        "team2_placeholder",
+    ]
+
+    for col in required_cols:
+        if col not in matches_df.columns:
+            matches_df[col] = ""
+
+    return matches_df
+
+
 @st.cache_data(ttl=60)
 def load_all_data():
+    users_df = load_sheet("Users")
+    matches_df = load_sheet("Matches")
+    predictions_df = load_sheet("Predictions")
+    results_df = load_sheet("Results")
+
+    matches_df = ensure_match_columns(matches_df)
+
+    try:
+        fifa_ranking_df = load_sheet("FifaRanking")
+    except Exception:
+        fifa_ranking_df = None
+
+    matches_df, standings_df, best_thirds_df = apply_knockout_engine(
+        matches_df,
+        fifa_ranking_df,
+    )
+
     return {
-        "users": load_sheet("Users"),
-        "matches": load_sheet("Matches"),
-        "predictions": load_sheet("Predictions"),
-        "results": load_sheet("Results"),
+        "users": users_df,
+        "matches": matches_df,
+        "predictions": predictions_df,
+        "results": results_df,
+        "standings": standings_df,
+        "best_thirds": best_thirds_df,
     }
 
 
