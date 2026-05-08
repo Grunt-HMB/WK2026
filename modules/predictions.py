@@ -246,8 +246,8 @@ def render_match_card(match, disabled):
     score2 = current.get("score2", "")
 
     with st.container(border=True):
-        col_info, col_1, col_x, col_2, col_score = st.columns(
-            [6.8, 0.42, 0.42, 0.42, 0.95],
+        col_info, col_1, col_x, col_2, col_badge, col_score = st.columns(
+            [6.4, 0.42, 0.42, 0.42, 0.42, 1.0],
             gap="small",
         )
 
@@ -267,7 +267,6 @@ def render_match_card(match, disabled):
   <span>{flag2}</span>
   <span>{team2}</span>
   <span style="font-size:0.76rem;color:#64748b;margin-left:5px;">{time}</span>
-  <span style="margin-left:5px;">{choice_badge(selected)}</span>
   <span style="font-size:0.78rem;color:#334155;">{score_part}</span>
 </div>
 """,
@@ -275,9 +274,8 @@ def render_match_card(match, disabled):
             )
 
         with col_1:
-            label = "1"
             if st.button(
-                label,
+                "1",
                 key=f"btn_1_{match_id}",
                 use_container_width=True,
                 disabled=disabled,
@@ -286,9 +284,8 @@ def render_match_card(match, disabled):
                 st.rerun()
 
         with col_x:
-            label = "X"
             if st.button(
-                label,
+                "X",
                 key=f"btn_x_{match_id}",
                 use_container_width=True,
                 disabled=disabled,
@@ -297,15 +294,24 @@ def render_match_card(match, disabled):
                 st.rerun()
 
         with col_2:
-            label = "2"
             if st.button(
-                label,
+                "2",
                 key=f"btn_2_{match_id}",
                 use_container_width=True,
                 disabled=disabled,
             ):
                 set_prediction(match_id, "2")
                 st.rerun()
+
+        with col_badge:
+            st.markdown(
+                f"""
+<div style="display:flex;align-items:center;justify-content:center;height:34px;">
+    {choice_badge(selected)}
+</div>
+""",
+                unsafe_allow_html=True,
+            )
 
         with col_score:
             if st.button(
