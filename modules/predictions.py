@@ -25,16 +25,16 @@ def football_badge(choice):
         choice = "-"
 
     return (
-        f'<div style="position:relative;width:46px;height:46px;'
+        f'<div style="position:relative;width:48px;height:48px;'
         f'display:flex;align-items:center;justify-content:center;">'
 
         f'<img src="https://upload.wikimedia.org/wikipedia/commons/d/d3/Soccerball.svg" '
-        f'style="width:48px;height:48px;">'
+        f'style="width:44px;height:44px;filter:drop-shadow(0 0 2px rgba(255,255,255,0.45));">'
 
         f'<span style="position:absolute;inset:0;display:flex;'
-        f'align-items:center;justify-content:center;font-size:1.9rem;'
+        f'align-items:center;justify-content:center;font-size:2rem;'
         f'font-weight:900;color:#000000;'
-        f'text-shadow:0 0 2px white,0 0 3px white,0 0 4px white;">'
+        f'text-shadow:0 0 2px white,0 0 4px white;">'
         f'{choice}</span></div>'
     )
 
