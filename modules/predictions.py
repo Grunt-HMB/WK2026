@@ -2,7 +2,20 @@ import streamlit as st
 
 from modules.database import batch_upsert_predictions
 from modules.settings import TOURNAMENT_START
-from modules.utils import flag_emoji, result_from_score, tournament_locked, safe_int
+from modules.utils import result_from_score, tournament_locked, safe_int
+
+
+def flag_img(code):
+    code = str(code or "").strip().lower()
+
+    if len(code) != 2:
+        return ""
+
+    return (
+        f'<img src="https://flagcdn.com/w80/{code}.png" '
+        f'style="width:52px;height:36px;object-fit:cover;border-radius:6px;'
+        f'box-shadow:0 2px 6px rgba(0,0,0,0.25);">'
+    )
 
 
 def load_existing_predictions(user_id, predictions_df):
@@ -196,8 +209,8 @@ def render_match_card(match, disabled):
     code1 = str(match.get("team1_code", "")).upper()
     code2 = str(match.get("team2_code", "")).upper()
 
-    flag1 = flag_emoji(code1)
-    flag2 = flag_emoji(code2)
+    flag1 = flag_img(code1)
+    flag2 = flag_img(code2)
 
     date = str(match.get("datum", ""))
     time = str(match.get("tijd", ""))
@@ -219,10 +232,10 @@ def render_match_card(match, disabled):
             st.markdown(
                 f"""
 <div style="display:flex;align-items:center;justify-content:center;gap:16px;font-size:1.35rem;font-weight:800;margin-bottom:12px;">
-  <span style="font-size:2.6rem;">{flag1}</span>
+  {flag1}
   <span>{team1}</span>
   <span style="margin:0 8px;">-</span>
-  <span style="font-size:2.6rem;">{flag2}</span>
+  {flag2}
   <span>{team2}</span>
 </div>
 """,
