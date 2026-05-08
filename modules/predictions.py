@@ -39,9 +39,10 @@ def choice_badge(choice):
         text = "-"
 
     return (
-        f'<span style="display:inline-block;min-width:30px;text-align:center;'
-        f'padding:3px 9px;border-radius:999px;background:{bg};color:{fg};'
-        f'font-weight:900;border:1px solid rgba(0,0,0,0.08);">{text}</span>'
+        f'<span style="display:inline-flex;align-items:center;justify-content:center;'
+        f'width:34px;height:34px;border-radius:50%;background:{bg};color:{fg};'
+        f'font-weight:900;border:1px solid rgba(0,0,0,0.08);'
+        f'line-height:34px;text-align:center;vertical-align:middle;">{text}</span>'
     )
 
 
@@ -274,7 +275,7 @@ def render_match_card(match, disabled):
             )
 
         with col_1:
-            label = "✓1" if selected == "1" else "1"
+            label = "1"
             if st.button(
                 label,
                 key=f"btn_1_{match_id}",
@@ -285,7 +286,7 @@ def render_match_card(match, disabled):
                 st.rerun()
 
         with col_x:
-            label = "✓X" if selected == "X" else "X"
+            label = "X"
             if st.button(
                 label,
                 key=f"btn_x_{match_id}",
@@ -296,7 +297,7 @@ def render_match_card(match, disabled):
                 st.rerun()
 
         with col_2:
-            label = "✓2" if selected == "2" else "2"
+            label = "2"
             if st.button(
                 label,
                 key=f"btn_2_{match_id}",
