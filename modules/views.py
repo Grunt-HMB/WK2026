@@ -8,45 +8,11 @@ def flag_img(code):
     if len(code) != 2:
         return ""
 
-    return (
-        f'<img src="https://flagcdn.com/w40/{code}.png" '
-        f'style="width:28px;height:20px;object-fit:cover;border-radius:4px;'
-        f'box-shadow:0 1px 3px rgba(0,0,0,0.20);vertical-align:middle;margin-right:5px;">'
-    )
-
-
-def prediction_badge(prediction):
-    prediction = str(prediction or "").strip().upper()
-
-    if prediction == "1":
-        bg = "#dcfce7"
-        fg = "#166534"
-        label = "1"
-    elif prediction == "X":
-        bg = "#dbeafe"
-        fg = "#1d4ed8"
-        label = "X"
-    elif prediction == "2":
-        bg = "#fee2e2"
-        fg = "#991b1b"
-        label = "2"
-    else:
-        bg = "#e2e8f0"
-        fg = "#334155"
-        label = "-"
-
-    return (
-        f'<span style="display:inline-block;min-width:28px;text-align:center;'
-        f'padding:3px 8px;border-radius:999px;background:{bg};color:{fg};'
-        f'font-weight:900;border:1px solid rgba(0,0,0,0.08);">{label}</span>'
-    )
+    return f"https://flagcdn.com/w40/{code}.png"
 
 
 def show_my_predictions(user, matches_df, predictions_df):
-    st.markdown(
-        '<div class="main-title">Mijn voorspellingen</div>',
-        unsafe_allow_html=True,
-    )
+    st.markdown("### Mijn voorspellingen")
 
     user_id = str(user["user_id"])
 
@@ -61,73 +27,76 @@ def show_my_predictions(user, matches_df, predictions_df):
         return
 
     merged = df.merge(matches_df, on="match_id", how="left")
-
-    merged = merged.sort_values(
-        ["groep", "datum", "tijd", "match_id"],
-        kind="stable",
-    )
+    merged = merged.sort_values(["groep", "datum", "tijd", "match_id"], kind="stable")
 
     for group, group_df in merged.groupby("groep", sort=False):
         st.subheader(f"Groep {group}")
 
         for _, row in group_df.iterrows():
-            f1 = flag_img(row.get("team1_code", ""))
-            f2 = flag_img(row.get("team2_code", ""))
+            with st.container(border=True):
+                c1, c2, c3, c4, c5 = st.columns([1.2, 3.8, 0.8, 0.8, 0.9])
 
-            prediction = str(row.get("prediction", "")).upper()
-            status = str(row.get("status", "")).upper()
+                with c1:
+                    st.caption(f"{row.get('datum', '')}")
+                    st.caption(f"{row.get('tijd', '')}")
 
-            score1 = str(row.get("score1", ""))
-            score2 = str(row.get("score2", ""))
+                with c2:
+                    f1 = flag_img(row.get("team1_code", ""))
+                    f2 = flag_img(row.get("team2_code", ""))
 
-            score_part = ""
+                    cc1, cc2, cc3, cc4, cc5 = st.columns([0.25, 1.1, 0.15, 0.25, 1.1])
 
-            if score1 != "" and score2 != "":
-                score_part = (
-                    f'<span style="font-size:0.82rem;font-weight:800;color:#334155;">'
-                    f'{score1} - {score2}'
-                    f'</span>'
-                )
+                    with cc1:
+                        if f1:
+                            st.image(f1, width=28)
 
-            status_color = "#92400e"
+                    with cc2:
+                        st.markdown(f"**{row.get('team1', '')}**")
 
-            if status == "FINAL":
-                status_color = "#166534"
-            elif status == "DRAFT":
-                status_color = "#92400e"
+                    with cc3:
+                        st.markdown("**-**")
 
-            html = f"""
-<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid #e2e8f0;border-radius:10px;padding:8px 10px;margin-bottom:6px;background:white;">
-  <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1;overflow:hidden;">
-    <span style="font-size:0.78rem;color:#64748b;min-width:92px;">
-      {row.get('datum', '')} {row.get('tijd', '')}
-    </span>
+                    with cc4:
+                        if f2:
+                            st.image(f2, width=28)
 
-    <span style="font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-      {f1} {row.get('team1', '')}
-      <span style="color:#64748b;margin:0 4px;">-</span>
-      {f2} {row.get('team2', '')}
-    </span>
-  </div>
+                    with cc5:
+                        st.markdown(f"**{row.get('team2', '')}**")
 
-  <div style="display:flex;align-items:center;gap:8px;white-space:nowrap;">
-    {score_part}
-    {prediction_badge(prediction)}
-    <span style="font-size:0.78rem;color:{status_color};font-weight:800;">
-      {status}
-    </span>
-  </div>
-</div>
-"""
+                with c3:
+                    score1 = str(row.get("score1", ""))
+                    score2 = str(row.get("score2", ""))
 
-            st.markdown(html, unsafe_allow_html=True)
+                    if score1 != "" and score2 != "":
+                        st.markdown(f"**{score1} - {score2}**")
+                    else:
+                        st.caption("Geen score")
+
+                with c4:
+                    pred = str(row.get("prediction", "")).upper()
+
+                    if pred == "1":
+                        st.success("1")
+                    elif pred == "X":
+                        st.info("X")
+                    elif pred == "2":
+                        st.error("2")
+                    else:
+                        st.caption("-")
+
+                with c5:
+                    status = str(row.get("status", "")).upper()
+
+                    if status == "FINAL":
+                        st.success("FINAL")
+                    elif status == "DRAFT":
+                        st.warning("DRAFT")
+                    else:
+                        st.caption(status)
 
 
 def show_scoreboard(users_df, matches_df, predictions_df, results_df):
-    st.markdown(
-        '<div class="main-title">Scorebord</div>',
-        unsafe_allow_html=True,
-    )
+    st.markdown("### Scorebord")
 
     scoreboard, detail = build_scoreboard(
         users_df,
@@ -166,10 +135,7 @@ def show_scoreboard(users_df, matches_df, predictions_df, results_df):
 
 
 def show_rules():
-    st.markdown(
-        '<div class="main-title">Reglement</div>',
-        unsafe_allow_html=True,
-    )
+    st.markdown("### Reglement")
 
     st.markdown(
         """
