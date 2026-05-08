@@ -2,7 +2,7 @@ import streamlit as st
 
 from modules.database import batch_upsert_predictions
 from modules.settings import TOURNAMENT_START
-from modules.utils import result_from_score, tournament_locked, safe_int
+from modules.utils import result_from_score, tournament_locked
 
 
 def flag_img(code):
@@ -13,8 +13,35 @@ def flag_img(code):
 
     return (
         f'<img src="https://flagcdn.com/w40/{code}.png" '
-        f'style="width:30px;height:22px;object-fit:cover;border-radius:4px;'
-        f'box-shadow:0 1px 4px rgba(0,0,0,0.25);vertical-align:middle;">'
+        f'style="width:28px;height:20px;object-fit:cover;border-radius:4px;'
+        f'box-shadow:0 1px 3px rgba(0,0,0,0.20);vertical-align:middle;">'
+    )
+
+
+def choice_badge(choice):
+    choice = str(choice or "").strip().upper()
+
+    if choice == "1":
+        bg = "#dcfce7"
+        fg = "#166534"
+        text = "1"
+    elif choice == "X":
+        bg = "#dbeafe"
+        fg = "#1d4ed8"
+        text = "X"
+    elif choice == "2":
+        bg = "#fee2e2"
+        fg = "#991b1b"
+        text = "2"
+    else:
+        bg = "#f1f5f9"
+        fg = "#475569"
+        text = "-"
+
+    return (
+        f'<span style="display:inline-block;min-width:30px;text-align:center;'
+        f'padding:3px 9px;border-radius:999px;background:{bg};color:{fg};'
+        f'font-weight:900;border:1px solid rgba(0,0,0,0.08);">{text}</span>'
     )
 
 
@@ -89,15 +116,15 @@ def score_header_html(team1, team2, score1, score2):
     right_score = score2 if score2 != "" else "-"
 
     return f"""
-<div style="display:flex;align-items:center;justify-content:center;gap:16px;margin:6px 0 10px 0;">
-  <div style="text-align:center;min-width:90px;">
-    <div style="font-size:0.9rem;font-weight:700;">{team1}</div>
-    <div style="font-size:2.2rem;font-weight:900;color:#2563eb;line-height:1;">{left_score}</div>
+<div style="display:flex;align-items:center;justify-content:center;gap:14px;margin:4px 0 8px 0;">
+  <div style="text-align:center;min-width:82px;">
+    <div style="font-size:0.82rem;font-weight:800;">{team1}</div>
+    <div style="font-size:2rem;font-weight:900;color:#2563eb;line-height:1;">{left_score}</div>
   </div>
-  <div style="font-size:1.4rem;font-weight:900;">-</div>
-  <div style="text-align:center;min-width:90px;">
-    <div style="font-size:0.9rem;font-weight:700;">{team2}</div>
-    <div style="font-size:2.2rem;font-weight:900;color:#dc2626;line-height:1;">{right_score}</div>
+  <div style="font-size:1.3rem;font-weight:900;">-</div>
+  <div style="text-align:center;min-width:82px;">
+    <div style="font-size:0.82rem;font-weight:800;">{team2}</div>
+    <div style="font-size:2rem;font-weight:900;color:#dc2626;line-height:1;">{right_score}</div>
   </div>
 </div>
 """
@@ -105,13 +132,11 @@ def score_header_html(team1, team2, score1, score2):
 
 def show_number_pad(match_id, team_name, score_key, side):
     st.markdown(
-        f"<div style='font-size:0.95rem;font-weight:800;margin-bottom:4px;'>{team_name}</div>",
+        f"<div style='font-size:0.85rem;font-weight:900;margin-bottom:3px;'>{team_name}</div>",
         unsafe_allow_html=True,
     )
 
-    rows = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
-
-    for row in rows:
+    for row in [[1, 2, 3], [4, 5, 6], [7, 8, 9]]:
         cols = st.columns(3, gap="small")
 
         for idx, num in enumerate(row):
@@ -215,41 +240,43 @@ def render_match_card(match, disabled):
 
     current = st.session_state["local_predictions"].get(match_id, {})
 
-    selected = current.get("prediction", "")
+    selected = str(current.get("prediction", ""))
     score1 = current.get("score1", "")
     score2 = current.get("score2", "")
 
     with st.container(border=True):
         col_info, col_1, col_x, col_2, col_score = st.columns(
-            [5.4, 0.7, 0.7, 0.7, 1.35],
+            [6.8, 0.42, 0.42, 0.42, 0.95],
             gap="small",
         )
 
         with col_info:
+            score_part = ""
+
+            if score1 != "" and score2 != "":
+                score_part = f" · {score1}-{score2}"
+
             st.markdown(
                 f"""
-<div style="display:flex;align-items:center;gap:8px;font-size:1rem;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-  <span style="font-size:0.86rem;opacity:0.85;min-width:72px;">{date}</span>
+<div style="display:flex;align-items:center;gap:7px;font-size:0.95rem;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+  <span style="font-size:0.78rem;color:#64748b;min-width:82px;">{date}</span>
   <span>{flag1}</span>
   <span>{team1}</span>
-  <span style="margin:0 2px;">-</span>
+  <span style="margin:0 1px;color:#64748b;">-</span>
   <span>{flag2}</span>
   <span>{team2}</span>
-  <span style="font-size:0.82rem;opacity:0.75;margin-left:6px;">{time}</span>
+  <span style="font-size:0.76rem;color:#64748b;margin-left:5px;">{time}</span>
+  <span style="margin-left:5px;">{choice_badge(selected)}</span>
+  <span style="font-size:0.78rem;color:#334155;">{score_part}</span>
 </div>
 """,
                 unsafe_allow_html=True,
             )
 
-            if selected:
-                if score1 != "" and score2 != "":
-                    st.caption(f"Gekozen: {score1} - {score2} → {selected}")
-                else:
-                    st.caption(f"Gekozen: {selected}")
-
         with col_1:
+            label = "✓1" if selected == "1" else "1"
             if st.button(
-                "1",
+                label,
                 key=f"btn_1_{match_id}",
                 use_container_width=True,
                 disabled=disabled,
@@ -258,8 +285,9 @@ def render_match_card(match, disabled):
                 st.rerun()
 
         with col_x:
+            label = "✓X" if selected == "X" else "X"
             if st.button(
-                "X",
+                label,
                 key=f"btn_x_{match_id}",
                 use_container_width=True,
                 disabled=disabled,
@@ -268,8 +296,9 @@ def render_match_card(match, disabled):
                 st.rerun()
 
         with col_2:
+            label = "✓2" if selected == "2" else "2"
             if st.button(
-                "2",
+                label,
                 key=f"btn_2_{match_id}",
                 use_container_width=True,
                 disabled=disabled,
