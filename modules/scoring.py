@@ -35,6 +35,7 @@ def calculate_points(row):
 
     points = 0
 
+    # Juiste winnaar/gelijkspel
     if prediction == real_result:
         points += 3
 
@@ -42,11 +43,13 @@ def calculate_points(row):
     pred2 = safe_int(row.get("score2"))
 
     if pred1 is not None and pred2 is not None:
+        # Juist doelpuntenverschil
         if (pred1 - pred2) == (real1 - real2):
-    points += 1
+            points += 1
 
+        # Exacte score
         if pred1 == real1 and pred2 == real2:
-    points += 2
+            points += 2
 
     return points
 
