@@ -5,54 +5,54 @@ GROUPS = list("ABCDEFGHIJKL")
 
 
 ROUND_OF_32_MATCHES = {
-    "M73": ("2A", "2B"),
-    "M74": ("1E", "3ABCDF"),
-    "M75": ("1F", "2C"),
-    "M76": ("1C", "2F"),
-    "M77": ("1I", "3CDFGH"),
-    "M78": ("2E", "2I"),
-    "M79": ("1A", "3CEFHI"),
-    "M80": ("1L", "3EHIJK"),
-    "M81": ("1D", "3BEFIJ"),
-    "M82": ("1G", "3AEHIJ"),
-    "M83": ("2K", "2L"),
-    "M84": ("1H", "2J"),
-    "M85": ("1B", "3EFGIJ"),
-    "M86": ("1J", "2H"),
-    "M87": ("1K", "3DEIJL"),
-    "M88": ("2D", "2G"),
+    "73": ("2A", "2B"),
+    "74": ("1E", "3ABCDF"),
+    "75": ("1F", "2C"),
+    "76": ("1C", "2F"),
+    "77": ("1I", "3CDFGH"),
+    "78": ("2E", "2I"),
+    "79": ("1A", "3CEFHI"),
+    "80": ("1L", "3EHIJK"),
+    "81": ("1D", "3BEFIJ"),
+    "82": ("1G", "3AEHIJ"),
+    "83": ("2K", "2L"),
+    "84": ("1H", "2J"),
+    "85": ("1B", "3EFGIJ"),
+    "86": ("1J", "2H"),
+    "87": ("1K", "3DEIJL"),
+    "88": ("2D", "2G"),
 }
 
 
 ROUND_OF_16_MATCHES = {
-    "M89": ("W74", "W77"),
-    "M90": ("W73", "W75"),
-    "M91": ("W76", "W78"),
-    "M92": ("W79", "W80"),
-    "M93": ("W83", "W84"),
-    "M94": ("W81", "W82"),
-    "M95": ("W86", "W88"),
-    "M96": ("W85", "W87"),
+    "89": ("W74", "W77"),
+    "90": ("W73", "W75"),
+    "91": ("W76", "W78"),
+    "92": ("W79", "W80"),
+    "93": ("W83", "W84"),
+    "94": ("W81", "W82"),
+    "95": ("W86", "W88"),
+    "96": ("W85", "W87"),
 }
 
 
 QUARTER_FINALS = {
-    "M97": ("W89", "W90"),
-    "M98": ("W93", "W94"),
-    "M99": ("W91", "W92"),
-    "M100": ("W95", "W96"),
+    "97": ("W89", "W90"),
+    "98": ("W93", "W94"),
+    "99": ("W91", "W92"),
+    "100": ("W95", "W96"),
 }
 
 
 SEMI_FINALS = {
-    "M101": ("W97", "W98"),
-    "M102": ("W99", "W100"),
+    "101": ("W97", "W98"),
+    "102": ("W99", "W100"),
 }
 
 
 FINAL_MATCHES = {
-    "M103": ("L101", "L102"),
-    "M104": ("W101", "W102"),
+    "103": ("L101", "L102"),
+    "104": ("W101", "W102"),
 }
 
 
@@ -73,6 +73,14 @@ def is_played(row):
     return str(row.get("score1", "")).strip() != "" and str(row.get("score2", "")).strip() != ""
 
 
+def clean_match_id(value):
+    value = str(value or "").strip().upper()
+    value = value.replace("MATCH", "")
+    value = value.replace("M", "")
+    value = value.replace("#", "")
+    return value.strip()
+
+
 def get_match_winner(row):
     team1 = clean_team(row.get("team1", ""))
     team2 = clean_team(row.get("team2", ""))
@@ -82,6 +90,7 @@ def get_match_winner(row):
 
     if score1 > score2:
         return team1
+
     if score2 > score1:
         return team2
 
@@ -96,6 +105,7 @@ def get_match_loser(row):
 
     if winner == team1:
         return team2
+
     if winner == team2:
         return team1
 
@@ -134,11 +144,10 @@ def calculate_base_group_table(matches_df, fifa_ranking_df=None):
         points = 0
 
         for _, match in team_matches.iterrows():
-            if not is_played(match):
-                group = str(match.get("groep", "")).strip().upper()
-                continue
-
             group = str(match.get("groep", "")).strip().upper()
+
+            if not is_played(match):
+                continue
 
             score1 = safe_int(match.get("score1", ""))
             score2 = safe_int(match.get("score2", ""))
@@ -189,17 +198,26 @@ def calculate_base_group_table(matches_df, fifa_ranking_df=None):
             ranking[["team", "fifa_rank", "previous_fifa_rank"]],
             on="team",
             how="left",
-            suffixes=("", "_rank"),
+            suffixes=("", "_ranking"),
         )
 
-        table["fifa_rank"] = table["fifa_rank_rank"].fillna(table["fifa_rank"])
-        table["previous_fifa_rank"] = table["previous_fifa_rank_rank"].fillna(table["previous_fifa_rank"])
+        if "fifa_rank_ranking" in table.columns:
+            table["fifa_rank"] = table["fifa_rank_ranking"].fillna(table["fifa_rank"])
+
+        if "previous_fifa_rank_ranking" in table.columns:
+            table["previous_fifa_rank"] = table["previous_fifa_rank_ranking"].fillna(
+                table["previous_fifa_rank"]
+            )
 
         table = table.drop(
             columns=[
-                c for c in ["fifa_rank_rank", "previous_fifa_rank_rank"]
+                c for c in [
+                    "fifa_rank_ranking",
+                    "previous_fifa_rank_ranking",
+                ]
                 if c in table.columns
-            ]
+            ],
+            errors="ignore",
         )
 
     return table
@@ -214,7 +232,6 @@ def head_to_head_stats(matches_df, teams):
     ].copy()
 
     for team in teams:
-        played = 0
         goals_for = 0
         goals_against = 0
         points = 0
@@ -233,7 +250,6 @@ def head_to_head_stats(matches_df, teams):
                 gf = score2
                 ga = score1
 
-            played += 1
             goals_for += gf
             goals_against += ga
 
@@ -286,7 +302,7 @@ def sort_group_with_fifa_rules(group_df, matches_df):
                 False,
                 False,
                 False,
-                False,
+                True,
                 True,
                 True,
             ],
@@ -311,9 +327,11 @@ def calculate_group_standings(matches_df, fifa_ranking_df=None):
         if group_df.empty:
             continue
 
-        group_matches = matches_df[matches_df["groep"].astype(str).str.upper() == group].copy()
-        sorted_group = sort_group_with_fifa_rules(group_df, group_matches)
+        group_matches = matches_df[
+            matches_df["groep"].astype(str).str.upper() == group
+        ].copy()
 
+        sorted_group = sort_group_with_fifa_rules(group_df, group_matches)
         all_groups.append(sorted_group)
 
     if not all_groups:
@@ -323,6 +341,9 @@ def calculate_group_standings(matches_df, fifa_ranking_df=None):
 
 
 def get_team_by_position(standings_df, group, position):
+    if standings_df.empty:
+        return ""
+
     row = standings_df[
         (standings_df["groep"] == group)
         & (standings_df["position"] == position)
@@ -335,6 +356,9 @@ def get_team_by_position(standings_df, group, position):
 
 
 def calculate_best_thirds(standings_df):
+    if standings_df.empty:
+        return pd.DataFrame()
+
     thirds = standings_df[standings_df["position"] == 3].copy()
 
     if thirds.empty:
@@ -353,7 +377,7 @@ def calculate_best_thirds(standings_df):
             False,
             False,
             False,
-            False,
+            True,
             True,
             True,
         ],
@@ -367,6 +391,9 @@ def calculate_best_thirds(standings_df):
 
 
 def resolve_third_place_team(best_thirds_df, allowed_groups):
+    if best_thirds_df.empty:
+        return ""
+
     allowed_groups = list(allowed_groups)
 
     possible = best_thirds_df[
@@ -381,8 +408,30 @@ def resolve_third_place_team(best_thirds_df, allowed_groups):
     return str(possible.iloc[0]["team"])
 
 
+def normalize_slot(slot):
+    original_slot = str(slot or "").strip()
+    normalized = original_slot.upper().strip()
+
+    normalized = normalized.replace("#", "")
+
+    normalized = normalized.replace("EERSTE GROEP ", "1")
+    normalized = normalized.replace("TWEEDE GROEP ", "2")
+    normalized = normalized.replace("DERDE GROEP ", "3")
+
+    normalized = normalized.replace("WINNAAR ", "W")
+    normalized = normalized.replace("VERLIEZER ", "L")
+
+    if normalized.startswith("V") and len(normalized) > 1:
+        normalized = "L" + normalized[1:]
+
+    normalized = normalized.replace("/", "")
+    normalized = normalized.replace(" ", "")
+
+    return original_slot, normalized
+
+
 def resolve_slot(slot, standings_df, best_thirds_df, results_by_match):
-    slot = str(slot).strip().upper()
+    original_slot, slot = normalize_slot(slot)
 
     if slot.startswith("1") and len(slot) == 2:
         return get_team_by_position(standings_df, slot[1], 1)
@@ -391,7 +440,7 @@ def resolve_slot(slot, standings_df, best_thirds_df, results_by_match):
         return get_team_by_position(standings_df, slot[1], 2)
 
     if slot.startswith("3"):
-        allowed_groups = slot[1:]
+        allowed_groups = list(slot[1:])
         return resolve_third_place_team(best_thirds_df, allowed_groups)
 
     if slot.startswith("W"):
@@ -400,14 +449,14 @@ def resolve_slot(slot, standings_df, best_thirds_df, results_by_match):
     if slot.startswith("L"):
         return results_by_match.get(slot, "")
 
-    return ""
+    return original_slot
 
 
 def build_results_by_match(matches_df):
     results = {}
 
     for _, row in matches_df.iterrows():
-        match_id = str(row.get("match_id", "")).upper().replace("MATCH", "M").strip()
+        match_id = clean_match_id(row.get("match_id", ""))
 
         if not match_id:
             continue
@@ -415,13 +464,11 @@ def build_results_by_match(matches_df):
         winner = get_match_winner(row)
         loser = get_match_loser(row)
 
-        number = match_id.replace("M", "")
-
         if winner:
-            results[f"W{number}"] = winner
+            results[f"W{match_id}"] = winner
 
         if loser:
-            results[f"L{number}"] = loser
+            results[f"L{match_id}"] = loser
 
     return results
 
@@ -447,11 +494,14 @@ def apply_knockout_engine(matches_df, fifa_ranking_df=None):
         team1 = resolve_slot(team1_slot, standings_df, best_thirds_df, results_by_match)
         team2 = resolve_slot(team2_slot, standings_df, best_thirds_df, results_by_match)
 
-        mask = updated["match_id"].astype(str).str.upper().eq(match_id)
+        clean_id = clean_match_id(match_id)
+
+        mask = updated["match_id"].astype(str).map(clean_match_id).eq(clean_id)
 
         if mask.any():
             if team1:
                 updated.loc[mask, "team1"] = team1
+
             if team2:
                 updated.loc[mask, "team2"] = team2
 
