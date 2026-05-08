@@ -26,48 +26,33 @@ def football_badge(choice):
 
     return f"""
 <div style="
-    width:42px;
-    height:42px;
+    width:40px;
+    height:40px;
     border-radius:50%;
+    background:white;
+    border:2px solid #d1d5db;
     display:flex;
     align-items:center;
     justify-content:center;
-    font-size:1.05rem;
+    position:relative;
+    box-shadow:0 2px 5px rgba(0,0,0,0.25);
     font-weight:900;
-    color:#0f172a;
-    background:
-        radial-gradient(circle at 50% 50%, white 0 31%, transparent 32%),
-        conic-gradient(
-            from 0deg,
-            #111 0deg 18deg,
-            #fff 18deg 45deg,
-            #111 45deg 63deg,
-            #fff 63deg 90deg,
-            #111 90deg 108deg,
-            #fff 108deg 135deg,
-            #111 135deg 153deg,
-            #fff 153deg 180deg,
-            #111 180deg 198deg,
-            #fff 198deg 225deg,
-            #111 225deg 243deg,
-            #fff 243deg 270deg,
-            #111 270deg 288deg,
-            #fff 288deg 315deg,
-            #111 315deg 333deg,
-            #fff 333deg 360deg
-        );
-    box-shadow:0 2px 6px rgba(0,0,0,0.35);
+    font-size:1rem;
+    color:#111827;
 ">
-    <span style="
-        background:rgba(255,255,255,0.82);
-        border-radius:50%;
-        width:24px;
-        height:24px;
+    ⚽
+    <div style="
+        position:absolute;
+        inset:0;
         display:flex;
         align-items:center;
         justify-content:center;
-        line-height:24px;
-    ">{choice}</span>
+        font-weight:900;
+        font-size:0.95rem;
+        color:#111827;
+    ">
+        {choice}
+    </div>
 </div>
 """
 
