@@ -13,37 +13,63 @@ def flag_img(code):
 
     return (
         f'<img src="https://flagcdn.com/w40/{code}.png" '
-        f'style="width:28px;height:20px;object-fit:cover;border-radius:4px;'
-        f'box-shadow:0 1px 3px rgba(0,0,0,0.20);vertical-align:middle;">'
+        f'style="width:30px;height:22px;object-fit:cover;border-radius:4px;'
+        f'box-shadow:0 1px 3px rgba(0,0,0,0.25);vertical-align:middle;">'
     )
 
 
-def choice_badge(choice):
+def football_badge(choice):
     choice = str(choice or "").strip().upper()
 
-    if choice == "1":
-        bg = "#dcfce7"
-        fg = "#166534"
-        text = "1"
-    elif choice == "X":
-        bg = "#dbeafe"
-        fg = "#1d4ed8"
-        text = "X"
-    elif choice == "2":
-        bg = "#fee2e2"
-        fg = "#991b1b"
-        text = "2"
-    else:
-        bg = "#f1f5f9"
-        fg = "#475569"
-        text = "-"
+    if choice not in ["1", "X", "2"]:
+        choice = "-"
 
-    return (
-        f'<span style="display:inline-flex;align-items:center;justify-content:center;'
-        f'width:34px;height:34px;border-radius:50%;background:{bg};color:{fg};'
-        f'font-weight:900;border:1px solid rgba(0,0,0,0.08);'
-        f'line-height:34px;text-align:center;vertical-align:middle;">{text}</span>'
-    )
+    return f"""
+<div style="
+    width:42px;
+    height:42px;
+    border-radius:50%;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:1.05rem;
+    font-weight:900;
+    color:#0f172a;
+    background:
+        radial-gradient(circle at 50% 50%, white 0 31%, transparent 32%),
+        conic-gradient(
+            from 0deg,
+            #111 0deg 18deg,
+            #fff 18deg 45deg,
+            #111 45deg 63deg,
+            #fff 63deg 90deg,
+            #111 90deg 108deg,
+            #fff 108deg 135deg,
+            #111 135deg 153deg,
+            #fff 153deg 180deg,
+            #111 180deg 198deg,
+            #fff 198deg 225deg,
+            #111 225deg 243deg,
+            #fff 243deg 270deg,
+            #111 270deg 288deg,
+            #fff 288deg 315deg,
+            #111 315deg 333deg,
+            #fff 333deg 360deg
+        );
+    box-shadow:0 2px 6px rgba(0,0,0,0.35);
+">
+    <span style="
+        background:rgba(255,255,255,0.82);
+        border-radius:50%;
+        width:24px;
+        height:24px;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        line-height:24px;
+    ">{choice}</span>
+</div>
+"""
 
 
 def load_existing_predictions(user_id, predictions_df):
@@ -246,28 +272,38 @@ def render_match_card(match, disabled):
     score2 = current.get("score2", "")
 
     with st.container(border=True):
-        col_info, col_1, col_x, col_2, col_badge, col_score = st.columns(
-            [6.4, 0.42, 0.42, 0.42, 0.42, 1.0],
+        col_date, col_time, col_info, col_1, col_x, col_2, col_ball, col_score = st.columns(
+            [0.9, 0.7, 4.7, 0.45, 0.45, 0.45, 0.55, 1.05],
             gap="small",
         )
+
+        with col_date:
+            st.markdown(
+                f"<div style='font-size:0.82rem;font-weight:800;color:#64748b;padding-top:7px;'>{date}</div>",
+                unsafe_allow_html=True,
+            )
+
+        with col_time:
+            st.markdown(
+                f"<div style='font-size:0.82rem;font-weight:800;color:#64748b;padding-top:7px;'>{time}</div>",
+                unsafe_allow_html=True,
+            )
 
         with col_info:
             score_part = ""
 
             if score1 != "" and score2 != "":
-                score_part = f" · {score1}-{score2}"
+                score_part = f"<span style='color:#64748b;margin-left:12px;font-weight:800;'>{score1}-{score2}</span>"
 
             st.markdown(
                 f"""
-<div style="display:flex;align-items:center;gap:7px;font-size:0.95rem;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-  <span style="font-size:0.78rem;color:#64748b;min-width:82px;">{date}</span>
+<div style="display:flex;align-items:center;gap:9px;font-size:1rem;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-top:3px;">
   <span>{flag1}</span>
   <span>{team1}</span>
-  <span style="margin:0 1px;color:#64748b;">-</span>
+  <span style="color:#64748b;margin:0 2px;">-</span>
   <span>{flag2}</span>
   <span>{team2}</span>
-  <span style="font-size:0.76rem;color:#64748b;margin-left:5px;">{time}</span>
-  <span style="font-size:0.78rem;color:#334155;">{score_part}</span>
+  {score_part}
 </div>
 """,
                 unsafe_allow_html=True,
@@ -303,11 +339,11 @@ def render_match_card(match, disabled):
                 set_prediction(match_id, "2")
                 st.rerun()
 
-        with col_badge:
+        with col_ball:
             st.markdown(
                 f"""
-<div style="display:flex;align-items:center;justify-content:center;height:34px;">
-    {choice_badge(selected)}
+<div style="display:flex;align-items:center;justify-content:center;height:38px;">
+    {football_badge(selected)}
 </div>
 """,
                 unsafe_allow_html=True,
