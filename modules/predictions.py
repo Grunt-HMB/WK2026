@@ -12,9 +12,9 @@ def flag_img(code):
         return ""
 
     return (
-        f'<img src="https://flagcdn.com/w80/{code}.png" '
-        f'style="width:52px;height:36px;object-fit:cover;border-radius:6px;'
-        f'box-shadow:0 2px 6px rgba(0,0,0,0.25);">'
+        f'<img src="https://flagcdn.com/w40/{code}.png" '
+        f'style="width:30px;height:22px;object-fit:cover;border-radius:4px;'
+        f'box-shadow:0 1px 4px rgba(0,0,0,0.25);vertical-align:middle;">'
     )
 
 
@@ -84,30 +84,35 @@ def set_score(match_id, score1, score2):
     }
 
 
-def score_display_html(team1, team2, score1, score2):
+def score_header_html(team1, team2, score1, score2):
     left_score = score1 if score1 != "" else "-"
     right_score = score2 if score2 != "" else "-"
 
     return f"""
-<div style="display:flex;justify-content:center;align-items:center;gap:35px;font-weight:800;margin:12px 0 22px 0;">
-  <div style="text-align:center;min-width:130px;">
-    <div style="font-size:1.1rem;">{team1}</div>
-    <div style="font-size:3.4rem;color:#2563eb;">{left_score}</div>
+<div style="display:flex;align-items:center;justify-content:center;gap:16px;margin:6px 0 10px 0;">
+  <div style="text-align:center;min-width:90px;">
+    <div style="font-size:0.9rem;font-weight:700;">{team1}</div>
+    <div style="font-size:2.2rem;font-weight:900;color:#2563eb;line-height:1;">{left_score}</div>
   </div>
-  <div style="font-size:2rem;">-</div>
-  <div style="text-align:center;min-width:130px;">
-    <div style="font-size:1.1rem;">{team2}</div>
-    <div style="font-size:3.4rem;color:#dc2626;">{right_score}</div>
+  <div style="font-size:1.4rem;font-weight:900;">-</div>
+  <div style="text-align:center;min-width:90px;">
+    <div style="font-size:0.9rem;font-weight:700;">{team2}</div>
+    <div style="font-size:2.2rem;font-weight:900;color:#dc2626;line-height:1;">{right_score}</div>
   </div>
 </div>
 """
 
 
 def show_number_pad(match_id, team_name, score_key, side):
-    st.markdown(f"#### {team_name}")
+    st.markdown(
+        f"<div style='font-size:0.95rem;font-weight:800;margin-bottom:4px;'>{team_name}</div>",
+        unsafe_allow_html=True,
+    )
 
-    for row in [[1, 2, 3], [4, 5, 6], [7, 8, 9]]:
-        cols = st.columns(3)
+    rows = [[1, 2, 3], [4, 5, 6], [7, 8, 9]]
+
+    for row in rows:
+        cols = st.columns(3, gap="small")
 
         for idx, num in enumerate(row):
             with cols[idx]:
@@ -119,24 +124,17 @@ def show_number_pad(match_id, team_name, score_key, side):
                     st.session_state[score_key] = str(num)
                     st.rerun()
 
-    bottom = st.columns(3)
+    bottom = st.columns(3, gap="small")
 
-    with bottom[1]:
-        if st.button(
-            "0",
-            key=f"{side}_{match_id}_0",
-            use_container_width=True,
-        ):
+    with bottom[0]:
+        if st.button("0", key=f"{side}_{match_id}_0", use_container_width=True):
             st.session_state[score_key] = "0"
             st.rerun()
 
-    if st.button(
-        "⌫ Reset",
-        key=f"reset_{side}_{match_id}",
-        use_container_width=True,
-    ):
-        st.session_state[score_key] = ""
-        st.rerun()
+    with bottom[1]:
+        if st.button("⌫", key=f"reset_{side}_{match_id}", use_container_width=True):
+            st.session_state[score_key] = ""
+            st.rerun()
 
 
 def show_score_dialog(match, match_id):
@@ -155,10 +153,10 @@ def show_score_dialog(match, match_id):
         st.session_state[score2_key] = str(current.get("score2", ""))
 
     with st.container(border=True):
-        st.markdown("### ⚽ Exacte uitslag")
+        st.markdown("##### ⚽ Exacte uitslag")
 
         st.markdown(
-            score_display_html(
+            score_header_html(
                 team1,
                 team2,
                 st.session_state[score1_key],
@@ -167,7 +165,7 @@ def show_score_dialog(match, match_id):
             unsafe_allow_html=True,
         )
 
-        col_left, col_right = st.columns(2)
+        col_left, col_right = st.columns(2, gap="small")
 
         with col_left:
             show_number_pad(match_id, team1, score1_key, "s1")
@@ -188,10 +186,10 @@ def show_score_dialog(match, match_id):
             else:
                 pred_text = "Gelijkspel"
 
-            st.success(f"Voorspelling: {s1} - {s2} → {pred_text}")
+            st.success(f"{s1} - {s2} → {pred_text}")
 
             if st.button(
-                "✅ Score bevestigen",
+                "✅ Bevestigen",
                 key=f"confirm_score_{match_id}",
                 use_container_width=True,
             ):
@@ -222,56 +220,75 @@ def render_match_card(match, disabled):
     score2 = current.get("score2", "")
 
     with st.container(border=True):
-        col_date, col_match = st.columns([1.1, 4])
+        col_info, col_1, col_x, col_2, col_score = st.columns(
+            [5.4, 0.7, 0.7, 0.7, 1.35],
+            gap="small",
+        )
 
-        with col_date:
-            st.markdown(f"📅 **{date}**")
-            st.markdown(f"🕒 **{time}**")
-
-        with col_match:
+        with col_info:
             st.markdown(
                 f"""
-<div style="display:flex;align-items:center;justify-content:center;gap:16px;font-size:1.35rem;font-weight:800;margin-bottom:12px;">
-  {flag1}
+<div style="display:flex;align-items:center;gap:8px;font-size:1rem;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+  <span style="font-size:0.86rem;opacity:0.85;min-width:72px;">{date}</span>
+  <span>{flag1}</span>
   <span>{team1}</span>
-  <span style="margin:0 8px;">-</span>
-  {flag2}
+  <span style="margin:0 2px;">-</span>
+  <span>{flag2}</span>
   <span>{team2}</span>
+  <span style="font-size:0.82rem;opacity:0.75;margin-left:6px;">{time}</span>
 </div>
 """,
                 unsafe_allow_html=True,
             )
 
-        c1, c2, c3, c4 = st.columns([1, 1, 1, 2])
+            if selected:
+                if score1 != "" and score2 != "":
+                    st.caption(f"Gekozen: {score1} - {score2} → {selected}")
+                else:
+                    st.caption(f"Gekozen: {selected}")
 
-        with c1:
-            if st.button("1", key=f"btn_1_{match_id}", use_container_width=True, disabled=disabled):
+        with col_1:
+            if st.button(
+                "1",
+                key=f"btn_1_{match_id}",
+                use_container_width=True,
+                disabled=disabled,
+            ):
                 set_prediction(match_id, "1")
                 st.rerun()
 
-        with c2:
-            if st.button("X", key=f"btn_x_{match_id}", use_container_width=True, disabled=disabled):
+        with col_x:
+            if st.button(
+                "X",
+                key=f"btn_x_{match_id}",
+                use_container_width=True,
+                disabled=disabled,
+            ):
                 set_prediction(match_id, "X")
                 st.rerun()
 
-        with c3:
-            if st.button("2", key=f"btn_2_{match_id}", use_container_width=True, disabled=disabled):
+        with col_2:
+            if st.button(
+                "2",
+                key=f"btn_2_{match_id}",
+                use_container_width=True,
+                disabled=disabled,
+            ):
                 set_prediction(match_id, "2")
                 st.rerun()
 
-        with c4:
-            if st.button("⚽ Uitslag", key=f"score_button_{match_id}", use_container_width=True, disabled=disabled):
+        with col_score:
+            if st.button(
+                "Uitslag",
+                key=f"score_button_{match_id}",
+                use_container_width=True,
+                disabled=disabled,
+            ):
                 st.session_state[f"show_score_{match_id}"] = not st.session_state.get(
                     f"show_score_{match_id}",
                     False,
                 )
                 st.rerun()
-
-        if selected:
-            if score1 != "" and score2 != "":
-                st.success(f"Gekozen: {score1} - {score2} → {selected}")
-            else:
-                st.success(f"Gekozen: {selected}")
 
         if st.session_state.get(f"show_score_{match_id}", False):
             show_score_dialog(match, match_id)
