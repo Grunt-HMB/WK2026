@@ -396,7 +396,7 @@ def show_group_phase(user, matches_df, predictions_df):
 
     with b1:
         if st.button(
-            "💾 Concept opslaan",
+            "💾 Voorlopig opslaan",
             use_container_width=True,
             disabled=disabled,
         ):
@@ -406,7 +406,7 @@ def show_group_phase(user, matches_df, predictions_df):
                 "Voorlopig",
             )
 
-            st.success(f"{count} keuzes opgeslagen als concept.")
+            st.success(f"{count} keuzes opgeslagen als Voorlopig.")
             st.rerun()
 
     with b2:
