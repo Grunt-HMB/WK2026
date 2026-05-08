@@ -5,12 +5,14 @@ from modules.database import append_row, get_next_user_id
 from modules.utils import tournament_locked
 
 
-@st.cache_resource
 def get_cookie_manager():
-    return EncryptedCookieManager(
-        prefix="wk2026_prono_",
-        password=st.secrets["COOKIE_PASSWORD"],
-    )
+    if "cookie_manager" not in st.session_state:
+        st.session_state["cookie_manager"] = EncryptedCookieManager(
+            prefix="wk2026_prono_",
+            password=st.secrets["COOKIE_PASSWORD"],
+        )
+
+    return st.session_state["cookie_manager"]
 
 
 def ensure_cookies_ready(cookies):
