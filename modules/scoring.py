@@ -42,10 +42,11 @@ def calculate_points(row):
     pred2 = safe_int(row.get("score2"))
 
     if pred1 is not None and pred2 is not None:
+        if (pred1 - pred2) == (real1 - real2):
+    points += 1
+
         if pred1 == real1 and pred2 == real2:
-            points += 2
-        elif (pred1 - pred2) == (real1 - real2):
-            points += 1
+    points += 2
 
     return points
 
