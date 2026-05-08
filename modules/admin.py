@@ -1,44 +1,147 @@
 import streamlit as st
+
 from modules.database import update_or_append_result
-from modules.utils import safe_int, flag_emoji
+
+
+def flag_img(code):
+    code = str(code or "").strip().lower()
+
+    if len(code) != 2:
+        return ""
+
+    return f"https://flagcdn.com/w40/{code}.png"
+
+
+def get_existing_result(results_df, match_id):
+    if results_df.empty:
+        return 0, 0
+
+    found = results_df[
+        results_df["match_id"].astype(str).str.strip() == str(match_id)
+    ]
+
+    if found.empty:
+        return 0, 0
+
+    row = found.iloc[0]
+
+    try:
+        real1 = int(row.get("real_team1", 0))
+    except Exception:
+        real1 = 0
+
+    try:
+        real2 = int(row.get("real_team2", 0))
+    except Exception:
+        real2 = 0
+
+    return real1, real2
+
 
 def show_admin_results(matches_df, results_df):
-    st.markdown('<div class="main-title">Admin - uitslagen</div>', unsafe_allow_html=True)
+    st.markdown("### Admin - uitslagen")
 
-    groups = ["Alle"] + sorted([str(g) for g in matches_df["groep"].dropna().unique()])
-    selected_group = st.selectbox("Filter", groups)
+    if matches_df.empty:
+        st.info("Geen wedstrijden gevonden.")
+        return
 
-    view = matches_df.copy()
+    matches = matches_df.copy()
 
-    if selected_group != "Alle":
-        view = view[view["groep"].astype(str) == selected_group]
+    matches["match_id_sort"] = matches["match_id"].astype(str).str.extract(r"(\d+)").fillna(0).astype(int)
+    matches = matches.sort_values("match_id_sort")
 
-    view = view.sort_values(["datum", "tijd", "match_id"], kind="stable")
+    filters = ["Alle"] + sorted(matches["ronde"].dropna().astype(str).unique().tolist())
+    selected_filter = st.selectbox("Filter", filters)
 
-    for _, match in view.iterrows():
-        match_id = str(match["match_id"])
+    if selected_filter != "Alle":
+        matches = matches[matches["ronde"].astype(str) == selected_filter]
+
+    st.caption("Vul achteraan de uitslag in en klik per wedstrijd op Opslaan.")
+
+    for _, match in matches.iterrows():
+        match_id = str(match.get("match_id", ""))
+
         team1 = str(match.get("team1", ""))
         team2 = str(match.get("team2", ""))
 
-        existing = results_df[results_df["match_id"].astype(str) == match_id] if not results_df.empty else None
-
-        default1 = 0
-        default2 = 0
-
-        if existing is not None and not existing.empty:
-            default1 = safe_int(existing.iloc[0].get("real_team1")) or 0
-            default2 = safe_int(existing.iloc[0].get("real_team2")) or 0
+        real1, real2 = get_existing_result(results_df, match_id)
 
         with st.container(border=True):
-            st.subheader(f"{flag_emoji(match.get('team1_code', ''))} {team1} - {flag_emoji(match.get('team2_code', ''))} {team2}")
+            col_id, col_date, col_match, col_s1, col_sep, col_s2, col_save = st.columns(
+                [0.45, 1.15, 4.8, 0.75, 0.2, 0.75, 1.0],
+                gap="small",
+            )
 
-            c1, c2 = st.columns(2)
-            with c1:
-                real1 = st.number_input(team1, min_value=0, max_value=30, value=default1, key=f"admin_r1_{match_id}")
-            with c2:
-                real2 = st.number_input(team2, min_value=0, max_value=30, value=default2, key=f"admin_r2_{match_id}")
+            with col_id:
+                st.markdown(f"**#{match_id}**")
 
-            if st.button("Uitslag opslaan", key=f"save_result_{match_id}"):
-                update_or_append_result(match_id, real1, real2)
-                st.success("Uitslag opgeslagen.")
-                st.rerun()
+            with col_date:
+                st.caption(str(match.get("ronde", "")))
+                st.markdown(
+                    f"""
+                    <div style="font-size:0.82rem;font-weight:800;color:#64748b;">
+                    {match.get("datum", "")}<br>{match.get("tijd", "")}
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+            with col_match:
+                f1 = flag_img(match.get("team1_code", ""))
+                f2 = flag_img(match.get("team2_code", ""))
+
+                c1, c2, c3, c4, c5 = st.columns([0.25, 1.4, 0.12, 0.25, 1.4], gap="small")
+
+                with c1:
+                    if f1:
+                        st.image(f1, width=28)
+
+                with c2:
+                    st.markdown(f"**{team1}**")
+
+                with c3:
+                    st.markdown("**-**")
+
+                with c4:
+                    if f2:
+                        st.image(f2, width=28)
+
+                with c5:
+                    st.markdown(f"**{team2}**")
+
+                st.caption(str(match.get("speelstad", "")))
+
+            with col_s1:
+                score1 = st.number_input(
+                    "T1",
+                    min_value=0,
+                    max_value=50,
+                    value=real1,
+                    step=1,
+                    key=f"admin_score1_{match_id}",
+                    label_visibility="collapsed",
+                )
+
+            with col_sep:
+                st.markdown("**-**")
+
+            with col_s2:
+                score2 = st.number_input(
+                    "T2",
+                    min_value=0,
+                    max_value=50,
+                    value=real2,
+                    step=1,
+                    key=f"admin_score2_{match_id}",
+                    label_visibility="collapsed",
+                )
+
+            with col_save:
+                if st.button(
+                    "Opslaan",
+                    key=f"admin_save_{match_id}",
+                    use_container_width=True,
+                ):
+                    update_or_append_result(match_id, score1, score2)
+                    st.success(f"Uitslag #{match_id} opgeslagen.")
+                    st.rerun()
