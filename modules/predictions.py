@@ -302,7 +302,7 @@ def show_group_phase(user, matches_df, predictions_df):
     locked = tournament_locked()
     final = user_is_final(user_id, predictions_df)
 
-    disabled = locked or final
+    disabled = locked
 
     groups = sorted([
         str(g)
@@ -330,7 +330,7 @@ def show_group_phase(user, matches_df, predictions_df):
     if locked:
         st.error("🔒 Het tornooi is gestart. Wijzigen is niet meer mogelijk.")
     elif final:
-        st.warning("🔒 Je pronostiek is definitief ingediend.")
+        st.success("✅ Je pronostiek is ingediend. Je mag nog wijzigen tot de deadline.")
     else:
         st.info(f"🟢 Open tot {TOURNAMENT_START.strftime('%d/%m/%Y %H:%M')}.")
 
