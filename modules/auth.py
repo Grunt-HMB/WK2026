@@ -15,11 +15,6 @@ def get_cookie_manager():
     return st.session_state["cookie_manager"]
 
 
-def ensure_cookies_ready(cookies):
-    if not cookies.ready():
-        st.stop()
-
-
 def login_user(users_df, username, password):
     username = str(username or "").strip()
     password = str(password or "").strip()
@@ -88,7 +83,7 @@ def logout(cookies):
     if "user" in st.session_state:
         del st.session_state["user"]
 
-    if "user_id" in cookies:
+    if cookies is not None and "user_id" in cookies:
         del cookies["user_id"]
         cookies.save()
 
@@ -96,8 +91,15 @@ def logout(cookies):
 
 
 def show_sidebar(users_df):
+    st.sidebar.markdown("## ⚽ WK 2026")
+    st.sidebar.markdown("### Pronostiek")
+
     cookies = get_cookie_manager()
-    ensure_cookies_ready(cookies)
+
+    if not cookies.ready():
+        st.sidebar.info("Cookies laden...")
+        st.info("Even wachten, cookies worden geladen. Herlaad de pagina als dit blijft staan.")
+        return None
 
     if "user" not in st.session_state:
         remembered_user_id = cookies.get("user_id")
@@ -107,9 +109,6 @@ def show_sidebar(users_df):
 
             if remembered_user is not None:
                 st.session_state["user"] = remembered_user
-
-    st.sidebar.markdown("## ⚽ WK 2026")
-    st.sidebar.markdown("### Pronostiek")
 
     if "user" in st.session_state:
         user = st.session_state["user"]
