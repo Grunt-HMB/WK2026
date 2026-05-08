@@ -28,7 +28,7 @@ def football_badge(choice):
         f'<div style="position:relative;width:48px;height:48px;'
         f'display:flex;align-items:center;justify-content:center;">'
 
-        f'<img src="https://upload.wikimedia.org/wikipedia/commons/d/d3/Soccerball.svg" '
+        f'<img src="https://upload.wikimedia.org/wikipedia/commons/e/ec/Soccer_ball.svg" '
         f'style="width:44px;height:44px;filter:drop-shadow(0 0 2px rgba(255,255,255,0.45));">'
 
         f'<span style="position:absolute;inset:0;display:flex;'
