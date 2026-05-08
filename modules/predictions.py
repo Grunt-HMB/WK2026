@@ -2,12 +2,7 @@ import streamlit as st
 
 from modules.database import batch_upsert_predictions
 from modules.settings import TOURNAMENT_START
-from modules.utils import (
-    flag_emoji,
-    result_from_score,
-    tournament_locked,
-    safe_int,
-)
+from modules.utils import flag_emoji, result_from_score, tournament_locked, safe_int
 
 
 def load_existing_predictions(user_id, predictions_df):
@@ -30,14 +25,12 @@ def load_existing_predictions(user_id, predictions_df):
     for _, row in user_preds.iterrows():
         match_id = str(row.get("match_id", ""))
 
-        if not match_id:
-            continue
-
-        st.session_state["local_predictions"][match_id] = {
-            "prediction": str(row.get("prediction", "")),
-            "score1": row.get("score1", ""),
-            "score2": row.get("score2", ""),
-        }
+        if match_id:
+            st.session_state["local_predictions"][match_id] = {
+                "prediction": str(row.get("prediction", "")),
+                "score1": row.get("score1", ""),
+                "score2": row.get("score2", ""),
+            }
 
     st.session_state[loaded_key] = True
 
@@ -53,12 +46,7 @@ def user_is_final(user_id, predictions_df):
     if user_preds.empty:
         return False
 
-    return (
-        user_preds["status"]
-        .astype(str)
-        .str.upper()
-        == "FINAL"
-    ).any()
+    return (user_preds["status"].astype(str).str.upper() == "FINAL").any()
 
 
 def set_prediction(match_id, choice):
@@ -66,14 +54,9 @@ def set_prediction(match_id, choice):
         st.session_state["local_predictions"] = {}
 
     current = st.session_state["local_predictions"].get(str(match_id), {})
-
     current["prediction"] = choice
-
-    if "score1" not in current:
-        current["score1"] = ""
-
-    if "score2" not in current:
-        current["score2"] = ""
+    current.setdefault("score1", "")
+    current.setdefault("score2", "")
 
     st.session_state["local_predictions"][str(match_id)] = current
 
@@ -88,134 +71,98 @@ def set_score(match_id, score1, score2):
     }
 
 
+def score_display_html(team1, team2, score1, score2):
+    left_score = score1 if score1 != "" else "-"
+    right_score = score2 if score2 != "" else "-"
+
+    return f"""
+<div style="display:flex;justify-content:center;align-items:center;gap:35px;font-weight:800;margin:12px 0 22px 0;">
+  <div style="text-align:center;min-width:130px;">
+    <div style="font-size:1.1rem;">{team1}</div>
+    <div style="font-size:3.4rem;color:#2563eb;">{left_score}</div>
+  </div>
+  <div style="font-size:2rem;">-</div>
+  <div style="text-align:center;min-width:130px;">
+    <div style="font-size:1.1rem;">{team2}</div>
+    <div style="font-size:3.4rem;color:#dc2626;">{right_score}</div>
+  </div>
+</div>
+"""
+
+
+def show_number_pad(match_id, team_name, score_key, side):
+    st.markdown(f"#### {team_name}")
+
+    for row in [[1, 2, 3], [4, 5, 6], [7, 8, 9]]:
+        cols = st.columns(3)
+
+        for idx, num in enumerate(row):
+            with cols[idx]:
+                if st.button(
+                    str(num),
+                    key=f"{side}_{match_id}_{num}",
+                    use_container_width=True,
+                ):
+                    st.session_state[score_key] = str(num)
+                    st.rerun()
+
+    bottom = st.columns(3)
+
+    with bottom[1]:
+        if st.button(
+            "0",
+            key=f"{side}_{match_id}_0",
+            use_container_width=True,
+        ):
+            st.session_state[score_key] = "0"
+            st.rerun()
+
+    if st.button(
+        "⌫ Reset",
+        key=f"reset_{side}_{match_id}",
+        use_container_width=True,
+    ):
+        st.session_state[score_key] = ""
+        st.rerun()
+
+
 def show_score_dialog(match, match_id):
     team1 = str(match.get("team1", ""))
     team2 = str(match.get("team2", ""))
 
     current = st.session_state["local_predictions"].get(str(match_id), {})
 
-    current_score1 = str(current.get("score1", ""))
-    current_score2 = str(current.get("score2", ""))
-
     score1_key = f"temp_score1_{match_id}"
     score2_key = f"temp_score2_{match_id}"
 
     if score1_key not in st.session_state:
-        st.session_state[score1_key] = current_score1
+        st.session_state[score1_key] = str(current.get("score1", ""))
 
     if score2_key not in st.session_state:
-        st.session_state[score2_key] = current_score2
+        st.session_state[score2_key] = str(current.get("score2", ""))
 
     with st.container(border=True):
         st.markdown("### ⚽ Exacte uitslag")
 
         st.markdown(
-            f"""
-            <div style="
-                display:flex;
-                justify-content:center;
-                align-items:center;
-                gap:35px;
-                font-size:1.3rem;
-                font-weight:800;
-                margin-bottom:18px;
-            ">
-                <div style="text-align:center;">
-                    <div>{team1}</div>
-                    <div style="font-size:3.4rem;color:#2563eb;">
-                        {st.session_state[score1_key] or "-"}
-                    </div>
-                </div>
-
-                <div style="font-size:2rem;">-</div>
-
-                <div style="text-align:center;">
-                    <div>{team2}</div>
-                    <div style="font-size:3.4rem;color:#dc2626;">
-                        {st.session_state[score2_key] or "-"}
-                    </div>
-                </div>
-            </div>
-            """,
+            score_display_html(
+                team1,
+                team2,
+                st.session_state[score1_key],
+                st.session_state[score2_key],
+            ),
             unsafe_allow_html=True,
         )
 
         col_left, col_right = st.columns(2)
 
         with col_left:
-            st.markdown(f"#### {team1}")
-
-            for row in [[1, 2, 3], [4, 5, 6], [7, 8, 9]]:
-                cols = st.columns(3)
-
-                for idx, num in enumerate(row):
-                    with cols[idx]:
-                        if st.button(
-                            str(num),
-                            key=f"s1_{match_id}_{num}",
-                            use_container_width=True,
-                        ):
-                            st.session_state[score1_key] = str(num)
-                            st.rerun()
-
-            bottom = st.columns(3)
-
-            with bottom[1]:
-                if st.button(
-                    "0",
-                    key=f"s1_{match_id}_0",
-                    use_container_width=True,
-                ):
-                    st.session_state[score1_key] = "0"
-                    st.rerun()
-
-            if st.button(
-                "⌫ Reset",
-                key=f"reset1_{match_id}",
-                use_container_width=True,
-            ):
-                st.session_state[score1_key] = ""
-                st.rerun()
+            show_number_pad(match_id, team1, score1_key, "s1")
 
         with col_right:
-            st.markdown(f"#### {team2}")
+            show_number_pad(match_id, team2, score2_key, "s2")
 
-            for row in [[1, 2, 3], [4, 5, 6], [7, 8, 9]]:
-                cols = st.columns(3)
-
-                for idx, num in enumerate(row):
-                    with cols[idx]:
-                        if st.button(
-                            str(num),
-                            key=f"s2_{match_id}_{num}",
-                            use_container_width=True,
-                        ):
-                            st.session_state[score2_key] = str(num)
-                            st.rerun()
-
-            bottom = st.columns(3)
-
-            with bottom[1]:
-                if st.button(
-                    "0",
-                    key=f"s2_{match_id}_0",
-                    use_container_width=True,
-                ):
-                    st.session_state[score2_key] = "0"
-                    st.rerun()
-
-            if st.button(
-                "⌫ Reset",
-                key=f"reset2_{match_id}",
-                use_container_width=True,
-            ):
-                st.session_state[score2_key] = ""
-                st.rerun()
-
-        if (
-            st.session_state[score1_key] != ""
-            and st.session_state[score2_key] != ""
-        ):
+        if st.session_state[score1_key] != "" and st.session_state[score2_key] != "":
             s1 = int(st.session_state[score1_key])
             s2 = int(st.session_state[score2_key])
 
@@ -262,7 +209,7 @@ def render_match_card(match, disabled):
     score2 = current.get("score2", "")
 
     with st.container(border=True):
-        col_date, col_match = st.columns([1.2, 4])
+        col_date, col_match = st.columns([1.1, 4])
 
         with col_date:
             st.markdown(f"📅 **{date}**")
@@ -271,65 +218,39 @@ def render_match_card(match, disabled):
         with col_match:
             st.markdown(
                 f"""
-                <div style="
-                    display:flex;
-                    align-items:center;
-                    gap:14px;
-                    font-size:1.25rem;
-                    font-weight:800;
-                    margin-bottom:10px;
-                ">
-                    <span style="font-size:2.4rem;">{flag1}</span>
-                    <span>{team1}</span>
-                    <span style="margin:0 10px;">-</span>
-                    <span style="font-size:2.4rem;">{flag2}</span>
-                    <span>{team2}</span>
-                </div>
-                """,
+<div style="display:flex;align-items:center;justify-content:center;gap:16px;font-size:1.35rem;font-weight:800;margin-bottom:12px;">
+  <span style="font-size:2.6rem;">{flag1}</span>
+  <span>{team1}</span>
+  <span style="margin:0 8px;">-</span>
+  <span style="font-size:2.6rem;">{flag2}</span>
+  <span>{team2}</span>
+</div>
+""",
                 unsafe_allow_html=True,
             )
 
         c1, c2, c3, c4 = st.columns([1, 1, 1, 2])
 
         with c1:
-            if st.button(
-                "1",
-                key=f"btn_1_{match_id}",
-                use_container_width=True,
-                disabled=disabled,
-            ):
+            if st.button("1", key=f"btn_1_{match_id}", use_container_width=True, disabled=disabled):
                 set_prediction(match_id, "1")
                 st.rerun()
 
         with c2:
-            if st.button(
-                "X",
-                key=f"btn_x_{match_id}",
-                use_container_width=True,
-                disabled=disabled,
-            ):
+            if st.button("X", key=f"btn_x_{match_id}", use_container_width=True, disabled=disabled):
                 set_prediction(match_id, "X")
                 st.rerun()
 
         with c3:
-            if st.button(
-                "2",
-                key=f"btn_2_{match_id}",
-                use_container_width=True,
-                disabled=disabled,
-            ):
+            if st.button("2", key=f"btn_2_{match_id}", use_container_width=True, disabled=disabled):
                 set_prediction(match_id, "2")
                 st.rerun()
 
         with c4:
-            if st.button(
-                "⚽ Uitslag",
-                key=f"score_button_{match_id}",
-                use_container_width=True,
-                disabled=disabled,
-            ):
-                st.session_state[f"show_score_{match_id}"] = (
-                    not st.session_state.get(f"show_score_{match_id}", False)
+            if st.button("⚽ Uitslag", key=f"score_button_{match_id}", use_container_width=True, disabled=disabled):
+                st.session_state[f"show_score_{match_id}"] = not st.session_state.get(
+                    f"show_score_{match_id}",
+                    False,
                 )
                 st.rerun()
 
