@@ -403,7 +403,7 @@ def show_group_phase(user, matches_df, predictions_df):
             count = batch_upsert_predictions(
                 user_id,
                 st.session_state["local_predictions"],
-                "DRAFT",
+                "Voorlopig",
             )
 
             st.success(f"{count} keuzes opgeslagen als concept.")
