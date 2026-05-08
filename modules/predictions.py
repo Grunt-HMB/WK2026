@@ -28,49 +28,21 @@ def football_badge(choice):
 
     if choice == "1":
         color = "#16a34a"
-
     elif choice == "X":
         color = "#2563eb"
-
     elif choice == "2":
         color = "#dc2626"
 
-    return f"""
-<div style="
-    position:relative;
-    width:46px;
-    height:46px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-">
-
-    <div style="
-        font-size:2rem;
-        line-height:1;
-    ">
-        ⚽
-    </div>
-
-    <div style="
-        position:absolute;
-        inset:0;
-        display:flex;
-        align-items:center;
-        justify-content:center;
-        font-size:1rem;
-        font-weight:900;
-        color:{color};
-        text-shadow:
-            0 0 2px white,
-            0 0 3px white,
-            0 0 4px white;
-    ">
-        {choice}
-    </div>
-
-</div>
-"""
+    return (
+        f'<div style="position:relative;width:46px;height:46px;'
+        f'display:flex;align-items:center;justify-content:center;">'
+        f'<span style="font-size:2.45rem;line-height:1;">⚽</span>'
+        f'<span style="position:absolute;inset:0;display:flex;'
+        f'align-items:center;justify-content:center;font-size:1rem;'
+        f'font-weight:900;color:{color};'
+        f'text-shadow:0 0 2px white,0 0 3px white,0 0 4px white;">'
+        f'{choice}</span></div>'
+    )
 
 
 def load_existing_predictions(user_id, predictions_df):
