@@ -18,6 +18,19 @@ inject_css()
 try:
     ensure_sheets_exist()
     data = load_all_data()
+st.write("STANDEN TEST")
+st.dataframe(data["standings"])
+
+st.write("BESTE DERDEN TEST")
+st.dataframe(data["best_thirds"])
+
+st.write("MATCHES TEST")
+st.dataframe(data["matches"])
+
+
+
+
+
 except Exception as e:
     st.error("Fout bij laden van Google Sheets.")
     st.exception(e)
