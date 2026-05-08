@@ -87,10 +87,10 @@ def show_my_predictions(user, matches_df, predictions_df):
                 with c5:
                     status = str(row.get("status", "")).upper()
 
-                    if status == "FINAL":
-                        st.success("FINAL")
-                    elif status == "DRAFT":
-                        st.warning("DRAFT")
+                    if status == "Definitief":
+                        st.success("Definitief")
+                    elif status == "Voorlopig":
+                        st.warning("Voorlopig")
                     else:
                         st.caption(status)
 
