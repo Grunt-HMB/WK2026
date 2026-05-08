@@ -336,6 +336,99 @@ def render_match_card(match, disabled):
             show_score_dialog(match, match_id)
 
 
+def get_phase_buttons(matches_df):
+    phases = []
+
+    group_values = sorted([
+        str(g)
+        for g in matches_df["groep"].dropna().unique()
+        if str(g).strip() not in ["", "-", "Knock-out"]
+    ])
+
+    for group in group_values:
+        phases.append({
+            "key": f"Groep {group}",
+            "label": group,
+            "type": "groep",
+            "value": group,
+        })
+
+    ronde_order = [
+        ("1/16", "1/16"),
+        ("1/8", "1/8"),
+        ("1/4", "1/4"),
+        ("1/2", "1/2"),
+        ("Troostfinale", "Troost"),
+        ("Finale", "Finale"),
+    ]
+
+    if "ronde" in matches_df.columns:
+        ronde_values = set(matches_df["ronde"].dropna().astype(str).str.strip().tolist())
+
+        for ronde_value, label in ronde_order:
+            if ronde_value in ronde_values:
+                phases.append({
+                    "key": ronde_value,
+                    "label": label,
+                    "type": "ronde",
+                    "value": ronde_value,
+                })
+
+    return phases
+
+
+def show_phase_buttons(phases):
+    if not phases:
+        return None
+
+    valid_keys = [p["key"] for p in phases]
+
+    if "selected_phase_key" not in st.session_state:
+        st.session_state["selected_phase_key"] = valid_keys[0]
+
+    if st.session_state["selected_phase_key"] not in valid_keys:
+        st.session_state["selected_phase_key"] = valid_keys[0]
+
+    st.markdown("### Kies groep / eindfase")
+
+    cols_per_row = 8
+
+    for start in range(0, len(phases), cols_per_row):
+        row = phases[start:start + cols_per_row]
+        cols = st.columns(cols_per_row, gap="small")
+
+        for idx, phase in enumerate(row):
+            with cols[idx]:
+                is_active = st.session_state["selected_phase_key"] == phase["key"]
+                label = f"✅ {phase['label']}" if is_active else phase["label"]
+
+                if st.button(
+                    label,
+                    key=f"phase_button_{phase['key']}",
+                    use_container_width=True,
+                ):
+                    st.session_state["selected_phase_key"] = phase["key"]
+                    st.rerun()
+
+    selected_key = st.session_state["selected_phase_key"]
+
+    for phase in phases:
+        if phase["key"] == selected_key:
+            return phase
+
+    return phases[0]
+
+
+def filter_matches_by_phase(matches_df, phase):
+    if phase["type"] == "groep":
+        return matches_df[matches_df["groep"].astype(str) == str(phase["value"])].copy()
+
+    if phase["type"] == "ronde":
+        return matches_df[matches_df["ronde"].astype(str) == str(phase["value"])].copy()
+
+    return matches_df.copy()
+
+
 def show_group_phase(user, matches_df, predictions_df):
     user_id = str(user["user_id"])
 
@@ -346,28 +439,18 @@ def show_group_phase(user, matches_df, predictions_df):
 
     disabled = locked
 
-    groups = sorted([
-        str(g)
-        for g in matches_df["groep"].dropna().unique()
-        if str(g).strip() not in ["", "-", "Knock-out"]
-    ])
-
-    if not groups:
-        st.warning("Geen groepen gevonden in tabblad Matches.")
+    if matches_df.empty:
+        st.warning("Geen wedstrijden gevonden in tabblad Matches.")
         return
 
-    top1, top2 = st.columns([3, 1])
+    phases = get_phase_buttons(matches_df)
 
-    with top1:
-        st.markdown("## 👥 Groepsfase")
-        st.caption("Maak je voorspellingen per poule.")
+    if not phases:
+        st.warning("Geen groepen of rondes gevonden in tabblad Matches.")
+        return
 
-    with top2:
-        selected_group = st.selectbox(
-            "Groep",
-            groups,
-            label_visibility="collapsed",
-        )
+    st.markdown("## 👥 Groepsfase")
+    st.caption("Maak je voorspellingen per poule of eindfase.")
 
     if locked:
         st.error("🔒 Het tornooi is gestart. Wijzigen is niet meer mogelijk.")
@@ -376,18 +459,26 @@ def show_group_phase(user, matches_df, predictions_df):
     else:
         st.info(f"🟢 Open tot {TOURNAMENT_START.strftime('%d/%m/%Y %H:%M')}.")
 
-    group_matches = matches_df[
-        matches_df["groep"].astype(str) == str(selected_group)
-    ].copy()
+    selected_phase = show_phase_buttons(phases)
+    selected_matches = filter_matches_by_phase(matches_df, selected_phase)
 
-    group_matches = group_matches.sort_values(
-        ["datum", "tijd", "match_id"],
+    selected_matches = selected_matches.copy()
+    selected_matches["match_id_sort"] = (
+        selected_matches["match_id"]
+        .astype(str)
+        .str.extract(r"(\d+)")
+        .fillna(0)
+        .astype(int)
+    )
+
+    selected_matches = selected_matches.sort_values(
+        ["match_id_sort"],
         kind="stable",
     )
 
-    st.subheader(f"Groep {selected_group}")
+    st.subheader(selected_phase["key"])
 
-    for _, match in group_matches.iterrows():
+    for _, match in selected_matches.iterrows():
         render_match_card(match, disabled)
 
     st.markdown("---")
