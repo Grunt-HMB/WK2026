@@ -43,14 +43,16 @@ def football_badge(choice):
     display:flex;
     align-items:center;
     justify-content:center;
-    font-size:2.1rem;
-    line-height:1;
 ">
-    <span>
-        ⚽
-    </span>
 
-    <span style="
+    <div style="
+        font-size:2rem;
+        line-height:1;
+    ">
+        ⚽
+    </div>
+
+    <div style="
         position:absolute;
         inset:0;
         display:flex;
@@ -65,7 +67,8 @@ def football_badge(choice):
             0 0 4px white;
     ">
         {choice}
-    </span>
+    </div>
+
 </div>
 """
 
@@ -119,6 +122,7 @@ def set_prediction(match_id, choice):
         st.session_state["local_predictions"] = {}
 
     current = st.session_state["local_predictions"].get(str(match_id), {})
+
     current["prediction"] = choice
     current.setdefault("score1", "")
     current.setdefault("score2", "")
@@ -146,7 +150,9 @@ def score_header_html(team1, team2, score1, score2):
     <div style="font-size:0.82rem;font-weight:800;">{team1}</div>
     <div style="font-size:2rem;font-weight:900;color:#2563eb;line-height:1;">{left_score}</div>
   </div>
+
   <div style="font-size:1.3rem;font-weight:900;">-</div>
+
   <div style="text-align:center;min-width:82px;">
     <div style="font-size:0.82rem;font-weight:800;">{team2}</div>
     <div style="font-size:2rem;font-weight:900;color:#dc2626;line-height:1;">{right_score}</div>
@@ -177,12 +183,20 @@ def show_number_pad(match_id, team_name, score_key, side):
     bottom = st.columns(3, gap="small")
 
     with bottom[0]:
-        if st.button("0", key=f"{side}_{match_id}_0", use_container_width=True):
+        if st.button(
+            "0",
+            key=f"{side}_{match_id}_0",
+            use_container_width=True,
+        ):
             st.session_state[score_key] = "0"
             st.rerun()
 
     with bottom[1]:
-        if st.button("⌫", key=f"reset_{side}_{match_id}", use_container_width=True):
+        if st.button(
+            "⌫",
+            key=f"reset_{side}_{match_id}",
+            use_container_width=True,
+        ):
             st.session_state[score_key] = ""
             st.rerun()
 
@@ -223,7 +237,11 @@ def show_score_dialog(match, match_id):
         with col_right:
             show_number_pad(match_id, team2, score2_key, "s2")
 
-        if st.session_state[score1_key] != "" and st.session_state[score2_key] != "":
+        if (
+            st.session_state[score1_key] != ""
+            and
+            st.session_state[score2_key] != ""
+        ):
             s1 = int(st.session_state[score1_key])
             s2 = int(st.session_state[score2_key])
 
@@ -231,8 +249,10 @@ def show_score_dialog(match, match_id):
 
             if prediction == "1":
                 pred_text = f"{team1} wint"
+
             elif prediction == "2":
                 pred_text = f"{team2} wint"
+
             else:
                 pred_text = "Gelijkspel"
 
@@ -244,7 +264,9 @@ def show_score_dialog(match, match_id):
                 use_container_width=True,
             ):
                 set_score(match_id, s1, s2)
+
                 st.session_state[f"show_score_{match_id}"] = False
+
                 st.rerun()
 
 
@@ -270,6 +292,7 @@ def render_match_card(match, disabled):
     score2 = current.get("score2", "")
 
     with st.container(border=True):
+
         col_date, col_time, col_info, col_1, col_x, col_2, col_ball, col_score = st.columns(
             [0.9, 0.7, 4.7, 0.45, 0.45, 0.45, 0.55, 1.05],
             gap="small",
@@ -277,13 +300,31 @@ def render_match_card(match, disabled):
 
         with col_date:
             st.markdown(
-                f"<div style='font-size:0.82rem;font-weight:800;color:#64748b;padding-top:7px;'>{date}</div>",
+                f"""
+<div style="
+font-size:0.82rem;
+font-weight:800;
+color:#64748b;
+padding-top:7px;
+">
+{date}
+</div>
+""",
                 unsafe_allow_html=True,
             )
 
         with col_time:
             st.markdown(
-                f"<div style='font-size:0.82rem;font-weight:800;color:#64748b;padding-top:7px;'>{time}</div>",
+                f"""
+<div style="
+font-size:0.82rem;
+font-weight:800;
+color:#64748b;
+padding-top:7px;
+">
+{time}
+</div>
+""",
                 unsafe_allow_html=True,
             )
 
@@ -291,17 +332,36 @@ def render_match_card(match, disabled):
             score_part = ""
 
             if score1 != "" and score2 != "":
-                score_part = f"<span style='color:#64748b;margin-left:12px;font-weight:800;'>{score1}-{score2}</span>"
+                score_part = (
+                    f"<span style='color:#64748b;"
+                    f"margin-left:12px;font-weight:800;'>"
+                    f"{score1}-{score2}</span>"
+                )
 
             st.markdown(
                 f"""
-<div style="display:flex;align-items:center;gap:9px;font-size:1rem;font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-top:3px;">
-  <span>{flag1}</span>
-  <span>{team1}</span>
-  <span style="color:#64748b;margin:0 2px;">-</span>
-  <span>{flag2}</span>
-  <span>{team2}</span>
-  {score_part}
+<div style="
+display:flex;
+align-items:center;
+gap:9px;
+font-size:1rem;
+font-weight:900;
+white-space:nowrap;
+overflow:hidden;
+text-overflow:ellipsis;
+padding-top:3px;
+">
+
+<span>{flag1}</span>
+<span>{team1}</span>
+
+<span style="color:#64748b;margin:0 2px;">-</span>
+
+<span>{flag2}</span>
+<span>{team2}</span>
+
+{score_part}
+
 </div>
 """,
                 unsafe_allow_html=True,
@@ -339,11 +399,7 @@ def render_match_card(match, disabled):
 
         with col_ball:
             st.markdown(
-                f"""
-<div style="display:flex;align-items:center;justify-content:center;height:38px;">
-    {football_badge(selected)}
-</div>
-""",
+                football_badge(selected),
                 unsafe_allow_html=True,
             )
 
@@ -354,10 +410,13 @@ def render_match_card(match, disabled):
                 use_container_width=True,
                 disabled=disabled,
             ):
-                st.session_state[f"show_score_{match_id}"] = not st.session_state.get(
-                    f"show_score_{match_id}",
-                    False,
+                st.session_state[f"show_score_{match_id}"] = (
+                    not st.session_state.get(
+                        f"show_score_{match_id}",
+                        False,
+                    )
                 )
+
                 st.rerun()
 
         if st.session_state.get(f"show_score_{match_id}", False):
@@ -399,10 +458,18 @@ def show_group_phase(user, matches_df, predictions_df):
 
     if locked:
         st.error("🔒 Het tornooi is gestart. Wijzigen is niet meer mogelijk.")
+
     elif final:
-        st.success("✅ Je pronostiek is ingediend. Je mag nog wijzigen tot de deadline.")
+        st.success(
+            "✅ Je pronostiek is ingediend. "
+            "Je mag nog wijzigen tot de deadline."
+        )
+
     else:
-        st.info(f"🟢 Open tot {TOURNAMENT_START.strftime('%d/%m/%Y %H:%M')}.")
+        st.info(
+            f"🟢 Open tot "
+            f"{TOURNAMENT_START.strftime('%d/%m/%Y %H:%M')}."
+        )
 
     group_matches = matches_df[
         matches_df["groep"].astype(str) == str(selected_group)
@@ -435,6 +502,7 @@ def show_group_phase(user, matches_df, predictions_df):
             )
 
             st.success(f"{count} keuzes opgeslagen als concept.")
+
             st.rerun()
 
     with b2:
@@ -449,5 +517,8 @@ def show_group_phase(user, matches_df, predictions_df):
                 "FINAL",
             )
 
-            st.success(f"{count} keuzes definitief ingediend.")
+            st.success(
+                f"{count} keuzes definitief ingediend."
+            )
+
             st.rerun()
