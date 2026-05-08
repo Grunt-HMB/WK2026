@@ -1,13 +1,102 @@
 import streamlit as st
+from modules.database import append_row, get_next_user_id
+from modules.utils import tournament_locked
 
-def show_login():
-    st.sidebar.title("Login")
+def login_user(users_df, username, password):
+    username = str(username or "").strip()
+    password = str(password or "").strip()
 
-    username = st.sidebar.text_input("Naam")
-    password = st.sidebar.text_input("Pincode", type="password")
+    if users_df.empty:
+        return None
 
-    if st.sidebar.button("Inloggen"):
-        if username:
-            st.session_state["user"] = username
+    user = users_df[
+        (users_df["naam"].astype(str).str.lower() == username.lower()) &
+        (users_df["pincode"].astype(str) == password)
+    ]
 
-    return st.session_state.get("user")
+    if user.empty:
+        return None
+
+    return user.iloc[0].to_dict()
+
+def register_user(users_df, username, password):
+    username = str(username or "").strip()
+    password = str(password or "").strip()
+
+    if tournament_locked():
+        return False, "Registreren is afgesloten."
+
+    if len(username) < 3:
+        return False, "Naam moet minstens 3 tekens hebben."
+
+    if len(password) < 3:
+        return False, "Pincode moet minstens 3 tekens hebben."
+
+    existing = users_df[
+        users_df["naam"].astype(str).str.lower() == username.lower()
+    ]
+
+    if not existing.empty:
+        return False, "Deze naam bestaat al."
+
+    new_id = get_next_user_id(users_df)
+    append_row("Users", [new_id, username, password, "FALSE"])
+
+    return True, "Account aangemaakt. Je kan nu inloggen."
+
+def logout():
+    if "user" in st.session_state:
+        del st.session_state["user"]
+    st.rerun()
+
+def show_sidebar(users_df):
+    st.sidebar.markdown("## ⚽ WK 2026")
+    st.sidebar.markdown("### Pronostiek")
+
+    if "user" in st.session_state:
+        user = st.session_state["user"]
+
+        st.sidebar.markdown(
+            f"""
+<div class="sidebar-card">
+    <div>Ingelogd als</div>
+    <div class="sidebar-name">{user.get("naam", "")}</div>
+</div>
+""",
+            unsafe_allow_html=True,
+        )
+
+        if st.sidebar.button("Uitloggen", use_container_width=True):
+            logout()
+
+        return user
+
+    tab_login, tab_register = st.sidebar.tabs(["Login", "Registreren"])
+
+    with tab_login:
+        name = st.text_input("Naam", key="login_name")
+        pincode = st.text_input("Pincode", type="password", key="login_pin")
+
+        if st.button("Inloggen", use_container_width=True):
+            user = login_user(users_df, name, pincode)
+            if user is None:
+                st.error("Naam of pincode is fout.")
+            else:
+                st.session_state["user"] = user
+                st.rerun()
+
+    with tab_register:
+        if tournament_locked():
+            st.warning("Registreren is afgesloten.")
+
+        name = st.text_input("Nieuwe naam", key="reg_name", disabled=tournament_locked())
+        pincode = st.text_input("Nieuwe pincode", type="password", key="reg_pin", disabled=tournament_locked())
+
+        if st.button("Registreren", use_container_width=True, disabled=tournament_locked()):
+            success, msg = register_user(users_df, name, pincode)
+            if success:
+                st.success(msg)
+            else:
+                st.error(msg)
+
+    return None

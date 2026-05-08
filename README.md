@@ -1,29 +1,49 @@
-# WK 2026 Pronostiek
+# WK 2026 Pronostiek - mooie Streamlit layout
 
-## Upload naar GitHub
+## Bestanden
+- `app.py`
+- `modules/`
+- `requirements.txt`
+- `.streamlit/secrets.example.toml`
+- `google_sheets_templates/`
 
-1. Maak nieuwe repository op GitHub
-2. Upload alle bestanden uit deze ZIP
-3. Push naar GitHub
+## Google Sheets tabs
 
-## Deploy naar Streamlit
-
-Ga naar:
-https://share.streamlit.io
-
-Klik:
-- Create app
-- Kies je repository
-- Main file: app.py
-
-## Google Sheets
-
-Maak tabs:
+Maak exact deze tabs:
 - Users
 - Matches
 - Predictions
 - Results
 
-## Start lokaal
+Importeer of plak de CSV's uit `google_sheets_templates`.
 
+## Vlaggen
+
+Vlaggen werken via ISO-2 codes in Matches:
+
+- België = BE
+- Canada = CA
+- Mexico = MX
+- Japan = JP
+- Frankrijk = FR
+- Brazilië = BR
+- Nederland = NL
+- Duitsland = DE
+
+Kolommen in Matches:
+
+```text
+match_id;speeldag;ronde;groep;team1;team2;datum;tijd;team1_code;team2_code
+```
+
+## Streamlit Cloud
+
+Zet in Settings → Secrets je echte secrets.
+Gebruik `.streamlit/secrets.example.toml` als voorbeeld.
+
+## Lokaal starten
+
+```powershell
+pip install -r requirements.txt
 streamlit run app.py
+```

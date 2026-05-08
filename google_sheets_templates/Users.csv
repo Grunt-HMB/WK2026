@@ -1,2 +1,3 @@
 user_id;naam;pincode;admin
 1;Tom;1234;TRUE
+2;Jan;1111;FALSE

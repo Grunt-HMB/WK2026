@@ -1,2 +1,9 @@
-match_id;speeldag;ronde;groep;team1;team2;datum;tijd
-1;1;Groep;A;België;Canada;2026-06-11;21:00
+match_id;speeldag;ronde;groep;team1;team2;datum;tijd;team1_code;team2_code
+1;1;Groep;A;België;Canada;2026-06-11;17:00;BE;CA
+2;1;Groep;A;Mexico;Japan;2026-06-11;20:00;MX;JP
+3;2;Groep;A;Frankrijk;Brazilië;2026-06-16;17:00;FR;BR
+4;2;Groep;A;België;Mexico;2026-06-16;20:00;BE;MX
+5;3;Groep;A;Canada;Japan;2026-06-21;17:00;CA;JP
+6;3;Groep;A;Brazilië;België;2026-06-21;20:00;BR;BE
+7;1;Groep;B;Nederland;Duitsland;2026-06-12;17:00;NL;DE
+8;1;Groep;B;Spanje;Italië;2026-06-12;20:00;ES;IT
