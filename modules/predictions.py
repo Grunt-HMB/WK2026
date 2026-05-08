@@ -24,22 +24,15 @@ def football_badge(choice):
     if choice not in ["1", "X", "2"]:
         choice = "-"
 
-    color = "#111111"
-
-    if choice == "1":
-        color = "#16a34a"
-    elif choice == "X":
-        color = "#2563eb"
-    elif choice == "2":
-        color = "#dc2626"
-
     return (
         f'<div style="position:relative;width:46px;height:46px;'
         f'display:flex;align-items:center;justify-content:center;">'
-        f'<span style="font-size:2.45rem;line-height:1;"><img src="https://upload.wikimedia.org/wikipedia/commons/d/d3/Soccerball.svg"
-style="width:42px;height:42px;"></span>'
+
+        f'<img src="https://upload.wikimedia.org/wikipedia/commons/d/d3/Soccerball.svg" '
+        f'style="width:42px;height:42px;">'
+
         f'<span style="position:absolute;inset:0;display:flex;'
-        f'align-items:center;justify-content:center;font-size:1,9rem;'
+        f'align-items:center;justify-content:center;font-size:1.9rem;'
         f'font-weight:900;color:#000000;'
         f'text-shadow:0 0 2px white,0 0 3px white,0 0 4px white;">'
         f'{choice}</span></div>'
