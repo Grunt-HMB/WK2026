@@ -10,6 +10,7 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive",
 ]
 
+
 @st.cache_resource
 def connect_to_gsheet():
     credentials = Credentials.from_service_account_info(
@@ -20,19 +21,28 @@ def connect_to_gsheet():
     sheet_id = st.secrets["GOOGLE_SHEET_ID"]
     return client.open_by_key(sheet_id)
 
-def get_worksheet(name):
+
+@st.cache_data(ttl=60)
+def get_existing_sheet_names():
     sh = connect_to_gsheet()
-    return sh.worksheet(name)
+    return [ws.title for ws in sh.worksheets()]
+
 
 def ensure_sheets_exist():
-    sh = connect_to_gsheet()
-    existing = [ws.title for ws in sh.worksheets()]
+    existing = get_existing_sheet_names()
     missing = [name for name in REQUIRED_SHEETS.keys() if name not in existing]
 
     if missing:
         st.error("Deze tabbladen ontbreken in Google Sheets: " + ", ".join(missing))
         st.stop()
 
+
+def get_worksheet(name):
+    sh = connect_to_gsheet()
+    return sh.worksheet(name)
+
+
+@st.cache_data(ttl=60)
 def load_sheet(name):
     ws = get_worksheet(name)
     data = ws.get_all_records()
@@ -44,6 +54,8 @@ def load_sheet(name):
 
     return df
 
+
+@st.cache_data(ttl=60)
 def load_all_data():
     return {
         "users": load_sheet("Users"),
@@ -52,9 +64,18 @@ def load_all_data():
         "results": load_sheet("Results"),
     }
 
+
+def clear_data_cache():
+    load_sheet.clear()
+    load_all_data.clear()
+    get_existing_sheet_names.clear()
+
+
 def append_row(sheet_name, row):
     ws = get_worksheet(sheet_name)
     ws.append_row(row, value_input_option="USER_ENTERED")
+    clear_data_cache()
+
 
 def get_next_user_id(users_df):
     if users_df.empty:
@@ -69,14 +90,8 @@ def get_next_user_id(users_df):
 
     return max(ids) + 1 if ids else 1
 
+
 def batch_upsert_predictions(user_id, local_predictions, status):
-    """
-    local_predictions:
-    {
-        "1": {"prediction": "1", "score1": "", "score2": ""},
-        "2": {"prediction": "X", "score1": 1, "score2": 1}
-    }
-    """
     if not local_predictions:
         return 0
 
@@ -118,7 +133,9 @@ def batch_upsert_predictions(user_id, local_predictions, status):
     if appends:
         ws.append_rows(appends, value_input_option="USER_ENTERED")
 
+    clear_data_cache()
     return len(local_predictions)
+
 
 def update_or_append_result(match_id, real_team1, real_team2):
     ws = get_worksheet("Results")
@@ -133,6 +150,8 @@ def update_or_append_result(match_id, real_team1, real_team2):
     for index, row in enumerate(rows[1:], start=2):
         if len(row) >= 1 and str(row[0]) == str(match_id):
             ws.update(f"B{index}:D{index}", [[real_team1, real_team2, now]])
+            clear_data_cache()
             return
 
     ws.append_row([match_id, real_team1, real_team2, now], value_input_option="USER_ENTERED")
+    clear_data_cache()
