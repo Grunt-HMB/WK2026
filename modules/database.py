@@ -85,6 +85,43 @@ def ensure_match_columns(matches_df):
     return matches_df
 
 
+def merge_results_into_matches(matches_df, results_df):
+    matches_df = matches_df.copy()
+
+    if results_df.empty:
+        return matches_df
+
+    if "match_id" not in matches_df.columns or "match_id" not in results_df.columns:
+        return matches_df
+
+    matches_df["match_id"] = matches_df["match_id"].astype(str).str.strip()
+
+    results_df = results_df.copy()
+    results_df["match_id"] = results_df["match_id"].astype(str).str.strip()
+
+    for col in ["real_team1", "real_team2"]:
+        if col not in results_df.columns:
+            return matches_df
+
+    results_small = results_df[["match_id", "real_team1", "real_team2"]].copy()
+
+    matches_df = matches_df.merge(
+        results_small,
+        on="match_id",
+        how="left",
+    )
+
+    matches_df["score1"] = matches_df["real_team1"].fillna(matches_df["score1"])
+    matches_df["score2"] = matches_df["real_team2"].fillna(matches_df["score2"])
+
+    matches_df = matches_df.drop(
+        columns=["real_team1", "real_team2"],
+        errors="ignore",
+    )
+
+    return matches_df
+
+
 @st.cache_data(ttl=60)
 def load_all_data():
     users_df = load_sheet("Users")
@@ -93,6 +130,10 @@ def load_all_data():
     results_df = load_sheet("Results")
 
     matches_df = ensure_match_columns(matches_df)
+
+    # Uitslagen uit tabblad Results in de Matches-data zetten
+    # zodat de standen en knock-out-engine ermee kunnen rekenen.
+    matches_df = merge_results_into_matches(matches_df, results_df)
 
     try:
         fifa_ranking_df = load_sheet("FifaRanking")
@@ -152,6 +193,7 @@ def batch_upsert_predictions(user_id, local_predictions, status):
         rows = ws.get_all_values()
 
     existing_map = {}
+
     for row_index, row in enumerate(rows[1:], start=2):
         if len(row) >= 2:
             existing_map[(str(row[0]), str(row[1]))] = row_index
@@ -174,7 +216,15 @@ def batch_upsert_predictions(user_id, local_predictions, status):
                 "values": [[prediction, score1, score2, status, now]],
             })
         else:
-            appends.append([user_id, match_id, prediction, score1, score2, status, now])
+            appends.append([
+                user_id,
+                match_id,
+                prediction,
+                score1,
+                score2,
+                status,
+                now,
+            ])
 
     if updates:
         ws.batch_update(updates, value_input_option="USER_ENTERED")
@@ -202,5 +252,9 @@ def update_or_append_result(match_id, real_team1, real_team2):
             clear_data_cache()
             return
 
-    ws.append_row([match_id, real_team1, real_team2, now], value_input_option="USER_ENTERED")
+    ws.append_row(
+        [match_id, real_team1, real_team2, now],
+        value_input_option="USER_ENTERED",
+    )
+
     clear_data_cache()
