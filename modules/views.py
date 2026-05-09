@@ -1,4 +1,5 @@
 import streamlit as st
+
 from modules.scoring import build_scoreboard
 
 
@@ -11,6 +12,32 @@ def flag_img(code):
     return f"https://flagcdn.com/w40/{code}.png"
 
 
+def normalize_match_id_columns(left_df, right_df):
+    left_df = left_df.copy()
+    right_df = right_df.copy()
+
+    if "match_id" not in left_df.columns:
+        left_df["match_id"] = ""
+
+    if "match_id" not in right_df.columns:
+        right_df["match_id"] = ""
+
+    left_df["match_id"] = left_df["match_id"].astype(str).str.strip()
+    right_df["match_id"] = right_df["match_id"].astype(str).str.strip()
+
+    return left_df, right_df
+
+
+def normalize_sort_columns(df):
+    df = df.copy()
+
+    for col in ["groep", "datum", "tijd", "match_id"]:
+        if col not in df.columns:
+            df[col] = ""
+
+    return df
+
+
 def show_my_predictions(user, matches_df, predictions_df):
     st.markdown("### Mijn voorspellingen")
 
@@ -20,17 +47,46 @@ def show_my_predictions(user, matches_df, predictions_df):
         st.info("Je hebt nog niets opgeslagen.")
         return
 
-    df = predictions_df[predictions_df["user_id"].astype(str) == user_id]
+    df = predictions_df[predictions_df["user_id"].astype(str) == user_id].copy()
 
     if df.empty:
         st.info("Je hebt nog niets opgeslagen.")
         return
 
-    merged = df.merge(matches_df, on="match_id", how="left")
-    merged = merged.sort_values(["groep", "datum", "tijd", "match_id"], kind="stable")
+    df, matches_df = normalize_match_id_columns(df, matches_df)
+
+    merged = df.merge(
+        matches_df,
+        on="match_id",
+        how="left",
+        suffixes=("_prediction", ""),
+    )
+
+    merged = normalize_sort_columns(merged)
+
+    merged["match_id_sort"] = (
+        merged["match_id"]
+        .astype(str)
+        .str.extract(r"(\d+)")
+        .fillna(0)
+        .astype(int)
+    )
+
+    merged = merged.sort_values(
+        ["groep", "datum", "tijd", "match_id_sort"],
+        kind="stable",
+    )
 
     for group, group_df in merged.groupby("groep", sort=False):
-        st.subheader(f"Groep {group}")
+        group_label = str(group).strip()
+
+        if group_label == "" or group_label.lower() == "nan":
+            group_label = "Onbekend"
+
+        if group_label == "Knock-out":
+            st.subheader("Knock-out")
+        else:
+            st.subheader(f"Groep {group_label}")
 
         for _, row in group_df.iterrows():
             with st.container(border=True):
@@ -44,7 +100,10 @@ def show_my_predictions(user, matches_df, predictions_df):
                     f1 = flag_img(row.get("team1_code", ""))
                     f2 = flag_img(row.get("team2_code", ""))
 
-                    cc1, cc2, cc3, cc4, cc5 = st.columns([0.25, 1.1, 0.15, 0.25, 1.1])
+                    cc1, cc2, cc3, cc4, cc5 = st.columns(
+                        [0.25, 1.1, 0.15, 0.25, 1.1],
+                        gap="small",
+                    )
 
                     with cc1:
                         if f1:
@@ -85,11 +144,11 @@ def show_my_predictions(user, matches_df, predictions_df):
                         st.caption("-")
 
                 with c5:
-                    status = str(row.get("status", "")).upper()
+                    status = str(row.get("status", ""))
 
-                    if status == "Definitief":
+                    if status.upper() == "FINAL":
                         st.success("Definitief")
-                    elif status == "Voorlopig":
+                    elif status.lower() == "voorlopig":
                         st.warning("Voorlopig")
                     else:
                         st.caption(status)
@@ -97,6 +156,15 @@ def show_my_predictions(user, matches_df, predictions_df):
 
 def show_scoreboard(users_df, matches_df, predictions_df, results_df):
     st.markdown("### Scorebord")
+
+    users_df = users_df.copy()
+    matches_df = matches_df.copy()
+    predictions_df = predictions_df.copy()
+    results_df = results_df.copy()
+
+    for df in [matches_df, predictions_df, results_df]:
+        if "match_id" in df.columns:
+            df["match_id"] = df["match_id"].astype(str).str.strip()
 
     scoreboard, detail = build_scoreboard(
         users_df,
@@ -141,11 +209,9 @@ def show_rules():
         """
 ### Punten
 - Juiste 1/X/2: **3 punten**
-- Exacte score: **+2 punten**
-- Juist doelpuntenverschil: **+1 punt**
 
 ### Opslaan
-- **Concept opslaan**: later nog wijzigen.
+- **Voorlopig opslaan**: later nog wijzigen.
 - **Definitief indienen**: ingediend, maar nog wijzigbaar tot de deadline.
 
 ### Deadline
