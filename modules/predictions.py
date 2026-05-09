@@ -27,7 +27,7 @@ def find_phase_by_key(phases, phase_key):
     return None
 
 
-def get_open_predictions_only(matches_df):
+def get_open_match_ids(matches_df):
     open_match_ids = set()
 
     for _, match in matches_df.iterrows():
@@ -39,28 +39,24 @@ def get_open_predictions_only(matches_df):
         if not match_is_locked(match):
             open_match_ids.add(match_id)
 
-    local_predictions = st.session_state.get("local_predictions", {})
-
-    return {
-        match_id: data
-        for match_id, data in local_predictions.items()
-        if str(match_id).strip() in open_match_ids
-    }
+    return open_match_ids
 
 
 def save_current_predictions(user_id, status, matches_df):
-    open_predictions = get_open_predictions_only(matches_df)
-    total_predictions = len(st.session_state.get("local_predictions", {}))
+    local_predictions = st.session_state.get("local_predictions", {})
+    open_match_ids = get_open_match_ids(matches_df)
 
     count = batch_upsert_predictions(
-        user_id,
-        open_predictions,
-        status,
+        user_id=user_id,
+        local_predictions=local_predictions,
+        status=status,
+        allowed_match_ids=open_match_ids,
     )
 
-    mark_predictions_saved()
+    total_predictions = len(local_predictions)
+    skipped = total_predictions - count
 
-    skipped = total_predictions - len(open_predictions)
+    mark_predictions_saved()
 
     return count, skipped
 
@@ -81,11 +77,15 @@ def show_pending_phase_change_prompt(user_id, phases, matches_df):
 
     st.warning(f"Je hebt niet-opgeslagen wijzigingen. Opslaan voor je naar {label} gaat?")
 
-    c1, c2, c3 = st.columns([1, 1, 4], gap="small")
+    c1, c2, c3 = st.columns([1.1, 1.1, 4], gap="small")
 
     with c1:
-        if st.button("✅ Ja, opslaan", use_container_width=True):
-            count, skipped = save_current_predictions(user_id, "Voorlopig", matches_df)
+        if st.button("✅ Ja", use_container_width=True):
+            count, skipped = save_current_predictions(
+                user_id,
+                "Voorlopig",
+                matches_df,
+            )
 
             st.session_state["selected_phase_key"] = pending_key
             st.session_state["pending_phase_key"] = ""
@@ -149,7 +149,6 @@ def show_group_phase(user, matches_df, predictions_df, standings_df=None):
         st.warning("⚠️ Je hebt niet-opgeslagen wijzigingen.")
 
     selected_phase = show_phase_buttons(phases)
-
     prompt_active = show_pending_phase_change_prompt(user_id, phases, matches_df)
 
     selected_matches = filter_matches_by_phase(matches_df, selected_phase)
@@ -193,7 +192,11 @@ def show_group_phase(user, matches_df, predictions_df, standings_df=None):
             "💾 Voorlopig opslaan",
             use_container_width=True,
         ):
-            count, skipped = save_current_predictions(user_id, "Voorlopig", matches_df)
+            count, skipped = save_current_predictions(
+                user_id,
+                "Voorlopig",
+                matches_df,
+            )
 
             if skipped > 0:
                 st.warning(
@@ -210,7 +213,11 @@ def show_group_phase(user, matches_df, predictions_df, standings_df=None):
             "✅ Definitief indienen",
             use_container_width=True,
         ):
-            count, skipped = save_current_predictions(user_id, "FINAL", matches_df)
+            count, skipped = save_current_predictions(
+                user_id,
+                "FINAL",
+                matches_df,
+            )
 
             if skipped > 0:
                 st.warning(
