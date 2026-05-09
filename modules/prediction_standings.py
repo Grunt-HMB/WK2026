@@ -36,20 +36,10 @@ def build_prediction_standings(matches_df):
     for idx, row in predicted_matches.iterrows():
         match_id = str(row.get("match_id", "")).strip()
 
-        if match_id not in local_predictions:
-            continue
-
         pred_data = local_predictions.get(match_id, {})
-
-        saved_score1 = str(pred_data.get("score1", "")).strip()
-        saved_score2 = str(pred_data.get("score2", "")).strip()
         prediction = str(pred_data.get("prediction", "")).upper().strip()
 
-        if saved_score1 != "" and saved_score2 != "":
-            score1 = saved_score1
-            score2 = saved_score2
-        else:
-            score1, score2 = prediction_to_score(prediction)
+        score1, score2 = prediction_to_score(prediction)
 
         predicted_matches.at[idx, "score1"] = str(score1)
         predicted_matches.at[idx, "score2"] = str(score2)
