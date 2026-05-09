@@ -1,24 +1,66 @@
 import streamlit as st
 
+from modules.knockout_engine import calculate_group_standings
 
-def show_group_standings(selected_phase, standings_df):
-    if selected_phase["type"] != "groep":
-        return
 
-    if standings_df is None or standings_df.empty:
-        return
+def prediction_to_score(prediction):
+    prediction = str(prediction or "").upper().strip()
 
-    group = str(selected_phase["value"])
+    if prediction == "1":
+        return 1, 0
 
-    group_standings = standings_df[
-        standings_df["groep"].astype(str) == group
-    ].copy()
+    if prediction == "X":
+        return 0, 0
 
-    if group_standings.empty:
-        return
+    if prediction == "2":
+        return 0, 1
 
-    st.markdown(f"### 📊 Stand Groep {group}")
+    return "", ""
 
+
+def build_prediction_standings(matches_df):
+    if matches_df is None or matches_df.empty:
+        return None
+
+    predicted_matches = matches_df.copy()
+
+    if "score1" not in predicted_matches.columns:
+        predicted_matches["score1"] = ""
+
+    if "score2" not in predicted_matches.columns:
+        predicted_matches["score2"] = ""
+
+    # Belangrijk:
+    # Voor de voorspelde stand negeren we de officiële uitslagen.
+    predicted_matches["score1"] = ""
+    predicted_matches["score2"] = ""
+
+    local_predictions = st.session_state.get("local_predictions", {})
+
+    for idx, row in predicted_matches.iterrows():
+        match_id = str(row.get("match_id", "")).strip()
+
+        if match_id not in local_predictions:
+            continue
+
+        pred_data = local_predictions.get(match_id, {})
+
+        saved_score1 = str(pred_data.get("score1", "")).strip()
+        saved_score2 = str(pred_data.get("score2", "")).strip()
+        prediction = str(pred_data.get("prediction", "")).upper().strip()
+
+        if saved_score1 != "" and saved_score2 != "":
+            predicted_matches.at[idx, "score1"] = saved_score1
+            predicted_matches.at[idx, "score2"] = saved_score2
+        else:
+            score1, score2 = prediction_to_score(prediction)
+            predicted_matches.at[idx, "score1"] = score1
+            predicted_matches.at[idx, "score2"] = score2
+
+    return calculate_group_standings(predicted_matches)
+
+
+def format_standings_table(group_standings):
     cols = [
         "position",
         "team",
@@ -49,8 +91,52 @@ def show_group_standings(selected_phase, standings_df):
         }
     )
 
+    return table
+
+
+def show_single_standings(title, group_standings):
+    st.markdown(title)
+
+    if group_standings is None or group_standings.empty:
+        st.caption("Nog geen stand beschikbaar.")
+        return
+
+    table = format_standings_table(group_standings)
+
     st.dataframe(
         table,
         use_container_width=True,
         hide_index=True,
     )
+
+
+def show_group_standings(selected_phase, official_standings_df, matches_df=None):
+    if selected_phase["type"] != "groep":
+        return
+
+    group = str(selected_phase["value"])
+
+    predicted_standings_df = build_prediction_standings(matches_df)
+
+    predicted_group = None
+    official_group = None
+
+    if predicted_standings_df is not None and not predicted_standings_df.empty:
+        predicted_group = predicted_standings_df[
+            predicted_standings_df["groep"].astype(str) == group
+        ].copy()
+
+    if official_standings_df is not None and not official_standings_df.empty:
+        official_group = official_standings_df[
+            official_standings_df["groep"].astype(str) == group
+        ].copy()
+
+    st.markdown(f"### 📊 Stand Groep {group}")
+
+    col_pred, col_real = st.columns(2, gap="medium")
+
+    with col_pred:
+        show_single_standings("#### Mijn voorspelde stand", predicted_group)
+
+    with col_real:
+        show_single_standings("#### Officiële stand", official_group)
