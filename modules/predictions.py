@@ -11,8 +11,68 @@ from modules.prediction_phases import (
     show_phase_buttons,
 )
 from modules.prediction_standings import show_group_standings
-from modules.prediction_state import load_existing_predictions, user_is_final
+from modules.prediction_state import (
+    discard_unsaved_predictions,
+    load_existing_predictions,
+    mark_predictions_saved,
+    user_is_final,
+)
 from modules.prediction_styles import inject_prediction_css
+
+
+def find_phase_by_key(phases, phase_key):
+    for phase in phases:
+        if phase["key"] == phase_key:
+            return phase
+
+    return None
+
+
+def save_current_predictions(user_id, status):
+    count = batch_upsert_predictions(
+        user_id,
+        st.session_state.get("local_predictions", {}),
+        status,
+    )
+
+    mark_predictions_saved()
+
+    return count
+
+
+def show_pending_phase_change_prompt(user_id, phases):
+    pending_key = st.session_state.get("pending_phase_key", "")
+
+    if not pending_key:
+        return False
+
+    pending_phase = find_phase_by_key(phases, pending_key)
+
+    if pending_phase is None:
+        st.session_state["pending_phase_key"] = ""
+        return False
+
+    label = pending_phase.get("label", pending_key)
+
+    st.warning(f"Je hebt niet-opgeslagen wijzigingen. Opslaan voor je naar {label} gaat?")
+
+    c1, c2, c3 = st.columns([1, 1, 4], gap="small")
+
+    with c1:
+        if st.button("✅ Ja, opslaan", use_container_width=True):
+            save_current_predictions(user_id, "Voorlopig")
+            st.session_state["selected_phase_key"] = pending_key
+            st.session_state["pending_phase_key"] = ""
+            st.rerun()
+
+    with c2:
+        if st.button("❌ Nee", use_container_width=True):
+            discard_unsaved_predictions()
+            st.session_state["selected_phase_key"] = pending_key
+            st.session_state["pending_phase_key"] = ""
+            st.rerun()
+
+    return True
 
 
 def show_group_phase(user, matches_df, predictions_df, standings_df=None):
@@ -25,7 +85,9 @@ def show_group_phase(user, matches_df, predictions_df, standings_df=None):
     locked = tournament_locked()
     final = user_is_final(user_id, predictions_df)
 
-    disabled = locked
+    # Algemene tournament lock laten we hier niet meer de matchen blokkeren.
+    # Elke match wordt apart geblokkeerd 1 uur voor aftrap in prediction_cards.py.
+    disabled = False
 
     if matches_df.empty:
         st.warning("Geen wedstrijden gevonden in tabblad Matches.")
@@ -40,14 +102,24 @@ def show_group_phase(user, matches_df, predictions_df, standings_df=None):
     st.markdown("## 👥 Groepsfase / Eindfase")
     st.caption("Maak je voorspellingen per poule of eindfase.")
 
-    if locked:
-        st.error("🔒 Het tornooi is gestart. Wijzigen is niet meer mogelijk.")
-    elif final:
-        st.success("✅ Je pronostiek is ingediend. Je mag nog wijzigen tot de deadline.")
+    if final:
+        st.success("✅ Je pronostiek is ingediend. Je mag nog wijzigen tot een wedstrijd sluit.")
     else:
-        st.info(f"🟢 Open tot {TOURNAMENT_START.strftime('%d/%m/%Y %H:%M')}.")
+        st.info("🟢 Wedstrijden sluiten automatisch 1 uur voor aftrap.")
+
+    if locked:
+        st.caption(
+            f"Algemene tornooidatum: {TOURNAMENT_START.strftime('%d/%m/%Y %H:%M')}. "
+            "Vanaf nu geldt enkel nog de sluiting per wedstrijd."
+        )
+
+    if st.session_state.get("unsaved_changes", False):
+        st.warning("⚠️ Je hebt niet-opgeslagen wijzigingen.")
 
     selected_phase = show_phase_buttons(phases)
+
+    prompt_active = show_pending_phase_change_prompt(user_id, phases)
+
     selected_matches = filter_matches_by_phase(matches_df, selected_phase)
 
     show_group_standings(
@@ -72,7 +144,9 @@ def show_group_phase(user, matches_df, predictions_df, standings_df=None):
 
     st.subheader(selected_phase["key"])
 
-    if selected_matches.empty:
+    if prompt_active:
+        st.caption("Kies hierboven eerst of je je wijzigingen wil opslaan.")
+    elif selected_matches.empty:
         st.warning("Geen wedstrijden gevonden voor deze groep of eindfase.")
     else:
         for _, match in selected_matches.iterrows():
@@ -86,13 +160,8 @@ def show_group_phase(user, matches_df, predictions_df, standings_df=None):
         if st.button(
             "💾 Voorlopig opslaan",
             use_container_width=True,
-            disabled=disabled,
         ):
-            count = batch_upsert_predictions(
-                user_id,
-                st.session_state["local_predictions"],
-                "Voorlopig",
-            )
+            count = save_current_predictions(user_id, "Voorlopig")
 
             st.success(f"{count} keuzes opgeslagen als Voorlopig.")
             st.rerun()
@@ -101,13 +170,8 @@ def show_group_phase(user, matches_df, predictions_df, standings_df=None):
         if st.button(
             "✅ Definitief indienen",
             use_container_width=True,
-            disabled=disabled,
         ):
-            count = batch_upsert_predictions(
-                user_id,
-                st.session_state["local_predictions"],
-                "FINAL",
-            )
+            count = save_current_predictions(user_id, "FINAL")
 
             st.success(f"{count} keuzes definitief ingediend.")
             st.rerun()
