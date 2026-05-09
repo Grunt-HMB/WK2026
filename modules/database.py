@@ -48,8 +48,49 @@ def get_worksheet(name):
 @st.cache_data(ttl=60)
 def load_sheet(name):
     ws = get_worksheet(name)
-    data = ws.get_all_records()
-    df = pd.DataFrame(data)
+
+    values = ws.get_all_values()
+
+    if not values:
+        df = pd.DataFrame()
+    else:
+        raw_headers = values[0]
+        rows = values[1:]
+
+        # Alleen kolommen gebruiken waarvan de header niet leeg is
+        valid_indexes = []
+        headers = []
+
+        for i, header in enumerate(raw_headers):
+            clean_header = str(header).strip()
+
+            if clean_header == "":
+                continue
+
+            # Extra beveiliging tegen dubbele headers
+            if clean_header in headers:
+                continue
+
+            valid_indexes.append(i)
+            headers.append(clean_header)
+
+        clean_rows = []
+
+        for row in rows:
+            clean_row = []
+            for i in valid_indexes:
+                clean_row.append(row[i] if i < len(row) else "")
+            clean_rows.append(clean_row)
+
+        df = pd.DataFrame(clean_rows, columns=headers)
+
+        # Volledig lege rijen verwijderen
+        if not df.empty:
+            df = df.loc[
+                ~df.astype(str)
+                .apply(lambda r: "".join(r).strip(), axis=1)
+                .eq("")
+            ]
 
     for col in REQUIRED_SHEETS.get(name, []):
         if col not in df.columns:
