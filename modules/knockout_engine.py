@@ -1,61 +1,10 @@
+import re
 import pandas as pd
 
 from modules.annex_c import get_annex_c_mapping
 
 
 GROUPS = list("ABCDEFGHIJKL")
-
-
-ROUND_OF_32_MATCHES = {
-    "73": ("2A", "2B"),
-    "74": ("1E", "3ABCDF"),
-    "75": ("1F", "2C"),
-    "76": ("1C", "2F"),
-    "77": ("1I", "3CDFGH"),
-    "78": ("2E", "2I"),
-    "79": ("1A", "3CEFHI"),
-    "80": ("1L", "3EHIJK"),
-    "81": ("1D", "3BEFIJ"),
-    "82": ("1G", "3AEHIJ"),
-    "83": ("2K", "2L"),
-    "84": ("1H", "2J"),
-    "85": ("1B", "3EFGIJ"),
-    "86": ("1J", "2H"),
-    "87": ("1K", "3DEIJL"),
-    "88": ("2D", "2G"),
-}
-
-
-ROUND_OF_16_MATCHES = {
-    "89": ("W74", "W77"),
-    "90": ("W73", "W75"),
-    "91": ("W76", "W78"),
-    "92": ("W79", "W80"),
-    "93": ("W83", "W84"),
-    "94": ("W81", "W82"),
-    "95": ("W86", "W88"),
-    "96": ("W85", "W87"),
-}
-
-
-QUARTER_FINALS = {
-    "97": ("W89", "W90"),
-    "98": ("W93", "W94"),
-    "99": ("W91", "W92"),
-    "100": ("W95", "W96"),
-}
-
-
-SEMI_FINALS = {
-    "101": ("W97", "W98"),
-    "102": ("W99", "W100"),
-}
-
-
-FINAL_MATCHES = {
-    "103": ("L101", "L102"),
-    "104": ("W101", "W102"),
-}
 
 
 def safe_int(value, default=0):
@@ -77,6 +26,12 @@ def clean_match_id(value):
     value = value.replace("MATCH", "")
     value = value.replace("M", "")
     value = value.replace("#", "")
+
+    number = re.search(r"\d+", value)
+
+    if number:
+        return number.group(0)
+
     return value.strip()
 
 
@@ -373,7 +328,7 @@ def get_team_by_position(standings_df, group, position):
         return ""
 
     row = standings_df[
-        (standings_df["groep"] == group)
+        (standings_df["groep"].astype(str).str.upper() == str(group).upper())
         & (standings_df["position"] == position)
     ]
 
@@ -457,11 +412,11 @@ def resolve_third_place_team(best_thirds_df, allowed_groups):
     if best_thirds_df.empty:
         return ""
 
-    allowed_groups = list(allowed_groups)
+    allowed_groups = [str(g).upper() for g in list(allowed_groups)]
 
     possible = best_thirds_df[
         (best_thirds_df["qualified_third"] == True)
-        & (best_thirds_df["groep"].isin(allowed_groups))
+        & (best_thirds_df["groep"].astype(str).str.upper().isin(allowed_groups))
     ].copy()
 
     if possible.empty:
@@ -476,41 +431,47 @@ def normalize_slot(slot):
     normalized = original_slot.upper().strip()
 
     normalized = normalized.replace("#", "")
+    normalized = normalized.replace(" ", "")
 
-    normalized = normalized.replace("EERSTE GROEP ", "1")
-    normalized = normalized.replace("TWEEDE GROEP ", "2")
-    normalized = normalized.replace("DERDE GROEP ", "3")
+    normalized = normalized.replace("EERSTEGROEP", "1")
+    normalized = normalized.replace("TWEEDEGROEP", "2")
+    normalized = normalized.replace("DERDEGROEP", "3")
 
-    normalized = normalized.replace("WINNAAR ", "W")
-    normalized = normalized.replace("VERLIEZER ", "L")
+    normalized = normalized.replace("WINNAAR", "W")
+    normalized = normalized.replace("VERLIEZER", "L")
 
     if normalized.startswith("V") and len(normalized) > 1:
         normalized = "L" + normalized[1:]
 
     normalized = normalized.replace("/", "")
-    normalized = normalized.replace(" ", "")
 
     return original_slot, normalized
 
 
 def resolve_slot(slot, standings_df, best_thirds_df, results_by_match):
-    original_slot, slot = normalize_slot(slot)
+    original_slot, normalized = normalize_slot(slot)
 
-    if slot.startswith("1") and len(slot) == 2:
-        return get_team_by_position(standings_df, slot[1], 1)
+    if normalized.startswith("1") and len(normalized) == 2:
+        return get_team_by_position(standings_df, normalized[1], 1)
 
-    if slot.startswith("2") and len(slot) == 2:
-        return get_team_by_position(standings_df, slot[1], 2)
+    if normalized.startswith("2") and len(normalized) == 2:
+        return get_team_by_position(standings_df, normalized[1], 2)
 
-    if slot.startswith("3"):
-        allowed_groups = list(slot[1:])
+    if normalized.startswith("3"):
+        allowed_groups = list(normalized[1:])
         return resolve_third_place_team(best_thirds_df, allowed_groups)
 
-    if slot.startswith("W"):
-        return results_by_match.get(slot, "")
+    if normalized.startswith("W"):
+        number = re.search(r"\d+", normalized)
 
-    if slot.startswith("L"):
-        return results_by_match.get(slot, "")
+        if number:
+            return results_by_match.get(f"W{number.group(0)}", "")
+
+    if normalized.startswith("L"):
+        number = re.search(r"\d+", normalized)
+
+        if number:
+            return results_by_match.get(f"L{number.group(0)}", "")
 
     return original_slot
 
@@ -536,14 +497,7 @@ def build_results_by_match(matches_df):
     return results
 
 
-def apply_knockout_engine(matches_df, fifa_ranking_df=None):
-    updated = matches_df.copy()
-
-    standings_df = calculate_group_standings(updated, fifa_ranking_df)
-    best_thirds_df = calculate_best_thirds(standings_df)
-
-    results_by_match = build_results_by_match(updated)
-
+def resolve_knockout_from_sheet(updated, standings_df, best_thirds_df, results_by_match):
     official_third_assignment = {}
 
     if all_groups_complete(updated):
@@ -552,15 +506,17 @@ def apply_knockout_engine(matches_df, fifa_ranking_df=None):
         except Exception:
             official_third_assignment = {}
 
-    all_knockout = {}
-    all_knockout.update(ROUND_OF_32_MATCHES)
-    all_knockout.update(ROUND_OF_16_MATCHES)
-    all_knockout.update(QUARTER_FINALS)
-    all_knockout.update(SEMI_FINALS)
-    all_knockout.update(FINAL_MATCHES)
+    for index, row in updated.iterrows():
+        groep = str(row.get("groep", "")).strip()
 
-    for match_id, slots in all_knockout.items():
-        team1_slot, team2_slot = slots
+        if groep != "Knock-out":
+            continue
+
+        team1_slot = row.get("team1", "")
+        team2_slot = row.get("team2", "")
+
+        original_team1_slot, normalized_team1_slot = normalize_slot(team1_slot)
+        original_team2_slot, normalized_team2_slot = normalize_slot(team2_slot)
 
         team1 = resolve_slot(
             team1_slot,
@@ -568,9 +524,6 @@ def apply_knockout_engine(matches_df, fifa_ranking_df=None):
             best_thirds_df,
             results_by_match,
         )
-
-        original_team1_slot, normalized_team1_slot = normalize_slot(team1_slot)
-        original_team2_slot, normalized_team2_slot = normalize_slot(team2_slot)
 
         if (
             official_third_assignment
@@ -588,14 +541,29 @@ def apply_knockout_engine(matches_df, fifa_ranking_df=None):
                 results_by_match,
             )
 
-        clean_id = clean_match_id(match_id)
-        mask = updated["match_id"].astype(str).map(clean_match_id).eq(clean_id)
+        if team1 and team1 != original_team1_slot:
+            updated.at[index, "team1"] = team1
 
-        if mask.any():
-            if team1:
-                updated.loc[mask, "team1"] = team1
+        if team2 and team2 != original_team2_slot:
+            updated.at[index, "team2"] = team2
 
-            if team2:
-                updated.loc[mask, "team2"] = team2
+    return updated
+
+
+def apply_knockout_engine(matches_df, fifa_ranking_df=None):
+    updated = matches_df.copy()
+
+    standings_df = calculate_group_standings(updated, fifa_ranking_df)
+    best_thirds_df = calculate_best_thirds(standings_df)
+
+    # meerdere keren laten lopen, zodat Winnaar 73 -> Winnaar 90 -> Winnaar 97 ook kan doorschuiven
+    for _ in range(5):
+        results_by_match = build_results_by_match(updated)
+        updated = resolve_knockout_from_sheet(
+            updated,
+            standings_df,
+            best_thirds_df,
+            results_by_match,
+        )
 
     return updated, standings_df, best_thirds_df
