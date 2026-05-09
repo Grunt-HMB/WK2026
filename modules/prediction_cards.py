@@ -1,8 +1,12 @@
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import streamlit as st
 
 from modules.prediction_state import set_prediction
+
+
+LOCAL_TZ = ZoneInfo("Europe/Brussels")
 
 
 def flag_img(code):
@@ -32,11 +36,16 @@ def parse_match_datetime(date_value, time_value):
         "%d-%m-%Y %H:%M",
         "%d/%m/%y %H:%M",
         "%d/%m/%Y %H:%M",
+        "%d-%m-%y %H:%M:%S",
+        "%d-%m-%Y %H:%M:%S",
+        "%d/%m/%y %H:%M:%S",
+        "%d/%m/%Y %H:%M:%S",
     ]
 
     for fmt in formats:
         try:
-            return datetime.strptime(raw, fmt)
+            naive_dt = datetime.strptime(raw, fmt)
+            return naive_dt.replace(tzinfo=LOCAL_TZ)
         except Exception:
             pass
 
@@ -53,8 +62,9 @@ def match_is_locked(match):
         return False
 
     lock_dt = match_dt - timedelta(hours=1)
+    now_local = datetime.now(LOCAL_TZ)
 
-    return datetime.now() >= lock_dt
+    return now_local >= lock_dt
 
 
 def prediction_label(choice, selected):
@@ -67,7 +77,10 @@ def prediction_label(choice, selected):
     return choice
 
 
-def render_prediction_buttons(match_id, selected, disabled):
+def render_prediction_buttons(match, match_id, selected, disabled):
+    locked = match_is_locked(match)
+    button_disabled = disabled or locked
+
     c1, cx, c2 = st.columns(3, gap="small")
 
     with c1:
@@ -75,8 +88,12 @@ def render_prediction_buttons(match_id, selected, disabled):
             prediction_label("1", selected),
             key=f"btn_1_{match_id}",
             use_container_width=True,
-            disabled=disabled,
+            disabled=button_disabled,
         ):
+            if match_is_locked(match):
+                st.warning("Deze wedstrijd is gesloten.")
+                st.rerun()
+
             set_prediction(match_id, "1")
             st.rerun()
 
@@ -85,8 +102,12 @@ def render_prediction_buttons(match_id, selected, disabled):
             prediction_label("X", selected),
             key=f"btn_x_{match_id}",
             use_container_width=True,
-            disabled=disabled,
+            disabled=button_disabled,
         ):
+            if match_is_locked(match):
+                st.warning("Deze wedstrijd is gesloten.")
+                st.rerun()
+
             set_prediction(match_id, "X")
             st.rerun()
 
@@ -95,14 +116,18 @@ def render_prediction_buttons(match_id, selected, disabled):
             prediction_label("2", selected),
             key=f"btn_2_{match_id}",
             use_container_width=True,
-            disabled=disabled,
+            disabled=button_disabled,
         ):
+            if match_is_locked(match):
+                st.warning("Deze wedstrijd is gesloten.")
+                st.rerun()
+
             set_prediction(match_id, "2")
             st.rerun()
 
 
 def render_match_card(match, disabled):
-    match_id = str(match["match_id"])
+    match_id = str(match["match_id"]).strip()
 
     team1 = str(match.get("team1", ""))
     team2 = str(match.get("team2", ""))
@@ -122,27 +147,22 @@ def render_match_card(match, disabled):
     score1 = current.get("score1", "")
     score2 = current.get("score2", "")
 
-    if score1 != "" and score2 != "":
-        middle = f"{score1}-{score2}"
-    else:
-        middle = "-"
+    middle = f"{score1}-{score2}" if score1 != "" and score2 != "" else "-"
 
     locked = match_is_locked(match)
-    button_disabled = disabled or locked
+
+    lock_text = ""
+    if locked:
+        lock_text = (
+            '<span style="color:#ef4444;font-weight:900;margin-left:8px;">'
+            "🔒 gesloten"
+            "</span>"
+        )
 
     with st.container(border=True):
         col_info, col_buttons = st.columns([7.2, 2.0], gap="small")
 
         with col_info:
-            lock_text = ""
-
-            if locked:
-                lock_text = (
-                    '<span style="color:#ef4444;font-weight:900;margin-left:8px;">'
-                    '🔒 gesloten'
-                    '</span>'
-                )
-
             html = (
                 '<div class="match-row">'
                 f'<div class="match-date">{date}<br>{time}{lock_text}</div>'
@@ -150,17 +170,17 @@ def render_match_card(match, disabled):
                 '<div class="team-left">'
                 f'<span>{flag1}</span>'
                 f'<span class="team-name">{team1}</span>'
-                '</div>'
+                "</div>"
                 f'<div class="match-score">{middle}</div>'
                 '<div class="team-right">'
                 f'<span>{flag2}</span>'
                 f'<span class="team-name">{team2}</span>'
-                '</div>'
-                '</div>'
-                '</div>'
+                "</div>"
+                "</div>"
+                "</div>"
             )
 
             st.markdown(html, unsafe_allow_html=True)
 
         with col_buttons:
-            render_prediction_buttons(match_id, selected, button_disabled)
+            render_prediction_buttons(match, match_id, selected, disabled)
