@@ -69,7 +69,7 @@ def format_standings_table(group_standings):
             "team": "Team",
             "played": "G",
             "wins": "W",
-            "draws": "Gelijk",
+            "draws": "X",
             "losses": "V",
             "goals_for": "DV",
             "goals_against": "DT",
@@ -90,12 +90,7 @@ def show_single_standings(title, group_standings):
 
     table = format_standings_table(group_standings)
 
-    st.dataframe(
-        table,
-        use_container_width=True,
-        hide_index=True,
-    )
-
+    st.table(table)
 
 def show_group_standings(selected_phase, official_standings_df, matches_df=None):
     if selected_phase["type"] != "groep":
