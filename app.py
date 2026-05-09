@@ -1,11 +1,12 @@
 import streamlit as st
 
 from modules.styles import inject_css
-from modules.database import ensure_sheets_exist, load_all_data
+from modules.database import ensure_sheets_exist, load_all_data, load_sheet
 from modules.auth import show_sidebar
 from modules.predictions import show_group_phase
 from modules.views import show_my_predictions, show_scoreboard, show_rules
 from modules.admin import show_admin_results
+from modules.wedstrijden import show_wedstrijden
 
 
 st.set_page_config(
@@ -19,6 +20,11 @@ inject_css()
 try:
     ensure_sheets_exist()
     data = load_all_data()
+
+    try:
+        wedstrijden_df = load_sheet("Wedstrijden")
+    except Exception:
+        wedstrijden_df = None
 
 except Exception as e:
     st.error("Fout bij laden van Google Sheets.")
@@ -45,6 +51,7 @@ is_admin = str(user.get("admin", "")).upper() == "TRUE"
 
 menu_items = [
     "Groepsfase",
+    "Wedstrijden",
     "Mijn voorspellingen",
     "Scorebord",
     "Reglement",
@@ -61,6 +68,13 @@ if menu == "Groepsfase":
         matches_df,
         predictions_df,
         standings_df,
+    )
+
+elif menu == "Wedstrijden":
+    show_wedstrijden(
+        user,
+        wedstrijden_df,
+        predictions_df,
     )
 
 elif menu == "Mijn voorspellingen":
