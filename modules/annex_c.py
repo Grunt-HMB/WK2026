@@ -10,7 +10,6 @@ FIFA_REGULATIONS_PDF_URL = (
 
 ANNEX_C_COLUMNS = ["1A", "1B", "1D", "1E", "1G", "1I", "1K", "1L"]
 
-
 _cached_mapping = None
 
 
@@ -25,12 +24,10 @@ def get_annex_c_mapping():
 
     doc = fitz.open(stream=response.content, filetype="pdf")
 
-    text_parts = []
-
-    for page_index in range(len(doc)):
-        text_parts.append(doc[page_index].get_text("text"))
-
-    text = "\n".join(text_parts)
+    text = "\n".join(
+        doc[page_index].get_text("text")
+        for page_index in range(len(doc))
+    )
 
     mapping = parse_annex_c_text(text)
 
@@ -69,7 +66,6 @@ def parse_annex_c_text(text):
             continue
 
         values = list(match.groups()[1:])
-
         qualified_groups = "".join(sorted([v[-1] for v in values]))
 
         mapping[qualified_groups] = {
