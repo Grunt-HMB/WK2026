@@ -241,8 +241,8 @@ def render_match_card(match, disabled):
     score2 = current.get("score2", "")
 
     with st.container(border=True):
-        col_date, col_time, col_info, col_1, col_x, col_2, col_score = st.columns(
-            [0.9, 0.7, 5.2, 0.55, 0.55, 0.55, 1.15],
+        col_date, col_time, col_info, col_buttons = st.columns(
+            [1.0, 0.8, 5.8, 2.8],
             gap="small",
         )
 
@@ -289,48 +289,51 @@ def render_match_card(match, disabled):
                 unsafe_allow_html=True,
             )
 
-        with col_1:
-            if st.button(
-                prediction_label("1", selected),
-                key=f"btn_1_{match_id}",
-                use_container_width=True,
-                disabled=disabled,
-            ):
-                set_prediction(match_id, "1")
-                st.rerun()
+        with col_buttons:
+            b1, bx, b2, bs = st.columns([1, 1, 1, 2], gap="small")
 
-        with col_x:
-            if st.button(
-                prediction_label("X", selected),
-                key=f"btn_x_{match_id}",
-                use_container_width=True,
-                disabled=disabled,
-            ):
-                set_prediction(match_id, "X")
-                st.rerun()
+            with b1:
+                if st.button(
+                    prediction_label("1", selected),
+                    key=f"btn_1_{match_id}",
+                    width="content",
+                    disabled=disabled,
+                ):
+                    set_prediction(match_id, "1")
+                    st.rerun()
 
-        with col_2:
-            if st.button(
-                prediction_label("2", selected),
-                key=f"btn_2_{match_id}",
-                use_container_width=True,
-                disabled=disabled,
-            ):
-                set_prediction(match_id, "2")
-                st.rerun()
+            with bx:
+                if st.button(
+                    prediction_label("X", selected),
+                    key=f"btn_x_{match_id}",
+                    width="content",
+                    disabled=disabled,
+                ):
+                    set_prediction(match_id, "X")
+                    st.rerun()
 
-        with col_score:
-            if st.button(
-                "Uitslag",
-                key=f"score_button_{match_id}",
-                use_container_width=True,
-                disabled=disabled,
-            ):
-                st.session_state[f"show_score_{match_id}"] = not st.session_state.get(
-                    f"show_score_{match_id}",
-                    False,
-                )
-                st.rerun()
+            with b2:
+                if st.button(
+                    prediction_label("2", selected),
+                    key=f"btn_2_{match_id}",
+                    width="content",
+                    disabled=disabled,
+                ):
+                    set_prediction(match_id, "2")
+                    st.rerun()
+
+            with bs:
+                if st.button(
+                    "Uitslag",
+                    key=f"score_button_{match_id}",
+                    width="content",
+                    disabled=disabled,
+                ):
+                    st.session_state[f"show_score_{match_id}"] = not st.session_state.get(
+                        f"show_score_{match_id}",
+                        False,
+                    )
+                    st.rerun()
 
         if st.session_state.get(f"show_score_{match_id}", False):
             show_score_dialog(match, match_id)
@@ -363,7 +366,13 @@ def get_phase_buttons(matches_df):
     ]
 
     if "ronde" in matches_df.columns:
-        ronde_values = set(matches_df["ronde"].dropna().astype(str).str.strip().tolist())
+        ronde_values = set(
+            matches_df["ronde"]
+            .dropna()
+            .astype(str)
+            .str.strip()
+            .tolist()
+        )
 
         for ronde_value, label in ronde_order:
             if ronde_value in ronde_values:
@@ -391,7 +400,7 @@ def show_phase_buttons(phases):
 
     st.markdown("### Kies groep / eindfase")
 
-    cols_per_row = 8
+    cols_per_row = 6
 
     for start in range(0, len(phases), cols_per_row):
         row = phases[start:start + cols_per_row]
@@ -405,7 +414,7 @@ def show_phase_buttons(phases):
                 if st.button(
                     label,
                     key=f"phase_button_{phase['key']}",
-                    use_container_width=True,
+                    width="content",
                 ):
                     st.session_state["selected_phase_key"] = phase["key"]
                     st.rerun()
@@ -429,6 +438,61 @@ def filter_matches_by_phase(matches_df, phase):
     return matches_df.copy()
 
 
+def show_group_standings(selected_phase, standings_df):
+    if selected_phase["type"] != "groep":
+        return
+
+    if standings_df is None or standings_df.empty:
+        return
+
+    group = str(selected_phase["value"])
+
+    group_standings = standings_df[
+        standings_df["groep"].astype(str) == group
+    ].copy()
+
+    if group_standings.empty:
+        return
+
+    st.markdown(f"### 📊 Stand Groep {group}")
+
+    cols = [
+        "position",
+        "team",
+        "played",
+        "wins",
+        "draws",
+        "losses",
+        "goals_for",
+        "goals_against",
+        "goal_diff",
+        "points",
+    ]
+
+    table = group_standings[cols].copy()
+
+    table = table.rename(
+        columns={
+            "position": "#",
+            "team": "Team",
+            "played": "G",
+            "wins": "W",
+            "draws": "Gelijk",
+            "losses": "V",
+            "goals_for": "DV",
+            "goals_against": "DT",
+            "goal_diff": "DS",
+            "points": "Ptn",
+        }
+    )
+
+    st.dataframe(
+        table,
+        use_container_width=True,
+        hide_index=True,
+    )
+
+
 def show_group_phase(user, matches_df, predictions_df, standings_df=None):
     user_id = str(user["user_id"])
 
@@ -449,7 +513,7 @@ def show_group_phase(user, matches_df, predictions_df, standings_df=None):
         st.warning("Geen groepen of rondes gevonden in tabblad Matches.")
         return
 
-    st.markdown("## 👥 Groepsfase")
+    st.markdown("## 👥 Groepsfase / Eindfase")
     st.caption("Maak je voorspellingen per poule of eindfase.")
 
     if locked:
@@ -461,35 +525,9 @@ def show_group_phase(user, matches_df, predictions_df, standings_df=None):
 
     selected_phase = show_phase_buttons(phases)
     selected_matches = filter_matches_by_phase(matches_df, selected_phase)
-    if selected_phase["type"] == "groep" and standings_df is not None and not standings_df.empty:
-        group = str(selected_phase["value"])
-    
-        group_standings = standings_df[
-            standings_df["groep"].astype(str) == group
-        ].copy()
-    
-        if not group_standings.empty:
-            st.markdown("### 📊 Stand")
-    
-            st.dataframe(
-                group_standings[
-                    [
-                        "position",
-                        "team",
-                        "played",
-                        "wins",
-                        "draws",
-                        "losses",
-                        "goals_for",
-                        "goals_against",
-                        "goal_diff",
-                        "points",
-                    ]
-                ],
-                use_container_width=True,
-                hide_index=True,
-            )
-        
+
+    show_group_standings(selected_phase, standings_df)
+
     selected_matches = selected_matches.copy()
     selected_matches["match_id_sort"] = (
         selected_matches["match_id"]
@@ -506,8 +544,11 @@ def show_group_phase(user, matches_df, predictions_df, standings_df=None):
 
     st.subheader(selected_phase["key"])
 
-    for _, match in selected_matches.iterrows():
-        render_match_card(match, disabled)
+    if selected_matches.empty:
+        st.warning("Geen wedstrijden gevonden voor deze groep of eindfase.")
+    else:
+        for _, match in selected_matches.iterrows():
+            render_match_card(match, disabled)
 
     st.markdown("---")
 
