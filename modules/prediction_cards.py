@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta
+
 import streamlit as st
 
 from modules.prediction_state import set_prediction
@@ -14,6 +16,45 @@ def flag_img(code):
         f'style="width:30px;height:22px;object-fit:cover;border-radius:4px;'
         f'box-shadow:0 1px 3px rgba(0,0,0,0.25);vertical-align:middle;">'
     )
+
+
+def parse_match_datetime(date_value, time_value):
+    date_text = str(date_value or "").strip()
+    time_text = str(time_value or "").strip()
+
+    if not date_text or not time_text:
+        return None
+
+    raw = f"{date_text} {time_text}"
+
+    formats = [
+        "%d-%m-%y %H:%M",
+        "%d-%m-%Y %H:%M",
+        "%d/%m/%y %H:%M",
+        "%d/%m/%Y %H:%M",
+    ]
+
+    for fmt in formats:
+        try:
+            return datetime.strptime(raw, fmt)
+        except Exception:
+            pass
+
+    return None
+
+
+def match_is_locked(match):
+    match_dt = parse_match_datetime(
+        match.get("datum", ""),
+        match.get("tijd", ""),
+    )
+
+    if match_dt is None:
+        return False
+
+    lock_dt = match_dt - timedelta(hours=1)
+
+    return datetime.now() >= lock_dt
 
 
 def prediction_label(choice, selected):
@@ -86,13 +127,25 @@ def render_match_card(match, disabled):
     else:
         middle = "-"
 
+    locked = match_is_locked(match)
+    button_disabled = disabled or locked
+
     with st.container(border=True):
         col_info, col_buttons = st.columns([7.2, 2.0], gap="small")
 
         with col_info:
+            lock_text = ""
+
+            if locked:
+                lock_text = (
+                    '<span style="color:#ef4444;font-weight:900;margin-left:8px;">'
+                    '🔒 gesloten'
+                    '</span>'
+                )
+
             html = (
                 '<div class="match-row">'
-                f'<div class="match-date">{date}<br>{time}</div>'
+                f'<div class="match-date">{date}<br>{time}{lock_text}</div>'
                 '<div class="match-teams">'
                 '<div class="team-left">'
                 f'<span>{flag1}</span>'
@@ -110,4 +163,4 @@ def render_match_card(match, disabled):
             st.markdown(html, unsafe_allow_html=True)
 
         with col_buttons:
-            render_prediction_buttons(match_id, selected, disabled)
+            render_prediction_buttons(match_id, selected, button_disabled)
