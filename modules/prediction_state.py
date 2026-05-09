@@ -21,13 +21,13 @@ def load_existing_predictions(user_id, predictions_df):
     ]
 
     for _, row in user_preds.iterrows():
-        match_id = str(row.get("match_id", ""))
+        match_id = str(row.get("match_id", "")).strip()
 
         if match_id:
             st.session_state["local_predictions"][match_id] = {
-                "prediction": str(row.get("prediction", "")),
-                "score1": row.get("score1", ""),
-                "score2": row.get("score2", ""),
+                "prediction": str(row.get("prediction", "")).upper().strip(),
+                "score1": "",
+                "score2": "",
             }
 
     st.session_state[loaded_key] = True
@@ -51,12 +51,11 @@ def set_prediction(match_id, choice):
     if "local_predictions" not in st.session_state:
         st.session_state["local_predictions"] = {}
 
-    current = st.session_state["local_predictions"].get(str(match_id), {})
-    current["prediction"] = choice
-    current.setdefault("score1", "")
-    current.setdefault("score2", "")
-
-    st.session_state["local_predictions"][str(match_id)] = current
+    st.session_state["local_predictions"][str(match_id)] = {
+        "prediction": str(choice).upper().strip(),
+        "score1": "",
+        "score2": "",
+    }
 
 
 def set_score(match_id, score1, score2):
@@ -64,6 +63,6 @@ def set_score(match_id, score1, score2):
 
     st.session_state["local_predictions"][str(match_id)] = {
         "prediction": prediction,
-        "score1": score1,
-        "score2": score2,
+        "score1": "",
+        "score2": "",
     }
