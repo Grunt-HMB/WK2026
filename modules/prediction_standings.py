@@ -67,7 +67,7 @@ def format_standings_table(group_standings):
         columns={
             "position": "#",
             "team": "Team",
-            "played": "G",
+            "played": "M",
             "wins": "W",
             "draws": "X",
             "losses": "V",
