@@ -8,23 +8,22 @@ def get_phase_buttons(matches_df):
     phases = []
 
     if "groep" in matches_df.columns:
-        raw_groups = [
-            str(g).strip()
-            for g in matches_df["groep"].dropna().unique()
-        ]
+        raw_groups = set(
+            matches_df["groep"]
+            .dropna()
+            .astype(str)
+            .str.strip()
+            .tolist()
+        )
 
-        group_values = [
-            g for g in GROUP_ORDER
-            if g in raw_groups
-        ]
-
-        for group in group_values:
-            phases.append({
-                "key": f"Groep {group}",
-                "label": group,
-                "type": "groep",
-                "value": group,
-            })
+        for group in GROUP_ORDER:
+            if group in raw_groups:
+                phases.append({
+                    "key": f"Groep {group}",
+                    "label": group,
+                    "type": "groep",
+                    "value": group,
+                })
 
     ronde_order = [
         ("1/16", "1/16"),
@@ -56,6 +55,21 @@ def get_phase_buttons(matches_df):
     return phases
 
 
+def request_phase_change(phase_key):
+    current_key = st.session_state.get("selected_phase_key", "")
+
+    if phase_key == current_key:
+        return
+
+    if st.session_state.get("unsaved_changes", False):
+        st.session_state["pending_phase_key"] = phase_key
+    else:
+        st.session_state["selected_phase_key"] = phase_key
+        st.session_state["pending_phase_key"] = ""
+
+    st.rerun()
+
+
 def show_phase_row(row):
     cols = st.columns(len(row), gap="small")
 
@@ -69,8 +83,7 @@ def show_phase_row(row):
                 key=f"phase_button_{phase['key']}",
                 use_container_width=True,
             ):
-                st.session_state["selected_phase_key"] = phase["key"]
-                st.rerun()
+                request_phase_change(phase["key"])
 
 
 def show_phase_buttons(phases):
@@ -85,12 +98,12 @@ def show_phase_buttons(phases):
     if st.session_state["selected_phase_key"] not in valid_keys:
         st.session_state["selected_phase_key"] = valid_keys[0]
 
+    if "pending_phase_key" not in st.session_state:
+        st.session_state["pending_phase_key"] = ""
+
     st.markdown("### Kies groep / eindfase")
 
-    # Rij 1: groepen A t/m I
     row1 = phases[:9]
-
-    # Rij 2: groepen J/K/L + eindfases
     row2 = phases[9:]
 
     if row1:
@@ -109,6 +122,9 @@ def show_phase_buttons(phases):
 
 
 def filter_matches_by_phase(matches_df, phase):
+    if phase is None:
+        return matches_df.copy()
+
     if phase["type"] == "groep":
         return matches_df[
             matches_df["groep"].astype(str).str.strip() == str(phase["value"])
