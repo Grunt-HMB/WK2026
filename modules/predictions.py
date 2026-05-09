@@ -4,7 +4,7 @@ from modules.database import batch_upsert_predictions
 from modules.settings import TOURNAMENT_START
 from modules.utils import tournament_locked
 
-from modules.prediction_cards import render_match_card
+from modules.prediction_cards import match_is_locked, render_match_card
 from modules.prediction_phases import (
     filter_matches_by_phase,
     get_phase_buttons,
@@ -28,19 +28,42 @@ def find_phase_by_key(phases, phase_key):
     return None
 
 
-def save_current_predictions(user_id, status):
+def get_open_predictions_only(matches_df):
+    open_match_ids = set()
+
+    for _, match in matches_df.iterrows():
+        match_id = str(match.get("match_id", "")).strip()
+
+        if not match_id:
+            continue
+
+        if not match_is_locked(match):
+            open_match_ids.add(match_id)
+
+    local_predictions = st.session_state.get("local_predictions", {})
+
+    return {
+        match_id: data
+        for match_id, data in local_predictions.items()
+        if str(match_id).strip() in open_match_ids
+    }
+
+
+def save_current_predictions(user_id, status, matches_df):
+    open_predictions = get_open_predictions_only(matches_df)
+
     count = batch_upsert_predictions(
         user_id,
-        st.session_state.get("local_predictions", {}),
+        open_predictions,
         status,
     )
 
     mark_predictions_saved()
 
-    return count
+    return count, len(st.session_state.get("local_predictions", {})) - len(open_predictions)
 
 
-def show_pending_phase_change_prompt(user_id, phases):
+def show_pending_phase_change_prompt(user_id, phases, matches_df):
     pending_key = st.session_state.get("pending_phase_key", "")
 
     if not pending_key:
@@ -60,9 +83,15 @@ def show_pending_phase_change_prompt(user_id, phases):
 
     with c1:
         if st.button("✅ Ja, opslaan", use_container_width=True):
-            save_current_predictions(user_id, "Voorlopig")
+            count, skipped = save_current_predictions(user_id, "Voorlopig", matches_df)
             st.session_state["selected_phase_key"] = pending_key
             st.session_state["pending_phase_key"] = ""
+
+            if skipped > 0:
+                st.warning(f"{count} keuzes opgeslagen. {skipped} gesloten wedstrijd(en) niet opgeslagen.")
+            else:
+                st.success(f"{count} keuzes opgeslagen.")
+
             st.rerun()
 
     with c2:
@@ -82,11 +111,7 @@ def show_group_phase(user, matches_df, predictions_df, standings_df=None):
 
     load_existing_predictions(user_id, predictions_df)
 
-    locked = tournament_locked()
     final = user_is_final(user_id, predictions_df)
-
-    # Algemene tournament lock laten we hier niet meer de matchen blokkeren.
-    # Elke match wordt apart geblokkeerd 1 uur voor aftrap in prediction_cards.py.
     disabled = False
 
     if matches_df.empty:
@@ -107,7 +132,7 @@ def show_group_phase(user, matches_df, predictions_df, standings_df=None):
     else:
         st.info("🟢 Wedstrijden sluiten automatisch 1 uur voor aftrap.")
 
-    if locked:
+    if tournament_locked():
         st.caption(
             f"Algemene tornooidatum: {TOURNAMENT_START.strftime('%d/%m/%Y %H:%M')}. "
             "Vanaf nu geldt enkel nog de sluiting per wedstrijd."
@@ -118,7 +143,7 @@ def show_group_phase(user, matches_df, predictions_df, standings_df=None):
 
     selected_phase = show_phase_buttons(phases)
 
-    prompt_active = show_pending_phase_change_prompt(user_id, phases)
+    prompt_active = show_pending_phase_change_prompt(user_id, phases, matches_df)
 
     selected_matches = filter_matches_by_phase(matches_df, selected_phase)
 
@@ -161,9 +186,13 @@ def show_group_phase(user, matches_df, predictions_df, standings_df=None):
             "💾 Voorlopig opslaan",
             use_container_width=True,
         ):
-            count = save_current_predictions(user_id, "Voorlopig")
+            count, skipped = save_current_predictions(user_id, "Voorlopig", matches_df)
 
-            st.success(f"{count} keuzes opgeslagen als Voorlopig.")
+            if skipped > 0:
+                st.warning(f"{count} keuzes opgeslagen. {skipped} gesloten wedstrijd(en) niet opgeslagen.")
+            else:
+                st.success(f"{count} keuzes opgeslagen als Voorlopig.")
+
             st.rerun()
 
     with b2:
@@ -171,7 +200,11 @@ def show_group_phase(user, matches_df, predictions_df, standings_df=None):
             "✅ Definitief indienen",
             use_container_width=True,
         ):
-            count = save_current_predictions(user_id, "FINAL")
+            count, skipped = save_current_predictions(user_id, "FINAL", matches_df)
 
-            st.success(f"{count} keuzes definitief ingediend.")
+            if skipped > 0:
+                st.warning(f"{count} keuzes definitief ingediend. {skipped} gesloten wedstrijd(en) niet opgeslagen.")
+            else:
+                st.success(f"{count} keuzes definitief ingediend.")
+
             st.rerun()
