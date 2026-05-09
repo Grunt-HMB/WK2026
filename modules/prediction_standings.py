@@ -7,13 +7,13 @@ def prediction_to_score(prediction):
     prediction = str(prediction or "").upper().strip()
 
     if prediction == "1":
-        return 1, 0
+        return "1", "0"
 
     if prediction == "X":
-        return 0, 0
+        return "0", "0"
 
     if prediction == "2":
-        return 0, 1
+        return "0", "1"
 
     return "", ""
 
@@ -24,16 +24,12 @@ def build_prediction_standings(matches_df):
 
     predicted_matches = matches_df.copy()
 
-    if "score1" not in predicted_matches.columns:
-        predicted_matches["score1"] = ""
+    for col in ["score1", "score2"]:
+        if col not in predicted_matches.columns:
+            predicted_matches[col] = ""
 
-    if "score2" not in predicted_matches.columns:
-        predicted_matches["score2"] = ""
-
-    # Belangrijk:
-    # Voor de voorspelde stand negeren we de officiële uitslagen.
-    predicted_matches["score1"] = ""
-    predicted_matches["score2"] = ""
+        predicted_matches[col] = predicted_matches[col].astype("object")
+        predicted_matches[col] = ""
 
     local_predictions = st.session_state.get("local_predictions", {})
 
@@ -50,12 +46,13 @@ def build_prediction_standings(matches_df):
         prediction = str(pred_data.get("prediction", "")).upper().strip()
 
         if saved_score1 != "" and saved_score2 != "":
-            predicted_matches.at[idx, "score1"] = saved_score1
-            predicted_matches.at[idx, "score2"] = saved_score2
+            score1 = saved_score1
+            score2 = saved_score2
         else:
             score1, score2 = prediction_to_score(prediction)
-            predicted_matches.at[idx, "score1"] = score1
-            predicted_matches.at[idx, "score2"] = score2
+
+        predicted_matches.at[idx, "score1"] = str(score1)
+        predicted_matches.at[idx, "score2"] = str(score2)
 
     return calculate_group_standings(predicted_matches)
 
