@@ -17,13 +17,55 @@ st.set_page_config(
 
 inject_css()
 
+
+def normalize_columns(df):
+    if df is None:
+        return None
+
+    df = df.copy()
+    df.columns = (
+        df.columns
+        .astype(str)
+        .str.strip()
+        .str.lower()
+    )
+    return df
+
+
 try:
     ensure_sheets_exist()
     data = load_all_data()
 
+    users_df = normalize_columns(data["users"])
+    matches_df = normalize_columns(data["matches"])
+    predictions_df = normalize_columns(data["predictions"])
+    results_df = normalize_columns(data["results"])
+
+    standings_df = data.get("standings")
+    standings_df = normalize_columns(standings_df) if standings_df is not None else None
+
     try:
         wedstrijden_df = load_sheet("Wedstrijden")
-    except Exception:
+        wedstrijden_df = normalize_columns(wedstrijden_df)
+
+        required_cols = ["datum", "tijd", "match_id_sort"]
+
+        missing_cols = [
+            col for col in required_cols
+            if col not in wedstrijden_df.columns
+        ]
+
+        if missing_cols:
+            st.error(
+                "Het tabblad 'Wedstrijden' mist deze kolommen: "
+                + ", ".join(missing_cols)
+            )
+            st.write("Gevonden kolommen:", wedstrijden_df.columns.tolist())
+            st.stop()
+
+    except Exception as e:
+        st.error("Fout bij laden van tabblad 'Wedstrijden'.")
+        st.exception(e)
         wedstrijden_df = None
 
 except Exception as e:
@@ -31,11 +73,6 @@ except Exception as e:
     st.exception(e)
     st.stop()
 
-users_df = data["users"]
-matches_df = data["matches"]
-predictions_df = data["predictions"]
-results_df = data["results"]
-standings_df = data.get("standings")
 
 user = show_sidebar(users_df)
 
@@ -46,6 +83,7 @@ if not user:
     )
     st.info("Log in of registreer via de zijbalk.")
     st.stop()
+
 
 is_admin = str(user.get("admin", "")).upper() == "TRUE"
 
@@ -62,6 +100,7 @@ if is_admin:
 
 menu = st.sidebar.radio("Menu", menu_items)
 
+
 if menu == "Groepsfase":
     show_group_phase(
         user,
@@ -71,11 +110,14 @@ if menu == "Groepsfase":
     )
 
 elif menu == "Wedstrijden":
-    show_wedstrijden(
-        user,
-        wedstrijden_df,
-        predictions_df,
-    )
+    if wedstrijden_df is None:
+        st.error("Het tabblad 'Wedstrijden' kon niet geladen worden.")
+    else:
+        show_wedstrijden(
+            user,
+            wedstrijden_df,
+            predictions_df,
+        )
 
 elif menu == "Mijn voorspellingen":
     show_my_predictions(
@@ -100,6 +142,7 @@ elif menu == "Admin - uitslagen":
         matches_df,
         results_df,
     )
+
 
 st.markdown(
     '<div class="footer-line">WK 2026 Pronostiek © 2026</div>',
