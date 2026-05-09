@@ -5,50 +5,93 @@ def inject_prediction_css():
     st.markdown(
         """
 <style>
-.phase-grid {
+div[data-testid="stVerticalBlockBorderWrapper"] {
+    padding-top: 0.55rem !important;
+    padding-bottom: 0.55rem !important;
+}
+
+.match-row {
+    display: grid;
+    grid-template-columns: 110px minmax(260px, 1fr) 210px;
+    align-items: center;
+    gap: 14px;
+    min-height: 48px;
+}
+
+.match-date {
+    font-size: 0.78rem;
+    font-weight: 800;
+    color: #7da2d6;
+    line-height: 1.25;
+}
+
+.match-teams {
+    display: grid;
+    grid-template-columns: minmax(110px, 1fr) 24px minmax(110px, 1fr);
+    align-items: center;
+    gap: 8px;
+    font-size: 1rem;
+    font-weight: 900;
+}
+
+.team-left,
+.team-right {
     display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-bottom: 1rem;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
 }
 
-.phase-grid div[data-testid="stButton"] {
-    width: auto !important;
+.team-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.phase-grid button {
-    width: auto !important;
-    min-width: 42px !important;
-    padding: 0.35rem 0.55rem !important;
-    white-space: nowrap !important;
+.match-score {
+    color: #7da2d6;
+    font-weight: 900;
+    text-align: center;
+}
+
+.match-actions {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
 }
 
 .match-actions div[data-testid="stButton"] button {
-    min-width: 42px !important;
-    height: 38px !important;
-    padding: 0.35rem 0.45rem !important;
-    white-space: nowrap !important;
-}
-
-.match-actions .score-button div[data-testid="stButton"] button {
-    min-width: 72px !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    padding: 0.25rem 0.5rem !important;
+    font-weight: 900 !important;
 }
 
 @media (max-width: 700px) {
-    .phase-grid {
-        display: grid;
-        grid-template-columns: repeat(9, minmax(34px, auto));
-        gap: 5px;
+    .match-row {
+        grid-template-columns: 1fr;
+        gap: 8px;
+        min-height: 0;
     }
 
-    .phase-grid button {
-        min-width: 34px !important;
-        padding: 0.3rem 0.45rem !important;
-        font-size: 0.78rem !important;
+    .match-date {
+        font-size: 0.72rem;
+    }
+
+    .match-teams {
+        grid-template-columns: 1fr 18px 1fr;
+        font-size: 0.88rem;
     }
 
     .match-actions {
-        margin-top: 8px;
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    .match-actions div[data-testid="stButton"] button {
+        height: 34px !important;
+        min-height: 34px !important;
+        padding: 0.2rem 0.35rem !important;
+        font-size: 0.85rem !important;
     }
 }
 </style>
