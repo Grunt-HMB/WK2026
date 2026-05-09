@@ -461,34 +461,34 @@ def show_group_phase(user, matches_df, predictions_df, standings_df=None):
 
     selected_phase = show_phase_buttons(phases)
     selected_matches = filter_matches_by_phase(matches_df, selected_phase)
-if selected_phase["type"] == "groep" and standings_df is not None and not standings_df.empty:
-    group = str(selected_phase["value"])
-
-    group_standings = standings_df[
-        standings_df["groep"].astype(str) == group
-    ].copy()
-
-    if not group_standings.empty:
-        st.markdown("### 📊 Stand")
-
-        st.dataframe(
-            group_standings[
-                [
-                    "position",
-                    "team",
-                    "played",
-                    "wins",
-                    "draws",
-                    "losses",
-                    "goals_for",
-                    "goals_against",
-                    "goal_diff",
-                    "points",
-                ]
-            ],
-            use_container_width=True,
-            hide_index=True,
-        )
+    if selected_phase["type"] == "groep" and standings_df is not None and not standings_df.empty:
+        group = str(selected_phase["value"])
+    
+        group_standings = standings_df[
+            standings_df["groep"].astype(str) == group
+        ].copy()
+    
+        if not group_standings.empty:
+            st.markdown("### 📊 Stand")
+    
+            st.dataframe(
+                group_standings[
+                    [
+                        "position",
+                        "team",
+                        "played",
+                        "wins",
+                        "draws",
+                        "losses",
+                        "goals_for",
+                        "goals_against",
+                        "goal_diff",
+                        "points",
+                    ]
+                ],
+                use_container_width=True,
+                hide_index=True,
+            )
         
     selected_matches = selected_matches.copy()
     selected_matches["match_id_sort"] = (
