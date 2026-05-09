@@ -1,5 +1,7 @@
 import pandas as pd
 
+from modules.annex_c import get_annex_c_mapping
+
 
 GROUPS = list("ABCDEFGHIJKL")
 
@@ -60,6 +62,7 @@ def safe_int(value, default=0):
     try:
         if pd.isna(value) or value == "":
             return default
+
         return int(value)
     except Exception:
         return default
@@ -69,16 +72,38 @@ def clean_team(value):
     return str(value or "").strip()
 
 
-def is_played(row):
-    return str(row.get("score1", "")).strip() != "" and str(row.get("score2", "")).strip() != ""
-
-
 def clean_match_id(value):
     value = str(value or "").strip().upper()
     value = value.replace("MATCH", "")
     value = value.replace("M", "")
     value = value.replace("#", "")
     return value.strip()
+
+
+def is_played(row):
+    return (
+        str(row.get("score1", "")).strip() != ""
+        and str(row.get("score2", "")).strip() != ""
+    )
+
+
+def group_is_complete(matches_df, group):
+    group_matches = matches_df[
+        matches_df["groep"].astype(str).str.upper() == str(group).upper()
+    ].copy()
+
+    if group_matches.empty:
+        return False
+
+    return group_matches.apply(is_played, axis=1).all()
+
+
+def all_groups_complete(matches_df):
+    for group in GROUPS:
+        if not group_is_complete(matches_df, group):
+            return False
+
+    return True
 
 
 def get_match_winner(row):
@@ -100,6 +125,7 @@ def get_match_winner(row):
 
 def get_match_loser(row):
     winner = get_match_winner(row)
+
     team1 = clean_team(row.get("team1", ""))
     team2 = clean_team(row.get("team2", ""))
 
@@ -125,7 +151,7 @@ def calculate_base_group_table(matches_df, fifa_ranking_df=None):
         teams.add(clean_team(row.get("team1", "")))
         teams.add(clean_team(row.get("team2", "")))
 
-    teams = sorted([t for t in teams if t])
+    teams = sorted([team for team in teams if team])
 
     for team in teams:
         team_matches = group_matches[
@@ -202,12 +228,14 @@ def calculate_base_group_table(matches_df, fifa_ranking_df=None):
         )
 
         if "fifa_rank_ranking" in table.columns:
-            table["fifa_rank"] = table["fifa_rank_ranking"].fillna(table["fifa_rank"])
+            table["fifa_rank"] = table["fifa_rank_ranking"].fillna(
+                table["fifa_rank"]
+            )
 
         if "previous_fifa_rank_ranking" in table.columns:
-            table["previous_fifa_rank"] = table["previous_fifa_rank_ranking"].fillna(
-                table["previous_fifa_rank"]
-            )
+            table["previous_fifa_rank"] = table[
+                "previous_fifa_rank_ranking"
+            ].fillna(table["previous_fifa_rank"])
 
         table = table.drop(
             columns=[
@@ -390,6 +418,41 @@ def calculate_best_thirds(standings_df):
     return thirds
 
 
+def get_official_annex_c_assignment(best_thirds_df):
+    if best_thirds_df.empty:
+        return {}
+
+    qualified = best_thirds_df[
+        best_thirds_df["qualified_third"] == True
+    ].copy()
+
+    if len(qualified) != 8:
+        return {}
+
+    qualified_groups = "".join(
+        sorted(qualified["groep"].astype(str).str.upper().tolist())
+    )
+
+    annex_c = get_annex_c_mapping()
+
+    return annex_c.get(qualified_groups, {})
+
+
+def get_third_team_by_group(best_thirds_df, group):
+    if best_thirds_df.empty:
+        return ""
+
+    row = best_thirds_df[
+        (best_thirds_df["qualified_third"] == True)
+        & (best_thirds_df["groep"].astype(str).str.upper() == str(group).upper())
+    ]
+
+    if row.empty:
+        return ""
+
+    return str(row.iloc[0]["team"])
+
+
 def resolve_third_place_team(best_thirds_df, allowed_groups):
     if best_thirds_df.empty:
         return ""
@@ -481,6 +544,14 @@ def apply_knockout_engine(matches_df, fifa_ranking_df=None):
 
     results_by_match = build_results_by_match(updated)
 
+    official_third_assignment = {}
+
+    if all_groups_complete(updated):
+        try:
+            official_third_assignment = get_official_annex_c_assignment(best_thirds_df)
+        except Exception:
+            official_third_assignment = {}
+
     all_knockout = {}
     all_knockout.update(ROUND_OF_32_MATCHES)
     all_knockout.update(ROUND_OF_16_MATCHES)
@@ -491,11 +562,33 @@ def apply_knockout_engine(matches_df, fifa_ranking_df=None):
     for match_id, slots in all_knockout.items():
         team1_slot, team2_slot = slots
 
-        team1 = resolve_slot(team1_slot, standings_df, best_thirds_df, results_by_match)
-        team2 = resolve_slot(team2_slot, standings_df, best_thirds_df, results_by_match)
+        team1 = resolve_slot(
+            team1_slot,
+            standings_df,
+            best_thirds_df,
+            results_by_match,
+        )
+
+        original_team1_slot, normalized_team1_slot = normalize_slot(team1_slot)
+        original_team2_slot, normalized_team2_slot = normalize_slot(team2_slot)
+
+        if (
+            official_third_assignment
+            and normalized_team2_slot.startswith("3")
+            and normalized_team1_slot in official_third_assignment
+        ):
+            third_code = official_third_assignment.get(normalized_team1_slot, "")
+            third_group = third_code.replace("3", "")
+            team2 = get_third_team_by_group(best_thirds_df, third_group)
+        else:
+            team2 = resolve_slot(
+                team2_slot,
+                standings_df,
+                best_thirds_df,
+                results_by_match,
+            )
 
         clean_id = clean_match_id(match_id)
-
         mask = updated["match_id"].astype(str).map(clean_match_id).eq(clean_id)
 
         if mask.any():
