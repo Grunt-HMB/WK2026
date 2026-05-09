@@ -49,48 +49,14 @@ def get_worksheet(name):
 def load_sheet(name):
     ws = get_worksheet(name)
 
-    values = ws.get_all_values()
+    expected_headers = REQUIRED_SHEETS.get(name, None)
 
-    if not values:
-        df = pd.DataFrame()
+    if expected_headers:
+        data = ws.get_all_records(expected_headers=expected_headers)
     else:
-        raw_headers = values[0]
-        rows = values[1:]
+        data = ws.get_all_records()
 
-        # Alleen kolommen gebruiken waarvan de header niet leeg is
-        valid_indexes = []
-        headers = []
-
-        for i, header in enumerate(raw_headers):
-            clean_header = str(header).strip()
-
-            if clean_header == "":
-                continue
-
-            # Extra beveiliging tegen dubbele headers
-            if clean_header in headers:
-                continue
-
-            valid_indexes.append(i)
-            headers.append(clean_header)
-
-        clean_rows = []
-
-        for row in rows:
-            clean_row = []
-            for i in valid_indexes:
-                clean_row.append(row[i] if i < len(row) else "")
-            clean_rows.append(clean_row)
-
-        df = pd.DataFrame(clean_rows, columns=headers)
-
-        # Volledig lege rijen verwijderen
-        if not df.empty:
-            df = df.loc[
-                ~df.astype(str)
-                .apply(lambda r: "".join(r).strip(), axis=1)
-                .eq("")
-            ]
+    df = pd.DataFrame(data)
 
     for col in REQUIRED_SHEETS.get(name, []):
         if col not in df.columns:
@@ -171,9 +137,6 @@ def load_all_data():
     results_df = load_sheet("Results")
 
     matches_df = ensure_match_columns(matches_df)
-
-    # Uitslagen uit tabblad Results in de Matches-data zetten
-    # zodat de standen en knock-out-engine ermee kunnen rekenen.
     matches_df = merge_results_into_matches(matches_df, results_df)
 
     try:
@@ -213,6 +176,7 @@ def get_next_user_id(users_df):
         return 1
 
     ids = []
+
     for value in users_df["user_id"].tolist():
         try:
             ids.append(int(value))
@@ -222,7 +186,19 @@ def get_next_user_id(users_df):
     return max(ids) + 1 if ids else 1
 
 
-def batch_upsert_predictions(user_id, local_predictions, status):
+def batch_upsert_predictions(user_id, local_predictions, status, allowed_match_ids=None):
+    if not local_predictions:
+        return 0
+
+    if allowed_match_ids is not None:
+        allowed_match_ids = set(str(x).strip() for x in allowed_match_ids)
+
+        local_predictions = {
+            str(match_id).strip(): data
+            for match_id, data in local_predictions.items()
+            if str(match_id).strip() in allowed_match_ids
+        }
+
     if not local_predictions:
         return 0
 
@@ -230,25 +206,32 @@ def batch_upsert_predictions(user_id, local_predictions, status):
     rows = ws.get_all_values()
 
     if not rows:
-        ws.append_row(REQUIRED_SHEETS["Predictions"], value_input_option="USER_ENTERED")
+        ws.append_row(
+            REQUIRED_SHEETS["Predictions"],
+            value_input_option="USER_ENTERED",
+        )
         rows = ws.get_all_values()
 
     existing_map = {}
 
     for row_index, row in enumerate(rows[1:], start=2):
         if len(row) >= 2:
-            existing_map[(str(row[0]), str(row[1]))] = row_index
+            existing_map[
+                (str(row[0]).strip(), str(row[1]).strip())
+            ] = row_index
 
     now = timestamp()
     updates = []
     appends = []
 
     for match_id, data in local_predictions.items():
-        prediction = data.get("prediction", "")
+        match_id = str(match_id).strip()
+
+        prediction = str(data.get("prediction", "")).upper().strip()
         score1 = data.get("score1", "")
         score2 = data.get("score2", "")
 
-        key = (str(user_id), str(match_id))
+        key = (str(user_id).strip(), match_id)
 
         if key in existing_map:
             row_index = existing_map[key]
@@ -282,13 +265,16 @@ def update_or_append_result(match_id, real_team1, real_team2):
     rows = ws.get_all_values()
 
     if not rows:
-        ws.append_row(REQUIRED_SHEETS["Results"], value_input_option="USER_ENTERED")
+        ws.append_row(
+            REQUIRED_SHEETS["Results"],
+            value_input_option="USER_ENTERED",
+        )
         rows = ws.get_all_values()
 
     now = timestamp()
 
     for index, row in enumerate(rows[1:], start=2):
-        if len(row) >= 1 and str(row[0]) == str(match_id):
+        if len(row) >= 1 and str(row[0]).strip() == str(match_id).strip():
             ws.update(f"B{index}:D{index}", [[real_team1, real_team2, now]])
             clear_data_cache()
             return
