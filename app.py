@@ -66,7 +66,7 @@ if is_admin:
 menu = st.sidebar.radio("Menu", menu_items)
 
 if menu == "Groepsfase":
-    show_group_phase(user, matches_df, predictions_df)
+    show_group_phase(user, matches_df, predictions_df, data["standings"])
 
 elif menu == "Mijn voorspellingen":
     show_my_predictions(user, matches_df, predictions_df)
