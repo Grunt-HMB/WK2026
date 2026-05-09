@@ -1,22 +1,30 @@
 import streamlit as st
 
 
+GROUP_ORDER = list("ABCDEFGHIJKL")
+
+
 def get_phase_buttons(matches_df):
     phases = []
 
-    group_values = sorted([
-        str(g)
-        for g in matches_df["groep"].dropna().unique()
-        if str(g).strip() not in ["", "-", "Knock-out"]
-    ])
+    if "groep" in matches_df.columns:
+        raw_groups = [
+            str(g).strip()
+            for g in matches_df["groep"].dropna().unique()
+        ]
 
-    for group in group_values:
-        phases.append({
-            "key": f"Groep {group}",
-            "label": group,
-            "type": "groep",
-            "value": group,
-        })
+        group_values = [
+            g for g in GROUP_ORDER
+            if g in raw_groups
+        ]
+
+        for group in group_values:
+            phases.append({
+                "key": f"Groep {group}",
+                "label": group,
+                "type": "groep",
+                "value": group,
+            })
 
     ronde_order = [
         ("1/16", "1/16"),
@@ -48,6 +56,23 @@ def get_phase_buttons(matches_df):
     return phases
 
 
+def show_phase_row(row):
+    cols = st.columns(len(row), gap="small")
+
+    for idx, phase in enumerate(row):
+        with cols[idx]:
+            is_active = st.session_state["selected_phase_key"] == phase["key"]
+            label = f"✅ {phase['label']}" if is_active else phase["label"]
+
+            if st.button(
+                label,
+                key=f"phase_button_{phase['key']}",
+                use_container_width=True,
+            ):
+                st.session_state["selected_phase_key"] = phase["key"]
+                st.rerun()
+
+
 def show_phase_buttons(phases):
     if not phases:
         return None
@@ -62,33 +87,17 @@ def show_phase_buttons(phases):
 
     st.markdown("### Kies groep / eindfase")
 
-    first_row = phases[:9]
-    second_row = phases[9:]
+    # Rij 1: groepen A t/m I
+    row1 = phases[:9]
 
-    st.markdown('<div class="phase-grid">', unsafe_allow_html=True)
+    # Rij 2: groepen J/K/L + eindfases
+    row2 = phases[9:]
 
-    for phase in first_row:
-        is_active = st.session_state["selected_phase_key"] == phase["key"]
-        label = f"✅ {phase['label']}" if is_active else phase["label"]
+    if row1:
+        show_phase_row(row1)
 
-        if st.button(label, key=f"phase_button_{phase['key']}"):
-            st.session_state["selected_phase_key"] = phase["key"]
-            st.rerun()
-
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    if second_row:
-        st.markdown('<div class="phase-grid">', unsafe_allow_html=True)
-
-        for phase in second_row:
-            is_active = st.session_state["selected_phase_key"] == phase["key"]
-            label = f"✅ {phase['label']}" if is_active else phase["label"]
-
-            if st.button(label, key=f"phase_button_{phase['key']}"):
-                st.session_state["selected_phase_key"] = phase["key"]
-                st.rerun()
-
-        st.markdown("</div>", unsafe_allow_html=True)
+    if row2:
+        show_phase_row(row2)
 
     selected_key = st.session_state["selected_phase_key"]
 
@@ -101,9 +110,13 @@ def show_phase_buttons(phases):
 
 def filter_matches_by_phase(matches_df, phase):
     if phase["type"] == "groep":
-        return matches_df[matches_df["groep"].astype(str) == str(phase["value"])].copy()
+        return matches_df[
+            matches_df["groep"].astype(str).str.strip() == str(phase["value"])
+        ].copy()
 
     if phase["type"] == "ronde":
-        return matches_df[matches_df["ronde"].astype(str) == str(phase["value"])].copy()
+        return matches_df[
+            matches_df["ronde"].astype(str).str.strip() == str(phase["value"])
+        ].copy()
 
     return matches_df.copy()
