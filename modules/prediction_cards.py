@@ -27,8 +27,6 @@ def prediction_label(choice, selected):
 
 
 def render_prediction_buttons(match_id, selected, disabled):
-    st.markdown('<div class="match-actions">', unsafe_allow_html=True)
-
     c1, cx, c2 = st.columns(3, gap="small")
 
     with c1:
@@ -61,8 +59,6 @@ def render_prediction_buttons(match_id, selected, disabled):
             set_prediction(match_id, "2")
             st.rerun()
 
-    st.markdown("</div>", unsafe_allow_html=True)
-
 
 def render_match_card(match, disabled):
     match_id = str(match["match_id"])
@@ -91,33 +87,27 @@ def render_match_card(match, disabled):
         middle = "-"
 
     with st.container(border=True):
-        left, right = st.columns([7, 2.1], gap="small")
+        col_info, col_buttons = st.columns([7.2, 2.0], gap="small")
 
-        with left:
-            st.markdown(
-                f"""
-<div class="match-row">
-    <div class="match-date">
-        {date}<br>{time}
-    </div>
-
-    <div class="match-teams">
-        <div class="team-left">
-            <span>{flag1}</span>
-            <span class="team-name">{team1}</span>
-        </div>
-
-        <div class="match-score">{middle}</div>
-
-        <div class="team-right">
-            <span>{flag2}</span>
-            <span class="team-name">{team2}</span>
-        </div>
-    </div>
-</div>
-""",
-                unsafe_allow_html=True,
+        with col_info:
+            html = (
+                '<div class="match-row">'
+                f'<div class="match-date">{date}<br>{time}</div>'
+                '<div class="match-teams">'
+                '<div class="team-left">'
+                f'<span>{flag1}</span>'
+                f'<span class="team-name">{team1}</span>'
+                '</div>'
+                f'<div class="match-score">{middle}</div>'
+                '<div class="team-right">'
+                f'<span>{flag2}</span>'
+                f'<span class="team-name">{team2}</span>'
+                '</div>'
+                '</div>'
+                '</div>'
             )
 
-        with right:
+            st.markdown(html, unsafe_allow_html=True)
+
+        with col_buttons:
             render_prediction_buttons(match_id, selected, disabled)
