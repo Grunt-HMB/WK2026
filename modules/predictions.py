@@ -50,6 +50,7 @@ def get_open_predictions_only(matches_df):
 
 def save_current_predictions(user_id, status, matches_df):
     open_predictions = get_open_predictions_only(matches_df)
+    total_predictions = len(st.session_state.get("local_predictions", {}))
 
     count = batch_upsert_predictions(
         user_id,
@@ -59,7 +60,7 @@ def save_current_predictions(user_id, status, matches_df):
 
     mark_predictions_saved()
 
-    skipped = len(st.session_state.get("local_predictions", {})) - len(open_predictions)
+    skipped = total_predictions - len(open_predictions)
 
     return count, skipped
 
@@ -119,7 +120,6 @@ def show_group_phase(user, matches_df, predictions_df, standings_df=None):
     load_existing_predictions(user_id, predictions_df)
 
     final = user_is_final(user_id, predictions_df)
-
     disabled = False
 
     if matches_df.empty:
