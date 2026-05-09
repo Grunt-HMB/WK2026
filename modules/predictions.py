@@ -50,7 +50,11 @@ def show_group_phase(user, matches_df, predictions_df, standings_df=None):
     selected_phase = show_phase_buttons(phases)
     selected_matches = filter_matches_by_phase(matches_df, selected_phase)
 
-    show_group_standings(selected_phase, standings_df)
+    show_group_standings(
+        selected_phase,
+        standings_df,
+        matches_df,
+    )
 
     selected_matches = selected_matches.copy()
     selected_matches["match_id_sort"] = (
