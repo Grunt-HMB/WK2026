@@ -12,13 +12,13 @@ def flag_img(code):
     return f"https://flagcdn.com/w40/{code}.png"
 
 
-def clean_match_id(value, idx):
+def is_valid_match_id(value):
     value = str(value or "").strip()
 
-    if value == "" or value == "-" or value == "0" or value.lower() == "nan":
-        return f"row_{idx}"
+    if value in ["", "-", "0", "nan", "None"]:
+        return False
 
-    return value
+    return value.isdigit()
 
 
 def get_existing_result(results_df, match_id):
@@ -26,7 +26,7 @@ def get_existing_result(results_df, match_id):
         return 0, 0
 
     found = results_df[
-        results_df["match_id"].astype(str).str.strip() == str(match_id)
+        results_df["match_id"].astype(str).str.strip() == str(match_id).strip()
     ]
 
     if found.empty:
@@ -59,73 +59,70 @@ def show_admin_results(matches_df, results_df):
     matches["match_id"] = matches["match_id"].astype(str).str.strip()
 
     matches = matches[
-        ~matches["match_id"].isin(["", "-", "0", "nan", "None"])
+        matches["match_id"].apply(is_valid_match_id)
     ].copy()
 
     if matches.empty:
-        st.warning("Geen geldige wedstrijden gevonden. Controleer of match_id ingevuld is in Google Sheets.")
+        st.warning("Geen geldige wedstrijden gevonden. Controleer match_id in Google Sheets.")
         return
 
-    matches["match_id_sort"] = (
-        matches["match_id"]
-        .astype(str)
-        .str.extract(r"(\d+)")
-        .fillna(0)
-        .astype(int)
-    )
-
+    matches["match_id_sort"] = matches["match_id"].astype(int)
     matches = matches.sort_values("match_id_sort").reset_index(drop=True)
 
-    filters = ["Alle"] + sorted(
-        [
-            str(x)
-            for x in matches["ronde"].dropna().unique().tolist()
-            if str(x).strip() != ""
-        ]
-    )
+    filters = ["Alle"]
+
+    ronde_values = [
+        str(x).strip()
+        for x in matches["ronde"].dropna().unique().tolist()
+        if str(x).strip() not in ["", "-", "nan", "None"]
+    ]
+
+    filters += sorted(ronde_values)
 
     selected_filter = st.selectbox("Filter", filters)
 
     if selected_filter != "Alle":
-        matches = matches[matches["ronde"].astype(str) == selected_filter].copy()
+        matches = matches[
+            matches["ronde"].astype(str).str.strip() == selected_filter
+        ].copy()
 
     st.caption("Vul achteraan de uitslag in en klik per wedstrijd op Opslaan.")
 
-    for idx, match in matches.reset_index(drop=True).iterrows():
-        raw_match_id = str(match.get("match_id", "")).strip()
-        match_id = clean_match_id(raw_match_id, idx)
+    for idx, match in matches.iterrows():
+        match_id = str(match.get("match_id", "")).strip()
 
         team1 = str(match.get("team1", ""))
         team2 = str(match.get("team2", ""))
 
-        real1, real2 = get_existing_result(results_df, raw_match_id)
+        real1, real2 = get_existing_result(results_df, match_id)
 
         with st.container(border=True):
-            col_id, col_date, col_match, col_s1, col_sep, col_s2, col_save = st.columns(
-                [0.45, 1.15, 4.8, 0.75, 0.2, 0.75, 1.0],
+            col_id, col_info, col_match, col_s1, col_sep, col_s2, col_save = st.columns(
+                [0.55, 1.25, 4.8, 0.75, 0.18, 0.75, 1.0],
                 gap="small",
             )
 
             with col_id:
-                st.markdown(f"**#{raw_match_id}**")
+                st.markdown(f"**#{match_id}**")
 
-            with col_date:
+            with col_info:
                 st.caption(str(match.get("ronde", "")))
                 st.markdown(
                     f"""
-                    <div style="font-size:0.82rem;font-weight:800;color:#64748b;">
-                    {match.get("datum", "")}<br>{match.get("tijd", "")}
-                    </div>
-                    """,
+<div style="font-size:0.78rem;font-weight:800;color:#7da2d6;line-height:1.35;">
+{match.get("datum", "")}<br>{match.get("tijd", "")}
+</div>
+""",
                     unsafe_allow_html=True,
                 )
+                st.caption(str(match.get("speelstad", "")))
 
             with col_match:
                 f1 = flag_img(match.get("team1_code", ""))
                 f2 = flag_img(match.get("team2_code", ""))
 
                 c1, c2, c3, c4, c5 = st.columns(
-                    [0.25, 1.4, 0.12, 0.25, 1.4],
+                    [0.25, 1.35, 0.15, 0.25, 1.35],
                     gap="small",
                 )
 
@@ -146,11 +143,9 @@ def show_admin_results(matches_df, results_df):
                 with c5:
                     st.markdown(f"**{team2}**")
 
-                st.caption(str(match.get("speelstad", "")))
-
             with col_s1:
                 score1 = st.number_input(
-                    "T1",
+                    "Score team 1",
                     min_value=0,
                     max_value=50,
                     value=real1,
@@ -164,7 +159,7 @@ def show_admin_results(matches_df, results_df):
 
             with col_s2:
                 score2 = st.number_input(
-                    "T2",
+                    "Score team 2",
                     min_value=0,
                     max_value=50,
                     value=real2,
@@ -179,6 +174,6 @@ def show_admin_results(matches_df, results_df):
                     key=f"admin_save_{match_id}_{idx}",
                     use_container_width=True,
                 ):
-                    update_or_append_result(raw_match_id, score1, score2)
-                    st.success(f"Uitslag #{raw_match_id} opgeslagen.")
+                    update_or_append_result(match_id, score1, score2)
+                    st.success(f"Uitslag #{match_id} opgeslagen.")
                     st.rerun()
