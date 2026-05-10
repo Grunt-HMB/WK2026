@@ -1,3 +1,4 @@
+import re
 import streamlit as st
 import pandas as pd
 
@@ -9,6 +10,8 @@ from modules.prediction_state import (
     set_prediction,
 )
 
+
+GROUPS = list("ABCDEFGHIJKL")
 
 DUTCH_WEEKDAYS = [
     "maandag",
@@ -41,13 +44,15 @@ def normalize_columns(df):
         return None
 
     df = df.copy()
-    df.columns = (
-        df.columns
-        .astype(str)
-        .str.strip()
-        .str.lower()
-    )
+    df.columns = df.columns.astype(str).str.strip().str.lower()
     return df
+
+
+def get_value(row, *names):
+    for name in names:
+        if name in row and str(row.get(name, "")).strip() != "":
+            return row.get(name, "")
+    return ""
 
 
 def clean_dutch_date(value):
@@ -67,17 +72,9 @@ def clean_dutch_date(value):
 def create_sort_columns(wedstrijden):
     wedstrijden = wedstrijden.copy()
 
-    if "datum" not in wedstrijden.columns:
-        wedstrijden["datum"] = ""
-
-    if "tijd" not in wedstrijden.columns:
-        wedstrijden["tijd"] = ""
-
-    if "match_id" not in wedstrijden.columns:
-        wedstrijden["match_id"] = ""
-
-    if "match_id_sort" not in wedstrijden.columns:
-        wedstrijden["match_id_sort"] = wedstrijden["match_id"]
+    for col in ["datum", "tijd", "match_id", "match_id_sort"]:
+        if col not in wedstrijden.columns:
+            wedstrijden[col] = ""
 
     wedstrijden["datum_sort"] = pd.to_datetime(
         wedstrijden["datum"].apply(clean_dutch_date),
@@ -94,13 +91,9 @@ def create_sort_columns(wedstrijden):
     wedstrijden["match_id_sort"] = pd.to_numeric(
         wedstrijden["match_id_sort"],
         errors="coerce",
-    )
-
-    wedstrijden["match_id_sort"] = wedstrijden["match_id_sort"].fillna(
+    ).fillna(
         pd.to_numeric(wedstrijden["match_id"], errors="coerce")
-    )
-
-    wedstrijden["match_id_sort"] = wedstrijden["match_id_sort"].fillna(999999)
+    ).fillna(999999)
 
     return wedstrijden
 
@@ -118,14 +111,6 @@ def flag_img(code):
     )
 
 
-def get_value(row, *names):
-    for name in names:
-        if name in row and str(row.get(name, "")).strip() != "":
-            return row.get(name, "")
-
-    return ""
-
-
 def prediction_label(choice, selected):
     selected = str(selected or "").upper().strip()
 
@@ -140,8 +125,275 @@ def get_selected_prediction(match_id):
     return str(current.get("prediction", "")).upper().strip()
 
 
+def is_group_stage(stage):
+    stage = str(stage or "").strip().lower()
+    return stage.startswith("group ")
+
+
+def get_group_letter(stage):
+    stage = str(stage or "").strip().upper()
+    match = re.search(r"GROUP\s+([A-L])", stage)
+
+    if match:
+        return match.group(1)
+
+    return ""
+
+
+def is_knockout_stage(stage):
+    return not is_group_stage(stage)
+
+
+def get_match_winner_from_prediction(row):
+    match_id = str(get_value(row, "match_id", "wedstrijd_id", "id")).strip()
+    prediction = get_selected_prediction(match_id)
+
+    team1 = str(get_value(row, "team1", "land1", "thuisploeg")).strip()
+    team2 = str(get_value(row, "team2", "land2", "uitploeg")).strip()
+
+    if prediction == "1":
+        return team1
+
+    if prediction == "2":
+        return team2
+
+    return ""
+
+
+def get_match_loser_from_prediction(row):
+    match_id = str(get_value(row, "match_id", "wedstrijd_id", "id")).strip()
+    prediction = get_selected_prediction(match_id)
+
+    team1 = str(get_value(row, "team1", "land1", "thuisploeg")).strip()
+    team2 = str(get_value(row, "team2", "land2", "uitploeg")).strip()
+
+    if prediction == "1":
+        return team2
+
+    if prediction == "2":
+        return team1
+
+    return ""
+
+
+def calculate_group_standings(wedstrijden):
+    tables = {}
+
+    group_matches = wedstrijden[
+        wedstrijden["stage"].astype(str).str.lower().str.startswith("group ")
+    ].copy()
+
+    for _, match in group_matches.iterrows():
+        stage = str(get_value(match, "stage")).strip()
+        group = get_group_letter(stage)
+
+        if group == "":
+            continue
+
+        team1 = str(get_value(match, "team1")).strip()
+        team2 = str(get_value(match, "team2")).strip()
+
+        if team1 == "" or team2 == "":
+            continue
+
+        if group not in tables:
+            tables[group] = {}
+
+        for team in [team1, team2]:
+            if team not in tables[group]:
+                tables[group][team] = {
+                    "groep": group,
+                    "team": team,
+                    "P": 0,
+                    "W": 0,
+                    "G": 0,
+                    "V": 0,
+                    "Ptn": 0,
+                }
+
+        match_id = str(get_value(match, "match_id")).strip()
+        prediction = get_selected_prediction(match_id)
+
+        if prediction not in ["1", "X", "2"]:
+            continue
+
+        tables[group][team1]["P"] += 1
+        tables[group][team2]["P"] += 1
+
+        if prediction == "1":
+            tables[group][team1]["W"] += 1
+            tables[group][team1]["Ptn"] += 3
+            tables[group][team2]["V"] += 1
+
+        elif prediction == "2":
+            tables[group][team2]["W"] += 1
+            tables[group][team2]["Ptn"] += 3
+            tables[group][team1]["V"] += 1
+
+        elif prediction == "X":
+            tables[group][team1]["G"] += 1
+            tables[group][team2]["G"] += 1
+            tables[group][team1]["Ptn"] += 1
+            tables[group][team2]["Ptn"] += 1
+
+    all_rows = []
+
+    for group, table in tables.items():
+        df = pd.DataFrame(list(table.values()))
+
+        df = df.sort_values(
+            ["Ptn", "W", "team"],
+            ascending=[False, False, True],
+            kind="stable",
+        ).reset_index(drop=True)
+
+        df["positie"] = range(1, len(df) + 1)
+        all_rows.append(df)
+
+    if not all_rows:
+        return pd.DataFrame()
+
+    return pd.concat(all_rows, ignore_index=True)
+
+
+def get_team_by_position(standings_df, group, position):
+    if standings_df.empty:
+        return ""
+
+    row = standings_df[
+        (standings_df["groep"].astype(str).str.upper() == str(group).upper())
+        & (standings_df["positie"] == position)
+    ]
+
+    if row.empty:
+        return ""
+
+    return str(row.iloc[0]["team"])
+
+
+def calculate_best_thirds(standings_df):
+    if standings_df.empty:
+        return pd.DataFrame()
+
+    thirds = standings_df[standings_df["positie"] == 3].copy()
+
+    if thirds.empty:
+        return pd.DataFrame()
+
+    thirds = thirds.sort_values(
+        ["Ptn", "W", "team"],
+        ascending=[False, False, True],
+        kind="stable",
+    ).reset_index(drop=True)
+
+    thirds["third_rank"] = range(1, len(thirds) + 1)
+    thirds["qualified"] = thirds["third_rank"] <= 8
+
+    return thirds
+
+
+def resolve_third_team(best_thirds_df, allowed_groups):
+    if best_thirds_df.empty:
+        return ""
+
+    allowed_groups = [str(g).upper() for g in allowed_groups]
+
+    possible = best_thirds_df[
+        (best_thirds_df["qualified"] == True)
+        & (best_thirds_df["groep"].astype(str).str.upper().isin(allowed_groups))
+    ].copy()
+
+    if possible.empty:
+        return ""
+
+    possible = possible.sort_values("third_rank", ascending=True)
+    return str(possible.iloc[0]["team"])
+
+
+def build_results_by_match(wedstrijden):
+    results = {}
+
+    for _, row in wedstrijden.iterrows():
+        match_id = str(get_value(row, "match_id")).strip()
+
+        if match_id == "":
+            continue
+
+        winner = get_match_winner_from_prediction(row)
+        loser = get_match_loser_from_prediction(row)
+
+        if winner:
+            results[f"W{match_id}"] = winner
+
+        if loser:
+            results[f"L{match_id}"] = loser
+
+    return results
+
+
+def resolve_slot(slot, standings_df, best_thirds_df, results_by_match):
+    original = str(slot or "").strip()
+    normalized = original.upper().replace(" ", "")
+
+    if re.fullmatch(r"1[A-L]", normalized):
+        return get_team_by_position(standings_df, normalized[1], 1) or original
+
+    if re.fullmatch(r"2[A-L]", normalized):
+        return get_team_by_position(standings_df, normalized[1], 2) or original
+
+    if re.fullmatch(r"3[A-L]+", normalized):
+        allowed_groups = list(normalized[1:])
+        return resolve_third_team(best_thirds_df, allowed_groups) or original
+
+    if re.fullmatch(r"W\d+", normalized):
+        return results_by_match.get(normalized, original)
+
+    if re.fullmatch(r"L\d+", normalized):
+        return results_by_match.get(normalized, original)
+
+    return original
+
+
+def resolve_knockout_teams(wedstrijden):
+    wedstrijden = wedstrijden.copy()
+
+    standings_df = calculate_group_standings(wedstrijden)
+    best_thirds_df = calculate_best_thirds(standings_df)
+
+    for _ in range(6):
+        results_by_match = build_results_by_match(wedstrijden)
+
+        for index, row in wedstrijden.iterrows():
+            stage = str(get_value(row, "stage")).strip()
+
+            if is_group_stage(stage):
+                continue
+
+            team1 = str(get_value(row, "team1")).strip()
+            team2 = str(get_value(row, "team2")).strip()
+
+            wedstrijden.at[index, "team1"] = resolve_slot(
+                team1,
+                standings_df,
+                best_thirds_df,
+                results_by_match,
+            )
+
+            wedstrijden.at[index, "team2"] = resolve_slot(
+                team2,
+                standings_df,
+                best_thirds_df,
+                results_by_match,
+            )
+
+    return wedstrijden, standings_df, best_thirds_df
+
+
 def show_prediction_buttons(match, match_id, selected):
     closed = match_is_locked(match)
+
+    stage = str(get_value(match, "stage")).strip()
+    knockout = is_knockout_stage(stage)
 
     c1, c2, c3 = st.columns(3, gap="small")
 
@@ -160,7 +412,7 @@ def show_prediction_buttons(match, match_id, selected):
             prediction_label("X", selected),
             key=f"wed_btn_x_{match_id}",
             use_container_width=True,
-            disabled=closed,
+            disabled=closed or knockout,
         ):
             set_prediction(match_id, "X")
             st.rerun()
@@ -234,116 +486,67 @@ def show_wedstrijd_row(match):
             show_prediction_buttons(match, match_id, selected)
 
 
-def init_team(table, team):
-    if team not in table:
-        table[team] = {
-            "Team": team,
-            "P": 0,
-            "W": 0,
-            "G": 0,
-            "V": 0,
-            "Ptn": 0,
-        }
+def show_group_standings(standings_df):
+    st.markdown("## 📊 Rankschikking groepsfase")
+    st.caption("Deze stand wordt live berekend op basis van jouw groepsfase-keuzes.")
 
-
-def calculate_group_standings(wedstrijden):
-    group_tables = {}
-
-    for _, match in wedstrijden.iterrows():
-        group_name = str(
-            get_value(match, "groep", "stage", "poule", "group")
-        ).strip()
-
-        if group_name == "":
-            group_name = "Onbekend"
-
-        match_id = str(get_value(match, "match_id", "wedstrijd_id", "id")).strip()
-        team1 = str(get_value(match, "team1", "land1", "thuisploeg")).strip()
-        team2 = str(get_value(match, "team2", "land2", "uitploeg")).strip()
-
-        if team1 == "" or team2 == "":
-            continue
-
-        if group_name not in group_tables:
-            group_tables[group_name] = {}
-
-        table = group_tables[group_name]
-
-        init_team(table, team1)
-        init_team(table, team2)
-
-        prediction = get_selected_prediction(match_id)
-
-        if prediction not in ["1", "X", "2"]:
-            continue
-
-        table[team1]["P"] += 1
-        table[team2]["P"] += 1
-
-        if prediction == "1":
-            table[team1]["W"] += 1
-            table[team1]["Ptn"] += 3
-            table[team2]["V"] += 1
-
-        elif prediction == "2":
-            table[team2]["W"] += 1
-            table[team2]["Ptn"] += 3
-            table[team1]["V"] += 1
-
-        elif prediction == "X":
-            table[team1]["G"] += 1
-            table[team2]["G"] += 1
-            table[team1]["Ptn"] += 1
-            table[team2]["Ptn"] += 1
-
-    result = {}
-
-    for group_name, table in group_tables.items():
-        df = pd.DataFrame(list(table.values()))
-
-        if not df.empty:
-            df = df.sort_values(
-                ["Ptn", "W", "Team"],
-                ascending=[False, False, True],
-                kind="stable",
-            ).reset_index(drop=True)
-
-            df.insert(0, "#", range(1, len(df) + 1))
-
-        result[group_name] = df
-
-    return result
-
-
-def show_group_standings(wedstrijden):
-    st.markdown("## 📊 Rankschikking per poule")
-    st.caption("Deze stand wordt live berekend op basis van jouw 1/X/2-keuzes.")
-
-    standings = calculate_group_standings(wedstrijden)
-
-    if not standings:
-        st.info("Nog geen poules gevonden.")
+    if standings_df.empty:
+        st.info("Nog geen groepsstanden beschikbaar.")
         return
 
-    group_names = sorted(standings.keys())
+    groups = sorted(standings_df["groep"].dropna().unique().tolist())
 
     cols = st.columns(2)
 
-    for index, group_name in enumerate(group_names):
-        df = standings[group_name]
+    for index, group in enumerate(groups):
+        group_df = standings_df[standings_df["groep"] == group].copy()
+
+        group_df = group_df[
+            ["positie", "team", "P", "W", "G", "V", "Ptn"]
+        ]
+
+        group_df = group_df.rename(
+            columns={
+                "positie": "#",
+                "team": "Team",
+            }
+        )
 
         with cols[index % 2]:
             with st.container(border=True):
-                st.markdown(f"### {group_name}")
+                st.markdown(f"### Group {group}")
+                st.dataframe(
+                    group_df,
+                    hide_index=True,
+                    use_container_width=True,
+                )
 
-                if df.empty:
-                    st.info("Nog geen data.")
-                else:
-                    st.dataframe(
-                        df,
-                        hide_index=True,
-                        use_container_width=True,
-                    )
+
+def show_best_thirds(best_thirds_df):
+    if best_thirds_df.empty:
+        return
+
+    st.markdown("## 🥉 Beste derdes")
+
+    df = best_thirds_df.copy()
+    df = df[
+        ["third_rank", "groep", "team", "P", "W", "G", "V", "Ptn", "qualified"]
+    ]
+
+    df = df.rename(
+        columns={
+            "third_rank": "#",
+            "groep": "Groep",
+            "team": "Team",
+            "qualified": "Door",
+        }
+    )
+
+    st.dataframe(
+        df,
+        hide_index=True,
+        use_container_width=True,
+    )
 
 
 def show_wedstrijden(user, wedstrijden_df, predictions_df):
@@ -360,6 +563,7 @@ def show_wedstrijden(user, wedstrijden_df, predictions_df):
     wedstrijden = normalize_columns(wedstrijden_df)
 
     required_columns = [
+        "stage",
         "datum",
         "tijd",
         "team1",
@@ -381,16 +585,17 @@ def show_wedstrijden(user, wedstrijden_df, predictions_df):
         return
 
     wedstrijden = create_sort_columns(wedstrijden)
-
     wedstrijden = wedstrijden.sort_values(
         ["datum_sort", "tijd_sort", "match_id_sort"],
         kind="stable",
     )
 
+    wedstrijden, standings_df, best_thirds_df = resolve_knockout_teams(wedstrijden)
+
     tab_wedstrijden, tab_stand = st.tabs(
         [
             "📅 Wedstrijden",
-            "📊 Rankschikking",
+            "📊 Groepsstanden",
         ]
     )
 
@@ -427,4 +632,5 @@ def show_wedstrijden(user, wedstrijden_df, predictions_df):
                 st.rerun()
 
     with tab_stand:
-        show_group_standings(wedstrijden)
+        show_group_standings(standings_df)
+        show_best_thirds(best_thirds_df)
