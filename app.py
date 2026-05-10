@@ -47,19 +47,34 @@ st.markdown(
     border: 1px solid #22c55e;
 }
 
-@keyframes pulseWarning {
+@@keyframes pulseWarning {
     0% {
         transform: scale(1);
+        background: linear-gradient(135deg, #7f1d1d, #991b1b);
         box-shadow: 0 0 0 rgba(239,68,68,0);
     }
 
+    25% {
+        transform: scale(1.06);
+        background: linear-gradient(135deg, #dc2626, #ef4444);
+        box-shadow: 0 0 28px rgba(239,68,68,0.95);
+    }
+
     50% {
-        transform: scale(1.04);
-        box-shadow: 0 0 20px rgba(239,68,68,0.55);
+        transform: scale(1.02);
+        background: linear-gradient(135deg, #991b1b, #b91c1c);
+        box-shadow: 0 0 12px rgba(239,68,68,0.55);
+    }
+
+    75% {
+        transform: scale(1.07);
+        background: linear-gradient(135deg, #ef4444, #f87171);
+        box-shadow: 0 0 34px rgba(248,113,113,1);
     }
 
     100% {
         transform: scale(1);
+        background: linear-gradient(135deg, #7f1d1d, #991b1b);
         box-shadow: 0 0 0 rgba(239,68,68,0);
     }
 }
