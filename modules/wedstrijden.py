@@ -74,7 +74,16 @@ def round_group_title(stage):
     if stage.lower().startswith("group "):
         return "🌍 Groepsfase"
 
-    return stage_title(stage)
+    titles = {
+        "round of 32": "🏆 1/16 finales",
+        "round of 16": "🏆 1/8 finales",
+        "quarterfinals": "🏆 Kwartfinales",
+        "semifinals": "🏆 Halve finales",
+        "third place": "🥉 Troostwedstrijd",
+        "final": "🏆 Finale",
+    }
+
+    return titles.get(stage.lower(), stage_title(stage))
 
 
 def show_wedstrijden_list(wedstrijden):
