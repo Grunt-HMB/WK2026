@@ -158,7 +158,21 @@ def show_scoreboard(users_df, matches_df, predictions_df, results_df):
     import streamlit as st
     import pandas as pd
 
-    st.markdown("## 🏆 Rangschikking")
+    st.markdown(
+        """
+<h1 style="
+    display:flex;
+    align-items:center;
+    gap:14px;
+    font-size:2.5rem;
+    margin-bottom:0.2rem;
+">
+🏆 Rangschikking
+</h1>
+""",
+        unsafe_allow_html=True,
+    )
+
     st.caption("Overzicht van de huidige stand in de WK-pronostiek.")
 
     if users_df is None or users_df.empty:
@@ -174,14 +188,6 @@ def show_scoreboard(users_df, matches_df, predictions_df, results_df):
 
     users.columns = users.columns.astype(str).str.strip().str.lower()
     predictions.columns = predictions.columns.astype(str).str.strip().str.lower()
-
-    if "user_id" not in users.columns:
-        st.error("Kolom 'user_id' ontbreekt in Users.")
-        return
-
-    if "user_id" not in predictions.columns:
-        st.error("Kolom 'user_id' ontbreekt in Predictions.")
-        return
 
     if "points" not in predictions.columns:
         predictions["points"] = 0
@@ -204,8 +210,10 @@ def show_scoreboard(users_df, matches_df, predictions_df, results_df):
     users["user_id"] = users["user_id"].astype(str).str.strip()
 
     name_col = "name"
+
     if "naam" in users.columns:
         name_col = "naam"
+
     elif "username" in users.columns:
         name_col = "username"
 
@@ -233,65 +241,160 @@ def show_scoreboard(users_df, matches_df, predictions_df, results_df):
 
     scoreboard.insert(0, "positie", range(1, len(scoreboard) + 1))
 
-    def medal(pos):
-        if pos == 1:
-            return "🥇"
-        if pos == 2:
-            return "🥈"
-        if pos == 3:
-            return "🥉"
-        return f"{pos}"
+    medals = {
+        1: "🥇",
+        2: "🥈",
+        3: "🥉",
+    }
 
-    scoreboard["rang"] = scoreboard["positie"].apply(medal)
+    scoreboard["medal"] = scoreboard["positie"].map(medals).fillna("")
+
+    st.markdown(
+        """
+<h2 style="
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-top:1.6rem;
+">
+🏅 Huidige top 3
+</h2>
+""",
+        unsafe_allow_html=True,
+    )
 
     top3 = scoreboard.head(3)
 
     if not top3.empty:
-        st.markdown("### 🏅 Huidige top 3")
-
         cols = st.columns(3)
 
-        for index, row in top3.iterrows():
-            with cols[index]:
+        gradients = {
+            1: "linear-gradient(145deg,#3b2f00,#facc15)",
+            2: "linear-gradient(145deg,#1e293b,#cbd5e1)",
+            3: "linear-gradient(145deg,#3f1d0d,#fdba74)",
+        }
+
+        borders = {
+            1: "#facc15",
+            2: "#cbd5e1",
+            3: "#fdba74",
+        }
+
+        shadows = {
+            1: "0 0 30px rgba(250,204,21,0.35)",
+            2: "0 0 22px rgba(203,213,225,0.25)",
+            3: "0 0 22px rgba(251,146,60,0.25)",
+        }
+
+        for i, (_, row) in enumerate(top3.iterrows()):
+            positie = int(row["positie"])
+
+            with cols[i]:
                 st.markdown(
                     f"""
 <div style="
-    background: linear-gradient(135deg, #f8fafc, #e2e8f0);
-    border: 1px solid #cbd5e1;
-    border-radius: 18px;
-    padding: 18px;
-    text-align: center;
-    box-shadow: 0 6px 16px rgba(15,23,42,0.12);
+    background:#111827;
+    border:2px solid {borders[positie]};
+    border-radius:24px;
+    padding:30px 20px;
+    text-align:center;
+    box-shadow:{shadows[positie]};
+    min-height:330px;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
 ">
-    <div style="font-size: 2.4rem;">{row["rang"]}</div>
-    <div style="font-size: 1.15rem; font-weight: 900; margin-top: 6px;">
-        {row["deelnemer"]}
-    </div>
-    <div style="font-size: 1.8rem; font-weight: 900; margin-top: 8px;">
-        {int(row["punten"])}
-    </div>
-    <div style="color: #64748b; font-weight: 700;">
-        punten
-    </div>
+
+<div style="
+    font-size:4rem;
+    margin-bottom:10px;
+">
+{row["medal"]}
+</div>
+
+<div style="
+    font-size:1.8rem;
+    font-weight:900;
+    color:white;
+    margin-bottom:12px;
+">
+{row["deelnemer"]}
+</div>
+
+<div style="
+    font-size:3.2rem;
+    font-weight:900;
+    background:{gradients[positie]};
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+    margin-bottom:5px;
+">
+{int(row["punten"])}
+</div>
+
+<div style="
+    color:#94a3b8;
+    font-weight:700;
+    font-size:1rem;
+    margin-bottom:18px;
+">
+punten
+</div>
+
+<div style="
+    background:rgba(255,255,255,0.05);
+    border:1px solid rgba(255,255,255,0.08);
+    border-radius:14px;
+    padding:10px;
+    color:#e2e8f0;
+    font-weight:700;
+">
+⚽ {int(row["voorspellingen"])} voorspellingen
+</div>
+
 </div>
 """,
                     unsafe_allow_html=True,
                 )
 
-    st.markdown("### 📋 Volledige rangschikking")
+    st.markdown(
+        """
+<h2 style="
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-top:2rem;
+">
+📋 Volledige rangschikking
+</h2>
+""",
+        unsafe_allow_html=True,
+    )
 
     display_df = scoreboard[
         [
-            "rang",
+            "positie",
+            "medal",
             "deelnemer",
             "punten",
             "voorspellingen",
         ]
     ].copy()
 
+    display_df["positie"] = display_df.apply(
+        lambda row: (
+            f'{row["medal"]} {row["positie"]}'
+            if row["medal"] != ""
+            else str(row["positie"])
+        ),
+        axis=1,
+    )
+
+    display_df = display_df.drop(columns=["medal"])
+
     display_df = display_df.rename(
         columns={
-            "rang": "#",
+            "positie": "#",
             "deelnemer": "Deelnemer",
             "punten": "Punten",
             "voorspellingen": "Voorspellingen",
