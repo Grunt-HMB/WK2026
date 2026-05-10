@@ -5,14 +5,15 @@ from modules.annex_c import get_annex_c_mapping
 
 
 GROUPS = list("ABCDEFGHIJKL")
+GROUP_MATCH_COUNT_TOTAL = 72
 
 
-def safe_int(value, default=0):
+def safe_int(value, default=None):
     try:
-        if pd.isna(value) or value == "":
+        if pd.isna(value) or str(value).strip() == "":
             return default
 
-        return int(value)
+        return int(float(str(value).strip()))
     except Exception:
         return default
 
@@ -35,17 +36,69 @@ def clean_match_id(value):
     return value.strip()
 
 
+def normalize_columns(df):
+    df = df.copy()
+    df.columns = df.columns.astype(str).str.strip().str.lower()
+    return df
+
+
+def ensure_cols(df, cols):
+    df = df.copy()
+
+    for col in cols:
+        if col not in df.columns:
+            df[col] = ""
+
+    return df
+
+
+def is_group_stage(row):
+    stage = str(row.get("stage", "")).strip().lower()
+    groep = str(row.get("groep", "")).strip().upper()
+
+    if stage.startswith("group "):
+        return True
+
+    return groep in GROUPS
+
+
+def is_knockout_stage(row):
+    return not is_group_stage(row)
+
+
+def get_group(row):
+    stage = str(row.get("stage", "")).strip().upper()
+    groep = str(row.get("groep", "")).strip().upper()
+
+    match = re.search(r"GROUP\s+([A-L])", stage)
+
+    if match:
+        return match.group(1)
+
+    if groep in GROUPS:
+        return groep
+
+    return ""
+
+
 def is_played(row):
-    return (
-        str(row.get("score1", "")).strip() != ""
-        and str(row.get("score2", "")).strip() != ""
-    )
+    score1 = str(row.get("score1", "")).strip()
+    score2 = str(row.get("score2", "")).strip()
+
+    return score1 != "" and score2 != ""
+
+
+def get_group_matches(matches_df, group):
+    return matches_df[
+        matches_df.apply(
+            lambda row: is_group_stage(row) and get_group(row) == group,
+            axis=1,
+        )
+    ].copy()
 
 
 def group_is_complete(matches_df, group):
-    group_matches = matches_df[
-        matches_df["groep"].astype(str).str.upper() == str(group).upper()
-    ].copy()
+    group_matches = get_group_matches(matches_df, group)
 
     if group_matches.empty:
         return False
@@ -54,6 +107,18 @@ def group_is_complete(matches_df, group):
 
 
 def all_groups_complete(matches_df):
+    group_matches = matches_df[
+        matches_df.apply(is_group_stage, axis=1)
+    ].copy()
+
+    if group_matches.empty:
+        return False
+
+    played_count = int(group_matches.apply(is_played, axis=1).sum())
+
+    if played_count < GROUP_MATCH_COUNT_TOTAL:
+        return False
+
     for group in GROUPS:
         if not group_is_complete(matches_df, group):
             return False
@@ -67,6 +132,9 @@ def get_match_winner(row):
 
     score1 = safe_int(row.get("score1", ""))
     score2 = safe_int(row.get("score2", ""))
+
+    if score1 is None or score2 is None:
+        return ""
 
     if score1 > score2:
         return team1
@@ -97,25 +165,30 @@ def calculate_base_group_table(matches_df, fifa_ranking_df=None):
     rows = []
 
     group_matches = matches_df[
-        matches_df["groep"].astype(str).str.upper().isin(GROUPS)
+        matches_df.apply(is_group_stage, axis=1)
     ].copy()
 
     teams = set()
 
     for _, row in group_matches.iterrows():
-        teams.add(clean_team(row.get("team1", "")))
-        teams.add(clean_team(row.get("team2", "")))
+        team1 = clean_team(row.get("team1", ""))
+        team2 = clean_team(row.get("team2", ""))
 
-    teams = sorted([team for team in teams if team])
+        if team1:
+            teams.add(team1)
+
+        if team2:
+            teams.add(team2)
+
+    teams = sorted(teams)
 
     for team in teams:
         team_matches = group_matches[
-            (group_matches["team1"].astype(str) == team)
-            | (group_matches["team2"].astype(str) == team)
+            (group_matches["team1"].astype(str).str.strip() == team)
+            | (group_matches["team2"].astype(str).str.strip() == team)
         ]
 
         group = ""
-
         played = 0
         wins = 0
         draws = 0
@@ -125,13 +198,13 @@ def calculate_base_group_table(matches_df, fifa_ranking_df=None):
         points = 0
 
         for _, match in team_matches.iterrows():
-            group = str(match.get("groep", "")).strip().upper()
+            group = get_group(match)
 
             if not is_played(match):
                 continue
 
-            score1 = safe_int(match.get("score1", ""))
-            score2 = safe_int(match.get("score2", ""))
+            score1 = safe_int(match.get("score1", ""), 0)
+            score2 = safe_int(match.get("score2", ""), 0)
 
             if clean_team(match.get("team1", "")) == team:
                 gf = score1
@@ -153,55 +226,67 @@ def calculate_base_group_table(matches_df, fifa_ranking_df=None):
             else:
                 losses += 1
 
-        rows.append({
-            "groep": group,
-            "team": team,
-            "played": played,
-            "wins": wins,
-            "draws": draws,
-            "losses": losses,
-            "goals_for": goals_for,
-            "goals_against": goals_against,
-            "goal_diff": goals_for - goals_against,
-            "points": points,
-            "conduct_score": 0,
-            "fifa_rank": 999,
-            "previous_fifa_rank": 999,
-        })
+        rows.append(
+            {
+                "groep": group,
+                "team": team,
+                "played": played,
+                "wins": wins,
+                "draws": draws,
+                "losses": losses,
+                "goals_for": goals_for,
+                "goals_against": goals_against,
+                "goal_diff": goals_for - goals_against,
+                "points": points,
+                "conduct_score": 0,
+                "fifa_rank": 999,
+                "previous_fifa_rank": 999,
+            }
+        )
 
     table = pd.DataFrame(rows)
 
+    if table.empty:
+        return table
+
     if fifa_ranking_df is not None and not fifa_ranking_df.empty:
-        ranking = fifa_ranking_df.copy()
-        ranking["team"] = ranking["team"].astype(str).str.strip()
+        ranking = normalize_columns(fifa_ranking_df)
 
-        table = table.merge(
-            ranking[["team", "fifa_rank", "previous_fifa_rank"]],
-            on="team",
-            how="left",
-            suffixes=("", "_ranking"),
-        )
+        if "team" in ranking.columns:
+            ranking["team"] = ranking["team"].astype(str).str.strip()
 
-        if "fifa_rank_ranking" in table.columns:
-            table["fifa_rank"] = table["fifa_rank_ranking"].fillna(
-                table["fifa_rank"]
+            for col in ["fifa_rank", "previous_fifa_rank"]:
+                if col not in ranking.columns:
+                    ranking[col] = 999
+
+            table = table.merge(
+                ranking[["team", "fifa_rank", "previous_fifa_rank"]],
+                on="team",
+                how="left",
+                suffixes=("", "_ranking"),
             )
 
-        if "previous_fifa_rank_ranking" in table.columns:
-            table["previous_fifa_rank"] = table[
-                "previous_fifa_rank_ranking"
-            ].fillna(table["previous_fifa_rank"])
+            if "fifa_rank_ranking" in table.columns:
+                table["fifa_rank"] = table["fifa_rank_ranking"].fillna(
+                    table["fifa_rank"]
+                )
 
-        table = table.drop(
-            columns=[
-                c for c in [
-                    "fifa_rank_ranking",
-                    "previous_fifa_rank_ranking",
-                ]
-                if c in table.columns
-            ],
-            errors="ignore",
-        )
+            if "previous_fifa_rank_ranking" in table.columns:
+                table["previous_fifa_rank"] = table[
+                    "previous_fifa_rank_ranking"
+                ].fillna(table["previous_fifa_rank"])
+
+            table = table.drop(
+                columns=[
+                    c
+                    for c in [
+                        "fifa_rank_ranking",
+                        "previous_fifa_rank_ranking",
+                    ]
+                    if c in table.columns
+                ],
+                errors="ignore",
+            )
 
     return table
 
@@ -210,8 +295,8 @@ def head_to_head_stats(matches_df, teams):
     rows = []
 
     h2h_matches = matches_df[
-        (matches_df["team1"].isin(teams))
-        & (matches_df["team2"].isin(teams))
+        (matches_df["team1"].astype(str).str.strip().isin(teams))
+        & (matches_df["team2"].astype(str).str.strip().isin(teams))
     ].copy()
 
     for team in teams:
@@ -223,8 +308,8 @@ def head_to_head_stats(matches_df, teams):
             if not is_played(match):
                 continue
 
-            score1 = safe_int(match.get("score1", ""))
-            score2 = safe_int(match.get("score2", ""))
+            score1 = safe_int(match.get("score1", ""), 0)
+            score2 = safe_int(match.get("score2", ""), 0)
 
             if clean_team(match.get("team1", "")) == team:
                 gf = score1
@@ -241,19 +326,20 @@ def head_to_head_stats(matches_df, teams):
             elif gf == ga:
                 points += 1
 
-        rows.append({
-            "team": team,
-            "h2h_points": points,
-            "h2h_goal_diff": goals_for - goals_against,
-            "h2h_goals_for": goals_for,
-        })
+        rows.append(
+            {
+                "team": team,
+                "h2h_points": points,
+                "h2h_goal_diff": goals_for - goals_against,
+                "h2h_goals_for": goals_for,
+            }
+        )
 
     return pd.DataFrame(rows)
 
 
 def sort_group_with_fifa_rules(group_df, matches_df):
     group_df = group_df.copy()
-
     final_rows = []
 
     for points_value in sorted(group_df["points"].unique(), reverse=True):
@@ -278,6 +364,7 @@ def sort_group_with_fifa_rules(group_df, matches_df):
                 "conduct_score",
                 "fifa_rank",
                 "previous_fifa_rank",
+                "team",
             ],
             ascending=[
                 False,
@@ -285,6 +372,7 @@ def sort_group_with_fifa_rules(group_df, matches_df):
                 False,
                 False,
                 False,
+                True,
                 True,
                 True,
                 True,
@@ -301,7 +389,13 @@ def sort_group_with_fifa_rules(group_df, matches_df):
 
 
 def calculate_group_standings(matches_df, fifa_ranking_df=None):
+    matches_df = normalize_columns(matches_df)
+
     base_table = calculate_base_group_table(matches_df, fifa_ranking_df)
+
+    if base_table.empty:
+        return pd.DataFrame()
+
     all_groups = []
 
     for group in GROUPS:
@@ -310,9 +404,7 @@ def calculate_group_standings(matches_df, fifa_ranking_df=None):
         if group_df.empty:
             continue
 
-        group_matches = matches_df[
-            matches_df["groep"].astype(str).str.upper() == group
-        ].copy()
+        group_matches = get_group_matches(matches_df, group)
 
         sorted_group = sort_group_with_fifa_rules(group_df, group_matches)
         all_groups.append(sorted_group)
@@ -355,11 +447,13 @@ def calculate_best_thirds(standings_df):
             "conduct_score",
             "fifa_rank",
             "previous_fifa_rank",
+            "team",
         ],
         ascending=[
             False,
             False,
             False,
+            True,
             True,
             True,
             True,
@@ -448,30 +542,43 @@ def normalize_slot(slot):
     return original_slot, normalized
 
 
-def resolve_slot(slot, standings_df, best_thirds_df, results_by_match):
+def resolve_slot(slot, standings_df, best_thirds_df, results_by_match, matches_df):
     original_slot, normalized = normalize_slot(slot)
 
     if normalized.startswith("1") and len(normalized) == 2:
-        return get_team_by_position(standings_df, normalized[1], 1)
+        group = normalized[1]
+
+        if not group_is_complete(matches_df, group):
+            return original_slot
+
+        return get_team_by_position(standings_df, group, 1) or original_slot
 
     if normalized.startswith("2") and len(normalized) == 2:
-        return get_team_by_position(standings_df, normalized[1], 2)
+        group = normalized[1]
+
+        if not group_is_complete(matches_df, group):
+            return original_slot
+
+        return get_team_by_position(standings_df, group, 2) or original_slot
 
     if normalized.startswith("3"):
+        if not all_groups_complete(matches_df):
+            return original_slot
+
         allowed_groups = list(normalized[1:])
-        return resolve_third_place_team(best_thirds_df, allowed_groups)
+        return resolve_third_place_team(best_thirds_df, allowed_groups) or original_slot
 
     if normalized.startswith("W"):
         number = re.search(r"\d+", normalized)
 
         if number:
-            return results_by_match.get(f"W{number.group(0)}", "")
+            return results_by_match.get(f"W{number.group(0)}", original_slot)
 
     if normalized.startswith("L"):
         number = re.search(r"\d+", normalized)
 
         if number:
-            return results_by_match.get(f"L{number.group(0)}", "")
+            return results_by_match.get(f"L{number.group(0)}", original_slot)
 
     return original_slot
 
@@ -497,6 +604,68 @@ def build_results_by_match(matches_df):
     return results
 
 
+def preserve_knockout_placeholders(matches_df):
+    updated = matches_df.copy()
+
+    updated = ensure_cols(
+        updated,
+        [
+            "stage",
+            "groep",
+            "team1",
+            "team2",
+            "team1_placeholder",
+            "team2_placeholder",
+        ],
+    )
+
+    for index, row in updated.iterrows():
+        if not is_knockout_stage(row):
+            continue
+
+        current_team1_placeholder = str(row.get("team1_placeholder", "")).strip()
+        current_team2_placeholder = str(row.get("team2_placeholder", "")).strip()
+
+        if current_team1_placeholder == "":
+            updated.at[index, "team1_placeholder"] = str(row.get("team1", "")).strip()
+
+        if current_team2_placeholder == "":
+            updated.at[index, "team2_placeholder"] = str(row.get("team2", "")).strip()
+
+    return updated
+
+
+def reset_knockout_to_placeholders(matches_df):
+    updated = matches_df.copy()
+
+    updated = ensure_cols(
+        updated,
+        [
+            "stage",
+            "groep",
+            "team1",
+            "team2",
+            "team1_placeholder",
+            "team2_placeholder",
+        ],
+    )
+
+    for index, row in updated.iterrows():
+        if not is_knockout_stage(row):
+            continue
+
+        placeholder1 = str(row.get("team1_placeholder", "")).strip()
+        placeholder2 = str(row.get("team2_placeholder", "")).strip()
+
+        if placeholder1:
+            updated.at[index, "team1"] = placeholder1
+
+        if placeholder2:
+            updated.at[index, "team2"] = placeholder2
+
+    return updated
+
+
 def resolve_knockout_from_sheet(updated, standings_df, best_thirds_df, results_by_match):
     official_third_assignment = {}
 
@@ -507,9 +676,7 @@ def resolve_knockout_from_sheet(updated, standings_df, best_thirds_df, results_b
             official_third_assignment = {}
 
     for index, row in updated.iterrows():
-        groep = str(row.get("groep", "")).strip()
-
-        if groep != "Knock-out":
+        if not is_knockout_stage(row):
             continue
 
         team1_slot = row.get("team1", "")
@@ -523,41 +690,66 @@ def resolve_knockout_from_sheet(updated, standings_df, best_thirds_df, results_b
             standings_df,
             best_thirds_df,
             results_by_match,
+            updated,
         )
 
         if (
             official_third_assignment
+            and all_groups_complete(updated)
             and normalized_team2_slot.startswith("3")
             and normalized_team1_slot in official_third_assignment
         ):
             third_code = official_third_assignment.get(normalized_team1_slot, "")
             third_group = third_code.replace("3", "")
-            team2 = get_third_team_by_group(best_thirds_df, third_group)
+            team2 = get_third_team_by_group(best_thirds_df, third_group) or original_team2_slot
         else:
             team2 = resolve_slot(
                 team2_slot,
                 standings_df,
                 best_thirds_df,
                 results_by_match,
+                updated,
             )
 
-        if team1 and team1 != original_team1_slot:
+        if team1:
             updated.at[index, "team1"] = team1
 
-        if team2 and team2 != original_team2_slot:
+        if team2:
             updated.at[index, "team2"] = team2
 
     return updated
 
 
 def apply_knockout_engine(matches_df, fifa_ranking_df=None):
-    updated = matches_df.copy()
+    updated = normalize_columns(matches_df)
+
+    updated = ensure_cols(
+        updated,
+        [
+            "match_id",
+            "stage",
+            "groep",
+            "team1",
+            "team2",
+            "score1",
+            "score2",
+            "winner",
+            "team1_placeholder",
+            "team2_placeholder",
+        ],
+    )
+
+    updated = preserve_knockout_placeholders(updated)
+    updated = reset_knockout_to_placeholders(updated)
 
     standings_df = calculate_group_standings(updated, fifa_ranking_df)
-    best_thirds_df = calculate_best_thirds(standings_df)
 
-    # meerdere keren laten lopen, zodat Winnaar 73 -> Winnaar 90 -> Winnaar 97 ook kan doorschuiven
-    for _ in range(5):
+    if all_groups_complete(updated):
+        best_thirds_df = calculate_best_thirds(standings_df)
+    else:
+        best_thirds_df = pd.DataFrame()
+
+    for _ in range(8):
         results_by_match = build_results_by_match(updated)
         updated = resolve_knockout_from_sheet(
             updated,
