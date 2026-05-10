@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-
+from modules.scoring import build_scoreboard
 
 def flag_img(code):
     code = str(code or "").strip().lower()
