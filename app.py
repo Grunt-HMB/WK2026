@@ -21,6 +21,53 @@ st.set_page_config(
 
 inject_css()
 
+st.markdown(
+    """
+<style>
+.save-warning {
+    background: linear-gradient(135deg, #7f1d1d, #991b1b);
+    color: white;
+    padding: 14px;
+    border-radius: 12px;
+    font-weight: 800;
+    text-align: center;
+    margin-bottom: 12px;
+    animation: pulseWarning 1.25s infinite;
+    border: 1px solid #ef4444;
+}
+
+.save-ok {
+    background: linear-gradient(135deg, #14532d, #166534);
+    color: white;
+    padding: 14px;
+    border-radius: 12px;
+    font-weight: 800;
+    text-align: center;
+    margin-bottom: 12px;
+    border: 1px solid #22c55e;
+}
+
+@keyframes pulseWarning {
+    0% {
+        transform: scale(1);
+        box-shadow: 0 0 0 rgba(239,68,68,0);
+    }
+
+    50% {
+        transform: scale(1.04);
+        box-shadow: 0 0 20px rgba(239,68,68,0.55);
+    }
+
+    100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 rgba(239,68,68,0);
+    }
+}
+</style>
+""",
+    unsafe_allow_html=True,
+)
+
 
 def normalize_columns(df):
     if df is None:
@@ -33,6 +80,7 @@ def normalize_columns(df):
         .str.strip()
         .str.lower()
     )
+
     return df
 
 
@@ -58,6 +106,7 @@ if not user:
         '<div class="main-title">⚽ WK 2026 Pronostiek</div>',
         unsafe_allow_html=True,
     )
+
     st.info("Log in of registreer via de zijbalk.")
     st.stop()
 
@@ -79,9 +128,24 @@ dirty = st.session_state.get("predictions_dirty", False)
 st.sidebar.markdown("---")
 
 if dirty:
-    st.sidebar.error("⚠️ Niet opgeslagen wijzigingen")
+    st.sidebar.markdown(
+        """
+<div class="save-warning">
+⚠️ Niet opgeslagen wijzigingen
+</div>
+""",
+        unsafe_allow_html=True,
+    )
 else:
-    st.sidebar.success("✅ Alles opgeslagen")
+    st.sidebar.markdown(
+        """
+<div class="save-ok">
+✅ Alles opgeslagen
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+
 
 if st.sidebar.button("💾 Opslaan Pronostiek", use_container_width=True):
     count = batch_upsert_predictions(
@@ -91,8 +155,10 @@ if st.sidebar.button("💾 Opslaan Pronostiek", use_container_width=True):
     )
 
     mark_predictions_saved()
+
     st.sidebar.success(f"{count} keuzes opgeslagen.")
     st.rerun()
+
 
 st.sidebar.markdown("---")
 
