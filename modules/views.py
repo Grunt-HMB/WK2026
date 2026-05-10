@@ -637,9 +637,7 @@ def show_rules():
 - Juiste ploeg op juiste plaats in de eindrondes: **5 punten**
 
 ### Opslaan
-- **Voorlopig opslaan**: later nog wijzigen.
-- **Definitief indienen**: ingediend, maar nog wijzigbaar tot de deadline.
-
+- **Opslaan Pronostiek**: Niet vergeten hierop te klikken. Als verder sluit is alles weg**
 ### Deadline
 Een wedstrijd sluit automatisch **1 uur vóór de aftrap**.
 """
