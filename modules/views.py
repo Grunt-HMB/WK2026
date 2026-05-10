@@ -158,78 +158,18 @@ def show_scoreboard(users_df, matches_df, predictions_df, results_df):
     st.markdown("## 🏆 Rangschikking")
     st.caption("Overzicht van de huidige stand in de WK-pronostiek.")
 
-    if users_df is None or users_df.empty:
-        st.warning("Geen gebruikers gevonden.")
-        return
-
-    if predictions_df is None or predictions_df.empty:
-        st.info("Er zijn nog geen voorspellingen opgeslagen.")
-        return
-
-    users = users_df.copy()
-    predictions = predictions_df.copy()
-
-    users.columns = users.columns.astype(str).str.strip().str.lower()
-    predictions.columns = predictions.columns.astype(str).str.strip().str.lower()
-
-    if "user_id" not in users.columns:
-        st.error("Kolom 'user_id' ontbreekt in Users.")
-        return
-
-    if "user_id" not in predictions.columns:
-        st.error("Kolom 'user_id' ontbreekt in Predictions.")
-        return
-
-    if "points" not in predictions.columns:
-        predictions["points"] = 0
-
-    if "match_id" not in predictions.columns:
-        predictions["match_id"] = ""
-
-    predictions["points"] = pd.to_numeric(
-        predictions["points"],
-        errors="coerce",
-    ).fillna(0)
-
-    users["user_id"] = users["user_id"].astype(str).str.strip()
-    predictions["user_id"] = predictions["user_id"].astype(str).str.strip()
-
-    name_col = "user_id"
-
-    for col in ["naam", "name", "username", "speler", "deelnemer"]:
-        if col in users.columns:
-            name_col = col
-            break
-
-    scoreboard = (
-        predictions
-        .groupby("user_id", as_index=False)
-        .agg(
-            punten=("points", "sum"),
-            voorspellingen=("match_id", "count"),
-        )
+    scoreboard, details = build_scoreboard(
+        users_df,
+        matches_df,
+        predictions_df,
+        results_df,
     )
 
-    scoreboard = scoreboard.merge(
-        users[["user_id", name_col]],
-        on="user_id",
-        how="left",
-    )
+    if scoreboard is None or scoreboard.empty:
+        st.info("Er zijn nog geen punten berekend. Controleer of er al uitslagen in Results staan.")
+        return
 
-    scoreboard = scoreboard.rename(
-        columns={
-            name_col: "deelnemer",
-        }
-    )
-
-    scoreboard["deelnemer"] = scoreboard["deelnemer"].fillna("Onbekend")
-
-    scoreboard = scoreboard.sort_values(
-        ["punten", "voorspellingen", "deelnemer"],
-        ascending=[False, False, True],
-        kind="stable",
-    ).reset_index(drop=True)
-
+    scoreboard = scoreboard.copy().reset_index(drop=True)
     scoreboard.insert(0, "positie", range(1, len(scoreboard) + 1))
 
     def positie_label(pos):
@@ -243,26 +183,24 @@ def show_scoreboard(users_df, matches_df, predictions_df, results_df):
 
     scoreboard["positie"] = scoreboard["positie"].apply(positie_label)
 
-    display_df = scoreboard[
-        [
-            "positie",
-            "deelnemer",
-            "punten",
-            "voorspellingen",
-        ]
-    ].copy()
-
-    display_df = display_df.rename(
+    display_df = scoreboard.rename(
         columns={
             "positie": "#",
-            "deelnemer": "Deelnemer",
-            "punten": "Punten",
-            "voorspellingen": "Voorspellingen",
+            "naam": "Deelnemer",
+            "totaal_punten": "Punten",
+            "wedstrijden": "Gescoorde wedstrijden",
         }
     )
 
     st.dataframe(
-        display_df,
+        display_df[
+            [
+                "#",
+                "Deelnemer",
+                "Punten",
+                "Gescoorde wedstrijden",
+            ]
+        ],
         hide_index=True,
         use_container_width=True,
     )
