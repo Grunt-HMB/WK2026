@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas as pd
 
 from modules.database import batch_upsert_predictions
 from modules.prediction_cards import match_is_locked
@@ -7,6 +8,101 @@ from modules.prediction_state import (
     mark_predictions_saved,
     set_prediction,
 )
+
+
+DUTCH_WEEKDAYS = [
+    "maandag",
+    "dinsdag",
+    "woensdag",
+    "donderdag",
+    "vrijdag",
+    "zaterdag",
+    "zondag",
+]
+
+DUTCH_MONTHS = {
+    "januari": "January",
+    "februari": "February",
+    "maart": "March",
+    "april": "April",
+    "mei": "May",
+    "juni": "June",
+    "juli": "July",
+    "augustus": "August",
+    "september": "September",
+    "oktober": "October",
+    "november": "November",
+    "december": "December",
+}
+
+
+def normalize_columns(df):
+    if df is None:
+        return None
+
+    df = df.copy()
+    df.columns = (
+        df.columns
+        .astype(str)
+        .str.strip()
+        .str.lower()
+    )
+    return df
+
+
+def clean_dutch_date(value):
+    text = str(value or "").strip().lower()
+
+    for day in DUTCH_WEEKDAYS:
+        text = text.replace(day, "")
+
+    text = " ".join(text.split())
+
+    for nl, en in DUTCH_MONTHS.items():
+        text = text.replace(nl, en)
+
+    return text
+
+
+def create_sort_columns(wedstrijden):
+    wedstrijden = wedstrijden.copy()
+
+    if "datum" not in wedstrijden.columns:
+        wedstrijden["datum"] = ""
+
+    if "tijd" not in wedstrijden.columns:
+        wedstrijden["tijd"] = ""
+
+    if "match_id" not in wedstrijden.columns:
+        wedstrijden["match_id"] = ""
+
+    if "match_id_sort" not in wedstrijden.columns:
+        wedstrijden["match_id_sort"] = wedstrijden["match_id"]
+
+    wedstrijden["datum_sort"] = pd.to_datetime(
+        wedstrijden["datum"].apply(clean_dutch_date),
+        format="%d %B %Y",
+        errors="coerce",
+    )
+
+    wedstrijden["tijd_sort"] = pd.to_datetime(
+        wedstrijden["tijd"].astype(str).str.strip(),
+        format="%H:%M",
+        errors="coerce",
+    )
+
+    wedstrijden["match_id_sort"] = pd.to_numeric(
+        wedstrijden["match_id_sort"],
+        errors="coerce",
+    )
+
+    wedstrijden["match_id_sort"] = wedstrijden["match_id_sort"].fillna(
+        pd.to_numeric(wedstrijden["match_id"], errors="coerce")
+    )
+
+    wedstrijden["match_id_sort"] = wedstrijden["match_id_sort"].fillna(999999)
+
+    return wedstrijden
 
 
 def flag_img(code):
@@ -37,6 +133,11 @@ def prediction_label(choice, selected):
         return f"✅ {choice}"
 
     return choice
+
+
+def get_selected_prediction(match_id):
+    current = st.session_state.get("local_predictions", {}).get(str(match_id), {})
+    return str(current.get("prediction", "")).upper().strip()
 
 
 def show_prediction_buttons(match, match_id, selected):
@@ -95,8 +196,7 @@ def show_wedstrijd_row(match):
         else '<span style="color:#22c55e;font-weight:900;">🟢 Open</span>'
     )
 
-    current = st.session_state.get("local_predictions", {}).get(match_id, {})
-    selected = str(current.get("prediction", "")).upper().strip()
+    selected = get_selected_prediction(match_id)
 
     with st.container(border=True):
         col_date, col_time, col_status, col_match, col_buttons = st.columns(
@@ -134,6 +234,118 @@ def show_wedstrijd_row(match):
             show_prediction_buttons(match, match_id, selected)
 
 
+def init_team(table, team):
+    if team not in table:
+        table[team] = {
+            "Team": team,
+            "P": 0,
+            "W": 0,
+            "G": 0,
+            "V": 0,
+            "Ptn": 0,
+        }
+
+
+def calculate_group_standings(wedstrijden):
+    group_tables = {}
+
+    for _, match in wedstrijden.iterrows():
+        group_name = str(
+            get_value(match, "groep", "stage", "poule", "group")
+        ).strip()
+
+        if group_name == "":
+            group_name = "Onbekend"
+
+        match_id = str(get_value(match, "match_id", "wedstrijd_id", "id")).strip()
+        team1 = str(get_value(match, "team1", "land1", "thuisploeg")).strip()
+        team2 = str(get_value(match, "team2", "land2", "uitploeg")).strip()
+
+        if team1 == "" or team2 == "":
+            continue
+
+        if group_name not in group_tables:
+            group_tables[group_name] = {}
+
+        table = group_tables[group_name]
+
+        init_team(table, team1)
+        init_team(table, team2)
+
+        prediction = get_selected_prediction(match_id)
+
+        if prediction not in ["1", "X", "2"]:
+            continue
+
+        table[team1]["P"] += 1
+        table[team2]["P"] += 1
+
+        if prediction == "1":
+            table[team1]["W"] += 1
+            table[team1]["Ptn"] += 3
+            table[team2]["V"] += 1
+
+        elif prediction == "2":
+            table[team2]["W"] += 1
+            table[team2]["Ptn"] += 3
+            table[team1]["V"] += 1
+
+        elif prediction == "X":
+            table[team1]["G"] += 1
+            table[team2]["G"] += 1
+            table[team1]["Ptn"] += 1
+            table[team2]["Ptn"] += 1
+
+    result = {}
+
+    for group_name, table in group_tables.items():
+        df = pd.DataFrame(list(table.values()))
+
+        if not df.empty:
+            df = df.sort_values(
+                ["Ptn", "W", "Team"],
+                ascending=[False, False, True],
+                kind="stable",
+            ).reset_index(drop=True)
+
+            df.insert(0, "#", range(1, len(df) + 1))
+
+        result[group_name] = df
+
+    return result
+
+
+def show_group_standings(wedstrijden):
+    st.markdown("## 📊 Rankschikking per poule")
+    st.caption("Deze stand wordt live berekend op basis van jouw 1/X/2-keuzes.")
+
+    standings = calculate_group_standings(wedstrijden)
+
+    if not standings:
+        st.info("Nog geen poules gevonden.")
+        return
+
+    group_names = sorted(standings.keys())
+
+    cols = st.columns(2)
+
+    for index, group_name in enumerate(group_names):
+        df = standings[group_name]
+
+        with cols[index % 2]:
+            with st.container(border=True):
+                st.markdown(f"### {group_name}")
+
+                if df.empty:
+                    st.info("Nog geen data.")
+                else:
+                    st.dataframe(
+                        df,
+                        hide_index=True,
+                        use_container_width=True,
+                    )
+
+
 def show_wedstrijden(user, wedstrijden_df, predictions_df):
     st.markdown("## 📅 Wedstrijden")
     st.caption("Alle wedstrijden met open/gesloten status en snelle 1/X/2-keuze.")
@@ -145,51 +357,74 @@ def show_wedstrijden(user, wedstrijden_df, predictions_df):
         st.warning("Geen wedstrijden gevonden in tabblad 'Wedstrijden'.")
         return
 
-    wedstrijden = wedstrijden_df.copy()
+    wedstrijden = normalize_columns(wedstrijden_df)
 
-    if "match_id" not in wedstrijden.columns:
-        wedstrijden["match_id"] = ""
+    required_columns = [
+        "datum",
+        "tijd",
+        "team1",
+        "team2",
+        "match_id",
+    ]
 
-    wedstrijden["match_id_sort"] = (
-        wedstrijden["match_id"]
-        .astype(str)
-        .str.extract(r"(\d+)")
-        .fillna(0)
-        .astype(int)
-    )
+    missing_columns = [
+        col for col in required_columns
+        if col not in wedstrijden.columns
+    ]
+
+    if missing_columns:
+        st.error(
+            "Tabblad 'Wedstrijden' mist deze kolommen: "
+            + ", ".join(missing_columns)
+        )
+        st.write("Gevonden kolommen:", wedstrijden.columns.tolist())
+        return
+
+    wedstrijden = create_sort_columns(wedstrijden)
 
     wedstrijden = wedstrijden.sort_values(
-        ["datum", "tijd", "match_id_sort"],
+        ["datum_sort", "tijd_sort", "match_id_sort"],
         kind="stable",
     )
 
-    for _, match in wedstrijden.iterrows():
-        show_wedstrijd_row(match)
+    tab_wedstrijden, tab_stand = st.tabs(
+        [
+            "📅 Wedstrijden",
+            "📊 Rankschikking",
+        ]
+    )
 
-    st.markdown("---")
+    with tab_wedstrijden:
+        for _, match in wedstrijden.iterrows():
+            show_wedstrijd_row(match)
 
-    c1, c2 = st.columns(2)
+        st.markdown("---")
 
-    with c1:
-        if st.button("💾 Voorlopig opslaan", use_container_width=True):
-            count = batch_upsert_predictions(
-                user_id,
-                st.session_state.get("local_predictions", {}),
-                "Voorlopig",
-            )
+        c1, c2 = st.columns(2)
 
-            mark_predictions_saved()
-            st.success(f"{count} keuzes opgeslagen als Voorlopig.")
-            st.rerun()
+        with c1:
+            if st.button("💾 Voorlopig opslaan", use_container_width=True):
+                count = batch_upsert_predictions(
+                    user_id,
+                    st.session_state.get("local_predictions", {}),
+                    "Voorlopig",
+                )
 
-    with c2:
-        if st.button("✅ Definitief indienen", use_container_width=True):
-            count = batch_upsert_predictions(
-                user_id,
-                st.session_state.get("local_predictions", {}),
-                "FINAL",
-            )
+                mark_predictions_saved()
+                st.success(f"{count} keuzes opgeslagen als Voorlopig.")
+                st.rerun()
 
-            mark_predictions_saved()
-            st.success(f"{count} keuzes definitief ingediend.")
-            st.rerun()
+        with c2:
+            if st.button("✅ Definitief indienen", use_container_width=True):
+                count = batch_upsert_predictions(
+                    user_id,
+                    st.session_state.get("local_predictions", {}),
+                    "FINAL",
+                )
+
+                mark_predictions_saved()
+                st.success(f"{count} keuzes definitief ingediend.")
+                st.rerun()
+
+    with tab_stand:
+        show_group_standings(wedstrijden)
