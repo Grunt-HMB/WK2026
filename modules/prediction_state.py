@@ -1,34 +1,12 @@
-import copy
 import streamlit as st
-
-from modules.utils import result_from_score
 
 
 def ensure_prediction_state():
     if "local_predictions" not in st.session_state:
         st.session_state["local_predictions"] = {}
 
-    if "saved_predictions_snapshot" not in st.session_state:
-        st.session_state["saved_predictions_snapshot"] = {}
-
-    if "unsaved_changes" not in st.session_state:
-        st.session_state["unsaved_changes"] = False
-
-
-def mark_predictions_saved():
-    ensure_prediction_state()
-    st.session_state["saved_predictions_snapshot"] = copy.deepcopy(
-        st.session_state["local_predictions"]
-    )
-    st.session_state["unsaved_changes"] = False
-
-
-def discard_unsaved_predictions():
-    ensure_prediction_state()
-    st.session_state["local_predictions"] = copy.deepcopy(
-        st.session_state["saved_predictions_snapshot"]
-    )
-    st.session_state["unsaved_changes"] = False
+    if "predictions_dirty" not in st.session_state:
+        st.session_state["predictions_dirty"] = False
 
 
 def load_existing_predictions(user_id, predictions_df):
@@ -39,64 +17,83 @@ def load_existing_predictions(user_id, predictions_df):
     if loaded_key in st.session_state:
         return
 
-    if predictions_df.empty:
+    if predictions_df is None or predictions_df.empty:
         st.session_state[loaded_key] = True
-        mark_predictions_saved()
         return
 
-    user_preds = predictions_df[
-        predictions_df["user_id"].astype(str) == str(user_id)
+    predictions = predictions_df.copy()
+    predictions.columns = predictions.columns.astype(str).str.strip().str.lower()
+
+    if "user_id" not in predictions.columns or "match_id" not in predictions.columns:
+        st.session_state[loaded_key] = True
+        return
+
+    user_preds = predictions[
+        predictions["user_id"].astype(str).str.strip() == str(user_id).strip()
     ]
 
     for _, row in user_preds.iterrows():
         match_id = str(row.get("match_id", "")).strip()
 
-        if match_id:
-            st.session_state["local_predictions"][match_id] = {
-                "prediction": str(row.get("prediction", "")).upper().strip(),
-                "score1": "",
-                "score2": "",
-            }
+        if match_id == "":
+            continue
+
+        st.session_state["local_predictions"][match_id] = {
+            "prediction": str(row.get("prediction", "")).upper().strip(),
+            "score1": row.get("score1", ""),
+            "score2": row.get("score2", ""),
+            "status": row.get("status", ""),
+        }
 
     st.session_state[loaded_key] = True
-    mark_predictions_saved()
+    st.session_state["predictions_dirty"] = False
 
 
-def user_is_final(user_id, predictions_df):
-    if predictions_df.empty:
-        return False
-
-    user_preds = predictions_df[
-        predictions_df["user_id"].astype(str) == str(user_id)
-    ]
-
-    if user_preds.empty:
-        return False
-
-    return (user_preds["status"].astype(str).str.upper() == "FINAL").any()
-
-
-def set_prediction(match_id, choice):
+def set_prediction(match_id, prediction):
     ensure_prediction_state()
 
-    st.session_state["local_predictions"][str(match_id)] = {
-        "prediction": str(choice).upper().strip(),
-        "score1": "",
-        "score2": "",
-    }
+    match_id = str(match_id).strip()
+    prediction = str(prediction).upper().strip()
 
-    st.session_state["unsaved_changes"] = True
+    current = st.session_state["local_predictions"].get(match_id, {})
+
+    old_prediction = str(current.get("prediction", "")).upper().strip()
+
+    current["prediction"] = prediction
+
+    if "score1" not in current:
+        current["score1"] = ""
+
+    if "score2" not in current:
+        current["score2"] = ""
+
+    st.session_state["local_predictions"][match_id] = current
+
+    if old_prediction != prediction:
+        st.session_state["predictions_dirty"] = True
 
 
-def set_score(match_id, score1, score2):
+def set_score_prediction(match_id, score1, score2):
     ensure_prediction_state()
 
-    prediction = result_from_score(score1, score2)
+    match_id = str(match_id).strip()
 
-    st.session_state["local_predictions"][str(match_id)] = {
-        "prediction": prediction,
-        "score1": "",
-        "score2": "",
-    }
+    current = st.session_state["local_predictions"].get(match_id, {})
 
-    st.session_state["unsaved_changes"] = True
+    old_score1 = str(current.get("score1", "")).strip()
+    old_score2 = str(current.get("score2", "")).strip()
+
+    current["score1"] = score1
+    current["score2"] = score2
+
+    if "prediction" not in current:
+        current["prediction"] = ""
+
+    st.session_state["local_predictions"][match_id] = current
+
+    if old_score1 != str(score1).strip() or old_score2 != str(score2).strip():
+        st.session_state["predictions_dirty"] = True
+
+
+def mark_predictions_saved():
+    st.session_state["predictions_dirty"] = False
