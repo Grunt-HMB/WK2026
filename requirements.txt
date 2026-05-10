@@ -5,3 +5,4 @@ google-auth
 streamlit-cookies-manager
 requests
 PyMuPDF
+reportlab
