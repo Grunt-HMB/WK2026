@@ -2,6 +2,14 @@ import streamlit as st
 import pandas as pd
 import html
 import re
+from io import BytesIO
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 
 from modules.scoring import build_scoreboard
 from modules.knockout_engine import calculate_group_standings, calculate_best_thirds
@@ -44,6 +52,84 @@ def normalize_sort_columns(df):
 
 def esc(value):
     return html.escape(str(value or ""))
+
+
+def create_ranking_pdf(scoreboard):
+    buffer = BytesIO()
+
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=36,
+        leftMargin=36,
+        topMargin=42,
+        bottomMargin=36,
+    )
+
+    styles = getSampleStyleSheet()
+    story = []
+
+    title = Paragraph("WK 2026 Pronostiek - Rankschikking", styles["Title"])
+    story.append(title)
+
+    now = datetime.now(ZoneInfo("Europe/Brussels")).strftime("%d-%m-%Y %H:%M")
+    story.append(Paragraph(f"Gegenereerd op: {now}", styles["Normal"]))
+    story.append(Spacer(1, 18))
+
+    data = [["#", "Ploeg", "Punten", "Juiste voorspellingen"]]
+
+    for _, row in scoreboard.iterrows():
+        pos = int(row["positie"])
+        ploeg = str(row.get("naam", ""))
+        punten = int(row.get("totaal_punten", 0))
+        juist = int(row.get("wedstrijden", 0))
+
+        if pos == 1:
+            pos_label = "1"
+        elif pos == 2:
+            pos_label = "2"
+        elif pos == 3:
+            pos_label = "3"
+        else:
+            pos_label = str(pos)
+
+        data.append([pos_label, ploeg, punten, juist])
+
+    table = Table(
+        data,
+        colWidths=[45, 250, 80, 130],
+        repeatRows=1,
+    )
+
+    table_style = [
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1f2937")),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("ALIGN", (1, 1), (1, -1), "LEFT"),
+        ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+        ("FONTSIZE", (0, 0), (-1, -1), 9),
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cbd5e1")),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f8fafc")]),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+        ("TOPPADDING", (0, 0), (-1, -1), 7),
+    ]
+
+    if len(data) > 1:
+        table_style.append(("BACKGROUND", (0, 1), (-1, 1), colors.HexColor("#fef3c7")))
+    if len(data) > 2:
+        table_style.append(("BACKGROUND", (0, 2), (-1, 2), colors.HexColor("#e5e7eb")))
+    if len(data) > 3:
+        table_style.append(("BACKGROUND", (0, 3), (-1, 3), colors.HexColor("#fed7aa")))
+
+    table.setStyle(TableStyle(table_style))
+
+    story.append(table)
+
+    doc.build(story)
+
+    buffer.seek(0)
+    return buffer.getvalue()
 
 
 def show_my_predictions(user, matches_df, predictions_df):
@@ -146,9 +232,9 @@ def show_my_predictions(user, matches_df, predictions_df):
                     elif pred == "2":
                         st.error("2")
                     elif pred == "X1":
-                        st.info("X → 1")
+                        st.info("X -> 1")
                     elif pred == "X2":
-                        st.info("X → 2")
+                        st.info("X -> 2")
                     else:
                         st.caption("-")
 
@@ -207,6 +293,16 @@ def show_prediction_ranking(users_df, matches_df, predictions_df, results_df):
 
     scoreboard = scoreboard.copy().reset_index(drop=True)
     scoreboard.insert(0, "positie", range(1, len(scoreboard) + 1))
+
+    pdf_bytes = create_ranking_pdf(scoreboard)
+
+    st.download_button(
+        label="📄 Download rankschikking als PDF",
+        data=pdf_bytes,
+        file_name="WK2026_Rankschikking.pdf",
+        mime="application/pdf",
+        use_container_width=False,
+    )
 
     table_html = """
 <style>
