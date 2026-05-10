@@ -9,7 +9,6 @@ from modules.prediction_state import (
 from modules.wedstrijd_helpers import (
     normalize_columns,
     get_value,
-    stage_title,
 )
 
 from modules.wedstrijd_knockout import resolve_knockout_teams
@@ -22,7 +21,6 @@ from modules.wedstrijd_standings import (
 
 def validate_required_columns(wedstrijden):
     required_columns = [
-        "stage",
         "datum",
         "tijd",
         "team1",
@@ -34,6 +32,9 @@ def validate_required_columns(wedstrijden):
         col for col in required_columns
         if col not in wedstrijden.columns
     ]
+
+    if "ronde" not in wedstrijden.columns and "stage" not in wedstrijden.columns:
+        missing_columns.append("ronde of stage")
 
     return missing_columns
 
@@ -68,30 +69,53 @@ def show_save_buttons(user_id):
             st.rerun()
 
 
-def round_group_title(stage):
-    stage = str(stage or "").strip()
+def get_round_value(match):
+    ronde = str(get_value(match, "ronde")).strip()
+    stage = str(get_value(match, "stage")).strip()
 
-    if stage.lower().startswith("group "):
+    if ronde:
+        return ronde
+
+    return stage
+
+
+def round_title(match):
+    ronde = get_round_value(match)
+    groep = str(get_value(match, "groep")).strip().upper()
+
+    ronde_clean = ronde.strip().lower()
+
+    if ronde_clean == "group":
+        return "🌍 Groepsfase"
+
+    if ronde_clean.startswith("group "):
         return "🌍 Groepsfase"
 
     titles = {
         "round of 32": "🏆 1/16 finales",
         "round of 16": "🏆 1/8 finales",
         "quarterfinals": "🏆 Kwartfinales",
+        "quarter finals": "🏆 Kwartfinales",
         "semifinals": "🏆 Halve finales",
+        "semi finals": "🏆 Halve finales",
         "third place": "🥉 Troostwedstrijd",
         "final": "🏆 Finale",
     }
 
-    return titles.get(stage.lower(), stage_title(stage))
+    if ronde_clean in titles:
+        return titles[ronde_clean]
+
+    if groep in list("ABCDEFGHIJKL"):
+        return "🌍 Groepsfase"
+
+    return ronde if ronde else "Wedstrijden"
 
 
 def show_wedstrijden_list(wedstrijden):
     vorige_titel = None
 
     for _, match in wedstrijden.iterrows():
-        stage = str(get_value(match, "stage")).strip()
-        titel = round_group_title(stage)
+        titel = round_title(match)
 
         if titel != vorige_titel:
             st.markdown("---")
