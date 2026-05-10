@@ -155,8 +155,130 @@ def show_my_predictions(user, matches_df, predictions_df):
 
 
 def show_scoreboard(users_df, matches_df, predictions_df, results_df):
-    st.markdown("## 🏆 Rangschikking")
-    st.caption("Overzicht van de huidige stand in de WK-pronostiek.")
+    st.markdown(
+        """
+<style>
+.rank-wrapper {
+    max-width: 760px;
+    margin: auto;
+}
+
+.rank-title {
+    text-align: center;
+    font-size: 2.5rem;
+    font-weight: 900;
+    margin-bottom: 0.2rem;
+}
+
+.rank-subtitle {
+    text-align: center;
+    color: #94a3b8;
+    margin-bottom: 2rem;
+    font-weight: 600;
+}
+
+.rank-table {
+    width: 100%;
+    border-collapse: collapse;
+    overflow: hidden;
+    border-radius: 16px;
+    background: rgba(15,23,42,0.75);
+    border: 1px solid rgba(148,163,184,0.20);
+}
+
+.rank-table thead tr {
+    background: rgba(255,255,255,0.04);
+}
+
+.rank-table th {
+    padding: 16px;
+    text-align: center;
+    color: #cbd5e1;
+    font-size: 0.95rem;
+    font-weight: 800;
+    border-bottom: 1px solid rgba(148,163,184,0.18);
+}
+
+.rank-table td {
+    padding: 18px 16px;
+    text-align: center;
+    color: white;
+    font-size: 1rem;
+    font-weight: 700;
+    border-bottom: 1px solid rgba(148,163,184,0.12);
+}
+
+.rank-table tr:last-child td {
+    border-bottom: none;
+}
+
+.rank-gold {
+    background: linear-gradient(
+        90deg,
+        rgba(250,204,21,0.18),
+        rgba(250,204,21,0.04)
+    );
+}
+
+.rank-silver {
+    background: linear-gradient(
+        90deg,
+        rgba(203,213,225,0.16),
+        rgba(203,213,225,0.04)
+    );
+}
+
+.rank-bronze {
+    background: linear-gradient(
+        90deg,
+        rgba(251,146,60,0.16),
+        rgba(251,146,60,0.04)
+    );
+}
+
+.rank-position {
+    font-size: 1.15rem;
+    font-weight: 900;
+}
+
+.rank-points {
+    font-size: 1.15rem;
+    font-weight: 900;
+    color: #f8fafc;
+}
+
+.rank-name {
+    font-size: 1.08rem;
+    font-weight: 850;
+}
+
+@media (max-width: 768px) {
+    .rank-wrapper {
+        max-width: 100%;
+    }
+
+    .rank-table th,
+    .rank-table td {
+        padding: 12px 8px;
+        font-size: 0.9rem;
+    }
+}
+</style>
+""",
+        unsafe_allow_html=True,
+    )
+
+    st.markdown('<div class="rank-wrapper">', unsafe_allow_html=True)
+
+    st.markdown(
+        '<div class="rank-title">🏆 Rangschikking</div>',
+        unsafe_allow_html=True,
+    )
+
+    st.markdown(
+        '<div class="rank-subtitle">Overzicht van de huidige stand in de WK-pronostiek.</div>',
+        unsafe_allow_html=True,
+    )
 
     scoreboard, details = build_scoreboard(
         users_df,
@@ -166,44 +288,60 @@ def show_scoreboard(users_df, matches_df, predictions_df, results_df):
     )
 
     if scoreboard is None or scoreboard.empty:
-        st.info("Er zijn nog geen punten berekend. Controleer of er al uitslagen in Results staan.")
+        st.info("Er zijn nog geen punten berekend.")
+        st.markdown("</div>", unsafe_allow_html=True)
         return
 
     scoreboard = scoreboard.copy().reset_index(drop=True)
     scoreboard.insert(0, "positie", range(1, len(scoreboard) + 1))
 
-    def positie_label(pos):
+    table_html = """
+<table class="rank-table">
+<thead>
+<tr>
+    <th style="width:15%">#</th>
+    <th>Deelnemer</th>
+    <th style="width:22%">Punten</th>
+    <th style="width:28%">Gescoord</th>
+</tr>
+</thead>
+<tbody>
+"""
+
+    for _, row in scoreboard.iterrows():
+        pos = int(row["positie"])
+
+        row_class = ""
+
         if pos == 1:
-            return "🥇 1"
-        if pos == 2:
-            return "🥈 2"
-        if pos == 3:
-            return "🥉 3"
-        return str(pos)
+            row_class = "rank-gold"
+            rank_label = "🥇 1"
+        elif pos == 2:
+            row_class = "rank-silver"
+            rank_label = "🥈 2"
+        elif pos == 3:
+            row_class = "rank-bronze"
+            rank_label = "🥉 3"
+        else:
+            rank_label = str(pos)
 
-    scoreboard["positie"] = scoreboard["positie"].apply(positie_label)
+        table_html += f"""
+<tr class="{row_class}">
+    <td class="rank-position">{rank_label}</td>
+    <td class="rank-name">{row["naam"]}</td>
+    <td class="rank-points">{int(row["totaal_punten"])}</td>
+    <td>{int(row["wedstrijden"])}</td>
+</tr>
+"""
 
-    display_df = scoreboard.rename(
-        columns={
-            "positie": "#",
-            "naam": "Deelnemer",
-            "totaal_punten": "Punten",
-            "wedstrijden": "Gescoorde wedstrijden",
-        }
-    )
+    table_html += """
+</tbody>
+</table>
+"""
 
-    st.dataframe(
-        display_df[
-            [
-                "#",
-                "Deelnemer",
-                "Punten",
-                "Gescoorde wedstrijden",
-            ]
-        ],
-        hide_index=True,
-        use_container_width=True,
-    )
+    st.markdown(table_html, unsafe_allow_html=True)
+
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 def show_rules():
