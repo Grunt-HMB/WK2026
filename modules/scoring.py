@@ -1,7 +1,23 @@
 import re
 import pandas as pd
 
-from modules.utils import safe_int, result_from_score
+from modules.utils import result_from_score
+
+
+def safe_int(value, default=None):
+    try:
+        if pd.isna(value):
+            return default
+
+        text = str(value).strip()
+
+        if text == "":
+            return default
+
+        return int(float(text.replace(",", ".")))
+
+    except Exception:
+        return default
 
 
 GROUPS = list("ABCDEFGHIJKL")
