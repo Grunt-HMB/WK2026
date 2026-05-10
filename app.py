@@ -1,7 +1,7 @@
 import streamlit as st
 
 from modules.styles import inject_css
-from modules.database import ensure_sheets_exist, load_all_data, load_sheet
+from modules.database import ensure_sheets_exist, load_all_data
 from modules.auth import show_sidebar
 from modules.views import show_scoreboard, show_rules
 from modules.admin import show_admin_results
@@ -40,15 +40,6 @@ try:
     predictions_df = normalize_columns(data["predictions"])
     results_df = normalize_columns(data["results"])
 
-    try:
-        wedstrijden_df = load_sheet("Wedstrijden")
-        wedstrijden_df = normalize_columns(wedstrijden_df)
-
-    except Exception as e:
-        st.error("Fout bij laden van tabblad 'Wedstrijden'.")
-        st.exception(e)
-        wedstrijden_df = None
-
 except Exception as e:
     st.error("Fout bij laden van Google Sheets.")
     st.exception(e)
@@ -81,14 +72,11 @@ menu = st.sidebar.radio("Menu", menu_items)
 
 
 if menu == "Wedstrijden":
-    if wedstrijden_df is None:
-        st.error("Het tabblad 'Wedstrijden' kon niet geladen worden.")
-    else:
-        show_wedstrijden(
-            user,
-            wedstrijden_df,
-            predictions_df,
-        )
+    show_wedstrijden(
+        user,
+        matches_df,
+        predictions_df,
+    )
 
 elif menu == "Rankschikking":
     show_scoreboard(
