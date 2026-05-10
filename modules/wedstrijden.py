@@ -127,7 +127,24 @@ def show_wedstrijden_list(wedstrijden):
 
 def show_wedstrijden(user, wedstrijden_df, predictions_df):
     st.markdown("## 📅 Wedstrijden")
-    st.caption("Alle wedstrijden met open/gesloten status en snelle 1/X/2-keuze.")
+    st.markdown(
+        """
+    <div style="
+        background: linear-gradient(135deg,#7c2d12,#ea580c);
+        padding: 14px;
+        border-radius: 12px;
+        font-size: 1.05rem;
+        font-weight: 900;
+        color: white;
+        text-align: center;
+        margin-bottom: 18px;
+        box-shadow: 0 0 18px rgba(249,115,22,0.45);
+    ">
+    ⚠️ Vergeet niet op <b>OPSLAAN PRONOSTIEK</b> te klikken in de zijbalk!
+    </div>
+    """,
+        unsafe_allow_html=True,
+    )
 
     user_id = str(user["user_id"])
     load_existing_predictions(user_id, predictions_df)
