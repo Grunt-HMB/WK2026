@@ -1,10 +1,10 @@
 import pandas as pd
 import streamlit as st
 
-from modules.wedstrijd_helpers import (
-    get_value,
-    get_group_letter,
-)
+from modules.wedstrijd_helpers import get_value
+
+
+GROUPS = list("ABCDEFGHIJKL")
 
 
 def get_selected_prediction(match_id):
@@ -24,16 +24,47 @@ def normalize_prediction_for_standings(prediction):
     return ""
 
 
+def is_group_match(match):
+    ronde = str(get_value(match, "ronde")).strip().lower()
+    stage = str(get_value(match, "stage")).strip().lower()
+    groep = str(get_value(match, "groep")).strip().upper()
+
+    if ronde == "group":
+        return True
+
+    if stage.startswith("group "):
+        return True
+
+    if groep in GROUPS:
+        return True
+
+    return False
+
+
+def get_group_letter(match):
+    groep = str(get_value(match, "groep")).strip().upper()
+    stage = str(get_value(match, "stage")).strip().upper()
+
+    if groep in GROUPS:
+        return groep
+
+    if stage.startswith("GROUP "):
+        possible = stage.replace("GROUP", "").strip()
+        if possible in GROUPS:
+            return possible
+
+    return ""
+
+
 def calculate_group_standings(wedstrijden):
     tables = {}
 
     group_matches = wedstrijden[
-        wedstrijden["stage"].astype(str).str.lower().str.startswith("group ")
+        wedstrijden.apply(is_group_match, axis=1)
     ].copy()
 
     for _, match in group_matches.iterrows():
-        stage = str(get_value(match, "stage")).strip()
-        group = get_group_letter(stage)
+        group = get_group_letter(match)
 
         if group == "":
             continue
@@ -164,7 +195,7 @@ def show_group_standings(standings_df):
     st.markdown("## 📊 Rankschikking groepsfase")
     st.caption("Deze stand wordt live berekend op basis van jouw groepsfase-keuzes.")
 
-    if standings_df.empty:
+    if standings_df is None or standings_df.empty:
         st.info("Nog geen groepsstanden beschikbaar.")
         return
 
@@ -187,7 +218,7 @@ def show_group_standings(standings_df):
 
         with cols[index % 2]:
             with st.container(border=True):
-                st.markdown(f"### Group {group}")
+                st.markdown(f"### Groep {group}")
                 st.dataframe(
                     group_df,
                     hide_index=True,
@@ -196,7 +227,7 @@ def show_group_standings(standings_df):
 
 
 def show_best_thirds(best_thirds_df):
-    if best_thirds_df.empty:
+    if best_thirds_df is None or best_thirds_df.empty:
         return
 
     st.markdown("## 🥉 Beste derdes")
