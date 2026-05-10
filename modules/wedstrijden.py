@@ -69,16 +69,26 @@ def show_save_buttons(user_id):
             st.rerun()
 
 
+def round_group_title(stage):
+    stage = str(stage or "").strip()
+
+    if stage.lower().startswith("group "):
+        return "🌍 Groepsfase"
+
+    return stage_title(stage)
+
+
 def show_wedstrijden_list(wedstrijden):
-    vorige_stage = None
+    vorige_titel = None
 
     for _, match in wedstrijden.iterrows():
         stage = str(get_value(match, "stage")).strip()
+        titel = round_group_title(stage)
 
-        if stage != vorige_stage:
+        if titel != vorige_titel:
             st.markdown("---")
-            st.markdown(f"## {stage_title(stage)}")
-            vorige_stage = stage
+            st.markdown(f"## {titel}")
+            vorige_titel = titel
 
         show_wedstrijd_row(match)
 
