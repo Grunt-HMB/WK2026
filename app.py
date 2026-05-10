@@ -6,7 +6,8 @@ from modules.auth import show_sidebar
 from modules.views import show_scoreboard, show_rules
 from modules.admin import show_admin_results
 from modules.wedstrijden import show_wedstrijden
-
+from modules.database import batch_upsert_predictions
+from modules.prediction_state import mark_predictions_saved
 
 st.set_page_config(
     page_title="WK 2026 Pronostiek",
@@ -69,7 +70,18 @@ if is_admin:
     menu_items.append("Admin - uitslagen")
 
 menu = st.sidebar.radio("Menu", menu_items)
+st.sidebar.markdown("---")
 
+if st.sidebar.button("💾 Opslaan Pronostiek", use_container_width=True):
+    count = batch_upsert_predictions(
+        str(user["user_id"]),
+        st.session_state.get("local_predictions", {}),
+        "Voorlopig",
+    )
+
+    mark_predictions_saved()
+    st.sidebar.success(f"{count} keuzes opgeslagen.")
+    st.rerun()
 
 if menu == "Wedstrijden":
     show_wedstrijden(
