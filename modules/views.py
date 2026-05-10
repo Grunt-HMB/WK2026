@@ -225,7 +225,7 @@ def show_scoreboard(users_df, matches_df, predictions_df, results_df):
                 "positie": "#",
                 "naam": "Ploeg",
                 "totaal_punten": "Punten",
-                "wedstrijden": "Gescoorde wedstrijden",
+                "wedstrijden": "Juiste voorspellingen",
             }
         )
 
@@ -233,7 +233,7 @@ def show_scoreboard(users_df, matches_df, predictions_df, results_df):
             "#",
             "Ploeg",
             "Punten",
-            "Gescoorde wedstrijden",
+            "Juiste voorspellingen",
         ]
         
         existing_cols = [
