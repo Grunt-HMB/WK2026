@@ -39,7 +39,14 @@ def show_prediction_buttons(match, match_id, selected):
     closed = match_is_locked(match)
 
     stage = str(get_value(match, "stage")).strip()
-    knockout = is_knockout_stage(stage)
+    groep = str(get_value(match, "groep")).strip().upper()
+
+    is_group = (
+        stage.lower().startswith("group ")
+        or groep in list("ABCDEFGHIJKL")
+    )
+
+    knockout = not is_group
 
     team1 = str(get_value(match, "team1")).strip()
     team2 = str(get_value(match, "team2")).strip()
