@@ -659,7 +659,7 @@ def build_scoreboard(users_df, matches_df, predictions_df, results_df):
     predictions_df = clean_df(predictions_df)
     results_df = clean_df(results_df)
 
-    users_df = ensure_cols(users_df, ["user_id", "naam"])
+    users_df = ensure_cols(users_df, ["user_id", "naam", "team_name"])
     matches_df = ensure_cols(
         matches_df,
         [
@@ -699,7 +699,11 @@ def build_scoreboard(users_df, matches_df, predictions_df, results_df):
 
     for _, user in users_df.iterrows():
         user_id = str(user.get("user_id", "")).strip()
+
         naam = str(user.get("naam", user_id)).strip()
+        team_name = str(user.get("team_name", "")).strip()
+
+        display_name = team_name if team_name else naam
 
         user_preds_df = predictions_df[predictions_df["user_id"] == user_id].copy()
 
@@ -741,7 +745,7 @@ def build_scoreboard(users_df, matches_df, predictions_df, results_df):
                 detail_rows.append(
                     {
                         "user_id": user_id,
-                        "naam": naam,
+                        "naam": display_name,
                         "match_id": match_id,
                         "type": "uitslag",
                         "punten": points,
@@ -760,7 +764,7 @@ def build_scoreboard(users_df, matches_df, predictions_df, results_df):
             detail_rows.append(
                 {
                     "user_id": user_id,
-                    "naam": naam,
+                    "naam": display_name,
                     "match_id": "",
                     "type": "knockout_ploegen",
                     "punten": ko_points,
@@ -769,7 +773,7 @@ def build_scoreboard(users_df, matches_df, predictions_df, results_df):
 
         rows.append(
             {
-                "naam": naam,
+                "naam": display_name,
                 "totaal_punten": user_points,
                 "wedstrijden": scored_matches,
             }
