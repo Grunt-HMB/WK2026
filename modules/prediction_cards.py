@@ -8,6 +8,31 @@ from modules.prediction_state import set_prediction
 
 LOCAL_TZ = ZoneInfo("Europe/Brussels")
 
+DUTCH_WEEKDAYS = [
+    "maandag",
+    "dinsdag",
+    "woensdag",
+    "donderdag",
+    "vrijdag",
+    "zaterdag",
+    "zondag",
+]
+
+DUTCH_MONTHS = {
+    "januari": "01",
+    "februari": "02",
+    "maart": "03",
+    "april": "04",
+    "mei": "05",
+    "juni": "06",
+    "juli": "07",
+    "augustus": "08",
+    "september": "09",
+    "oktober": "10",
+    "november": "11",
+    "december": "12",
+}
+
 
 def flag_img(code):
     code = str(code or "").strip().lower()
@@ -22,8 +47,25 @@ def flag_img(code):
     )
 
 
+def clean_dutch_date(date_value):
+    text = str(date_value or "").strip().lower()
+
+    if not text:
+        return ""
+
+    for weekday in DUTCH_WEEKDAYS:
+        text = text.replace(weekday, "")
+
+    text = " ".join(text.split())
+
+    for month_name, month_number in DUTCH_MONTHS.items():
+        text = text.replace(month_name, month_number)
+
+    return text.strip()
+
+
 def parse_match_datetime(date_value, time_value):
-    date_text = str(date_value or "").strip()
+    date_text = clean_dutch_date(date_value)
     time_text = str(time_value or "").strip()
 
     if not date_text or not time_text:
@@ -32,14 +74,18 @@ def parse_match_datetime(date_value, time_value):
     raw = f"{date_text} {time_text}"
 
     formats = [
-        "%d-%m-%y %H:%M",
+        "%d %m %Y %H:%M",
+        "%d %m %y %H:%M",
         "%d-%m-%Y %H:%M",
-        "%d/%m/%y %H:%M",
+        "%d-%m-%y %H:%M",
         "%d/%m/%Y %H:%M",
-        "%d-%m-%y %H:%M:%S",
+        "%d/%m/%y %H:%M",
+        "%d %m %Y %H:%M:%S",
+        "%d %m %y %H:%M:%S",
         "%d-%m-%Y %H:%M:%S",
-        "%d/%m/%y %H:%M:%S",
+        "%d-%m-%y %H:%M:%S",
         "%d/%m/%Y %H:%M:%S",
+        "%d/%m/%y %H:%M:%S",
     ]
 
     for fmt in formats:
