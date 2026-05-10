@@ -8,7 +8,6 @@ from modules.prediction_state import (
 
 from modules.wedstrijd_helpers import (
     normalize_columns,
-    create_sort_columns,
     get_value,
     stage_title,
 )
@@ -101,7 +100,7 @@ def show_wedstrijden(user, wedstrijden_df, predictions_df):
     load_existing_predictions(user_id, predictions_df)
 
     if wedstrijden_df is None or wedstrijden_df.empty:
-        st.warning("Geen wedstrijden gevonden in tabblad 'Wedstrijden'.")
+        st.warning("Geen wedstrijden gevonden.")
         return
 
     wedstrijden = normalize_columns(wedstrijden_df)
@@ -110,26 +109,28 @@ def show_wedstrijden(user, wedstrijden_df, predictions_df):
 
     if missing_columns:
         st.error(
-            "Tabblad 'Wedstrijden' mist deze kolommen: "
+            "Tabblad 'Matches' mist deze kolommen: "
             + ", ".join(missing_columns)
         )
         st.write("Gevonden kolommen:", wedstrijden.columns.tolist())
         return
 
     wedstrijden["match_id_sort"] = (
-    wedstrijden["match_id"]
-    .astype(str)
-    .str.extract(r"(\d+)")
-    .fillna(999999)
-    .astype(int)
-)
+        wedstrijden["match_id"]
+        .astype(str)
+        .str.extract(r"(\d+)")
+        .fillna(999999)
+        .astype(int)
+    )
 
-wedstrijden = wedstrijden.sort_values(
-    ["match_id_sort"],
-    kind="stable",
-)
+    wedstrijden = wedstrijden.sort_values(
+        ["match_id_sort"],
+        kind="stable",
+    )
 
-    wedstrijden, standings_df, best_thirds_df = resolve_knockout_teams(wedstrijden)
+    wedstrijden, standings_df, best_thirds_df = resolve_knockout_teams(
+        wedstrijden
+    )
 
     tab_wedstrijden, tab_stand = st.tabs(
         [
