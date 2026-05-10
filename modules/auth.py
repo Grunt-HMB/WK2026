@@ -12,7 +12,19 @@ def create_cookie_manager():
     )
 
 
+def ensure_user_columns(users_df):
+    users_df = users_df.copy()
+
+    for col in ["user_id", "naam", "pincode", "admin", "team_name"]:
+        if col not in users_df.columns:
+            users_df[col] = ""
+
+    return users_df
+
+
 def login_user(users_df, username, password):
+    users_df = ensure_user_columns(users_df)
+
     username = str(username or "").strip()
     password = str(password or "").strip()
 
@@ -20,8 +32,8 @@ def login_user(users_df, username, password):
         return None
 
     user = users_df[
-        (users_df["naam"].astype(str).str.lower() == username.lower()) &
-        (users_df["pincode"].astype(str) == password)
+        (users_df["naam"].astype(str).str.lower() == username.lower())
+        & (users_df["pincode"].astype(str) == password)
     ]
 
     if user.empty:
@@ -31,6 +43,8 @@ def login_user(users_df, username, password):
 
 
 def find_user_by_id(users_df, user_id):
+    users_df = ensure_user_columns(users_df)
+
     if users_df.empty:
         return None
 
@@ -44,9 +58,22 @@ def find_user_by_id(users_df, user_id):
     return user.iloc[0].to_dict()
 
 
-def register_user(users_df, username, password):
+def get_display_team_name(user):
+    team_name = str(user.get("team_name", "") or "").strip()
+    naam = str(user.get("naam", "") or "").strip()
+
+    if team_name:
+        return team_name
+
+    return naam
+
+
+def register_user(users_df, username, password, team_name):
+    users_df = ensure_user_columns(users_df)
+
     username = str(username or "").strip()
     password = str(password or "").strip()
+    team_name = str(team_name or "").strip()
 
     if tournament_locked():
         return False, "Registreren is afgesloten."
@@ -57,21 +84,35 @@ def register_user(users_df, username, password):
     if len(password) < 3:
         return False, "Pincode moet minstens 3 tekens hebben."
 
-    existing = users_df[
+    if len(team_name) < 3:
+        return False, "Ploegnaam moet minstens 3 tekens hebben."
+
+    existing_name = users_df[
         users_df["naam"].astype(str).str.lower() == username.lower()
     ]
 
-    if not existing.empty:
+    if not existing_name.empty:
         return False, "Deze naam bestaat al."
+
+    existing_team = users_df[
+        users_df["team_name"].astype(str).str.lower() == team_name.lower()
+    ]
+
+    if not existing_team.empty:
+        return False, "Deze ploegnaam bestaat al."
 
     new_id = get_next_user_id(users_df)
 
-    append_row("Users", [
-        new_id,
-        username,
-        password,
-        "FALSE",
-    ])
+    append_row(
+        "Users",
+        [
+            new_id,
+            username,
+            password,
+            "FALSE",
+            team_name,
+        ],
+    )
 
     return True, "Account aangemaakt. Je kan nu inloggen."
 
@@ -88,6 +129,8 @@ def logout(cookies):
 
 
 def show_sidebar(users_df):
+    users_df = ensure_user_columns(users_df)
+
     st.sidebar.markdown("## ⚽ WK 2026")
     st.sidebar.markdown("### Pronostiek")
 
@@ -110,11 +153,16 @@ def show_sidebar(users_df):
     if "user" in st.session_state:
         user = st.session_state["user"]
 
+        display_team = get_display_team_name(user)
+        naam = str(user.get("naam", "") or "").strip()
+
         st.sidebar.markdown(
             f"""
 <div class="sidebar-card">
     <div>Ingelogd als</div>
-    <div class="sidebar-name">{user.get("naam", "")}</div>
+    <div class="sidebar-name">{naam}</div>
+    <div style="margin-top:8px;color:#94a3b8;font-size:0.85rem;">Ploeg</div>
+    <div style="font-weight:900;font-size:1.05rem;">{display_team}</div>
 </div>
 """,
             unsafe_allow_html=True,
@@ -161,6 +209,13 @@ def show_sidebar(users_df):
             disabled=tournament_locked(),
         )
 
+        team_name = st.text_input(
+            "Ploegnaam",
+            key="reg_team_name",
+            disabled=tournament_locked(),
+            placeholder="bv. FC Tiki Taka",
+        )
+
         pincode = st.text_input(
             "Nieuwe pincode",
             type="password",
@@ -173,7 +228,7 @@ def show_sidebar(users_df):
             use_container_width=True,
             disabled=tournament_locked(),
         ):
-            success, msg = register_user(users_df, name, pincode)
+            success, msg = register_user(users_df, name, pincode, team_name)
 
             if success:
                 st.success(msg)
