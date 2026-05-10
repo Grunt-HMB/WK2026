@@ -70,7 +70,7 @@ is_admin = str(user.get("admin", "")).upper() == "TRUE"
 
 menu_items = [
     "Wedstrijden",
-    "Scorebord",
+    "Rankschikking",
     "Reglement",
 ]
 
@@ -90,7 +90,7 @@ if menu == "Wedstrijden":
             predictions_df,
         )
 
-elif menu == "Scorebord":
+elif menu == "Rankschikking":
     show_scoreboard(
         users_df,
         matches_df,
