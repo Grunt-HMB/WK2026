@@ -223,7 +223,7 @@ def show_scoreboard(users_df, matches_df, predictions_df, results_df):
         display_df = scoreboard.rename(
             columns={
                 "positie": "#",
-                "naam": "Deelnemer",
+                "display_name": "Ploeg",
                 "totaal_punten": "Punten",
                 "wedstrijden": "Gescoorde wedstrijden",
             }
