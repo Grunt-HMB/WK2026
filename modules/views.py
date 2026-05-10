@@ -157,112 +157,243 @@ def show_my_predictions(user, matches_df, predictions_df):
 def show_scoreboard(users_df, matches_df, predictions_df, results_df):
     import streamlit as st
     import pandas as pd
+    import html
+
+    def esc(value):
+        return html.escape(str(value or ""))
+
+    def trophy_svg(color, stroke, number):
+        return f"""
+<svg viewBox="0 0 140 140" class="trophy-svg">
+    <defs>
+        <linearGradient id="cup{number}" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="{stroke}" />
+            <stop offset="45%" stop-color="{color}" />
+            <stop offset="100%" stop-color="#111827" />
+        </linearGradient>
+    </defs>
+    <path d="M42 28 H98 V62 C98 81 86 94 70 94 C54 94 42 81 42 62 Z"
+          fill="url(#cup{number})" stroke="{stroke}" stroke-width="4"/>
+    <path d="M42 38 H22 C22 58 31 70 45 72"
+          fill="none" stroke="{stroke}" stroke-width="7" stroke-linecap="round"/>
+    <path d="M98 38 H118 C118 58 109 70 95 72"
+          fill="none" stroke="{stroke}" stroke-width="7" stroke-linecap="round"/>
+    <rect x="62" y="92" width="16" height="20" rx="3" fill="{stroke}" />
+    <rect x="43" y="112" width="54" height="13" rx="4" fill="#1f2937" stroke="{stroke}" stroke-width="3"/>
+    <circle cx="70" cy="58" r="20" fill="rgba(255,255,255,0.18)" stroke="{stroke}" stroke-width="3"/>
+    <text x="70" y="66" text-anchor="middle" font-size="28" font-weight="900" fill="white">{number}</text>
+</svg>
+"""
 
     st.markdown(
         """
 <style>
-.rank-title {
-    font-size: 2.4rem;
-    font-weight: 900;
-    margin-bottom: 0.2rem;
-}
-
-.rank-subtitle {
-    color: #94a3b8;
-    font-weight: 600;
-    margin-bottom: 2rem;
-}
-
-.podium-wrap {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+.rank-page-title {
+    display: flex;
+    align-items: center;
     gap: 18px;
-    margin-top: 1rem;
-    margin-bottom: 2rem;
+    font-size: 2.6rem;
+    font-weight: 950;
+    margin-bottom: 0.1rem;
+}
+
+.rank-page-subtitle {
+    color: #94a3b8;
+    font-size: 1rem;
+    font-weight: 650;
+    margin-bottom: 2.1rem;
+}
+
+.top3-header {
+    display: grid;
+    grid-template-columns: auto 1fr auto 1fr;
+    align-items: center;
+    gap: 18px;
+    margin: 2rem 0 1.2rem 0;
+}
+
+.top3-title {
+    color: #facc15;
+    font-size: 1.55rem;
+    font-weight: 950;
+    letter-spacing: 0.03em;
+}
+
+.top3-line {
+    height: 1px;
+    background: linear-gradient(90deg, #facc15, transparent);
+}
+
+.top3-line.right {
+    background: linear-gradient(90deg, transparent, #facc15);
+}
+
+.top3-center {
+    font-size: 2.1rem;
+}
+
+.podium-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.06fr 1fr;
+    gap: 26px;
+    margin-bottom: 2.6rem;
 }
 
 .podium-card {
-    background: #111827;
-    border-radius: 24px;
-    padding: 26px 18px;
-    text-align: center;
-    min-height: 260px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
+    background:
+        radial-gradient(circle at top left, rgba(255,255,255,0.08), transparent 34%),
+        linear-gradient(145deg, #0f172a, #020617);
+    border-radius: 22px;
+    padding: 26px 28px;
+    min-height: 250px;
+    display: grid;
+    grid-template-columns: 150px 1fr;
+    align-items: center;
+    gap: 24px;
+    position: relative;
 }
 
-.podium-gold {
+.podium-card.gold {
     border: 2px solid #facc15;
-    box-shadow: 0 0 28px rgba(250, 204, 21, 0.35);
+    box-shadow: 0 0 32px rgba(250,204,21,0.28);
+    transform: translateY(-12px);
 }
 
-.podium-silver {
+.podium-card.silver {
     border: 2px solid #cbd5e1;
-    box-shadow: 0 0 28px rgba(203, 213, 225, 0.28);
+    box-shadow: 0 0 24px rgba(203,213,225,0.22);
 }
 
-.podium-bronze {
+.podium-card.bronze {
     border: 2px solid #fb923c;
-    box-shadow: 0 0 28px rgba(251, 146, 60, 0.28);
+    box-shadow: 0 0 24px rgba(251,146,60,0.22);
 }
 
-.cup-icon {
-    font-size: 4.5rem;
-    line-height: 1;
+.trophy-svg {
+    width: 145px;
+    height: 145px;
+    filter: drop-shadow(0 0 18px rgba(250,204,21,0.22));
+}
+
+.podium-info {
+    border-left: 1px solid rgba(148,163,184,0.22);
+    padding-left: 24px;
+}
+
+.rank-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    font-size: 1.35rem;
+    font-weight: 950;
     margin-bottom: 14px;
 }
 
-.cup-gold {
-    color: #facc15;
-    text-shadow: 0 0 18px rgba(250,204,21,0.55);
-}
+.rank-badge.gold { background: linear-gradient(135deg,#facc15,#a16207); color: white; }
+.rank-badge.silver { background: linear-gradient(135deg,#e5e7eb,#64748b); color: #0f172a; }
+.rank-badge.bronze { background: linear-gradient(135deg,#fb923c,#9a3412); color: white; }
 
-.cup-silver {
-    color: #e5e7eb;
-    text-shadow: 0 0 18px rgba(229,231,235,0.45);
-}
-
-.cup-bronze {
-    color: #fb923c;
-    text-shadow: 0 0 18px rgba(251,146,60,0.45);
-}
-
-.player-name {
-    font-size: 1.55rem;
-    font-weight: 900;
+.podium-name {
+    font-size: 1.65rem;
+    font-weight: 950;
     color: white;
-    margin-bottom: 10px;
+    margin-bottom: 20px;
 }
 
-.player-points {
-    font-size: 3rem;
-    font-weight: 900;
-    margin-bottom: 0;
+.podium-points {
+    font-size: 3.2rem;
+    font-weight: 950;
+    line-height: 1;
 }
 
-.points-gold { color: #facc15; }
-.points-silver { color: #cbd5e1; }
-.points-bronze { color: #fb923c; }
+.podium-points.gold { color: #facc15; }
+.podium-points.silver { color: #cbd5e1; }
+.podium-points.bronze { color: #fb923c; }
 
-.points-label {
+.podium-label {
     color: #94a3b8;
-    font-weight: 800;
-    margin-bottom: 18px;
+    font-weight: 750;
+    margin-top: 5px;
+    margin-bottom: 22px;
 }
 
-.prediction-pill {
-    background: rgba(255,255,255,0.06);
-    border: 1px solid rgba(255,255,255,0.10);
-    border-radius: 14px;
-    padding: 10px;
-    font-weight: 800;
+.prediction-count {
     color: #e5e7eb;
+    font-size: 1.05rem;
+    font-weight: 850;
 }
 
-@media (max-width: 900px) {
-    .podium-wrap {
+.rank-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    overflow: hidden;
+    border: 1px solid rgba(148,163,184,0.28);
+    border-radius: 16px;
+    font-size: 1rem;
+}
+
+.rank-table th {
+    background: rgba(15,23,42,0.92);
+    color: #cbd5e1;
+    text-align: left;
+    padding: 15px 18px;
+    border-bottom: 1px solid rgba(148,163,184,0.28);
+}
+
+.rank-table td {
+    padding: 15px 18px;
+    border-bottom: 1px solid rgba(148,163,184,0.16);
+    color: white;
+    font-weight: 750;
+}
+
+.rank-table tr.gold-row {
+    background: linear-gradient(90deg, rgba(250,204,21,0.25), rgba(250,204,21,0.06));
+}
+
+.rank-table tr.silver-row {
+    background: linear-gradient(90deg, rgba(203,213,225,0.20), rgba(203,213,225,0.04));
+}
+
+.rank-table tr.bronze-row {
+    background: linear-gradient(90deg, rgba(251,146,60,0.20), rgba(251,146,60,0.04));
+}
+
+.rank-table tr:last-child td {
+    border-bottom: none;
+}
+
+.rank-cell {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.mini-cup {
+    width: 28px;
+    height: 28px;
+}
+
+@media (max-width: 1000px) {
+    .podium-grid {
         grid-template-columns: 1fr;
+    }
+
+    .podium-card.gold {
+        transform: none;
+    }
+
+    .podium-card {
+        grid-template-columns: 120px 1fr;
+    }
+
+    .trophy-svg {
+        width: 115px;
+        height: 115px;
     }
 }
 </style>
@@ -270,9 +401,12 @@ def show_scoreboard(users_df, matches_df, predictions_df, results_df):
         unsafe_allow_html=True,
     )
 
-    st.markdown('<div class="rank-title">🏆 Rangschikking</div>', unsafe_allow_html=True)
     st.markdown(
-        '<div class="rank-subtitle">Overzicht van de huidige stand in de WK-pronostiek.</div>',
+        '<div class="rank-page-title">🏆 Rangschikking</div>',
+        unsafe_allow_html=True,
+    )
+    st.markdown(
+        '<div class="rank-page-subtitle">Overzicht van de huidige stand in de WK-pronostiek.</div>',
         unsafe_allow_html=True,
     )
 
@@ -315,7 +449,6 @@ def show_scoreboard(users_df, matches_df, predictions_df, results_df):
     users["user_id"] = users["user_id"].astype(str).str.strip()
 
     name_col = "name"
-
     if "naam" in users.columns:
         name_col = "naam"
     elif "username" in users.columns:
@@ -338,90 +471,120 @@ def show_scoreboard(users_df, matches_df, predictions_df, results_df):
 
     scoreboard.insert(0, "positie", range(1, len(scoreboard) + 1))
 
-    st.markdown("## 🏅 Huidige top 3")
-
     top3 = scoreboard.head(3).copy()
 
-    cup_map = {
+    style_map = {
         1: {
-            "cup": "🏆",
-            "card_class": "podium-gold",
-            "cup_class": "cup-gold",
-            "points_class": "points-gold",
-            "label": "Goud",
+            "class": "gold",
+            "color": "#facc15",
+            "stroke": "#fde047",
         },
         2: {
-            "cup": "🏆",
-            "card_class": "podium-silver",
-            "cup_class": "cup-silver",
-            "points_class": "points-silver",
-            "label": "Zilver",
+            "class": "silver",
+            "color": "#cbd5e1",
+            "stroke": "#f8fafc",
         },
         3: {
-            "cup": "🏆",
-            "card_class": "podium-bronze",
-            "cup_class": "cup-bronze",
-            "points_class": "points-bronze",
-            "label": "Brons",
+            "class": "bronze",
+            "color": "#fb923c",
+            "stroke": "#fdba74",
         },
     }
 
-    cards_html = '<div class="podium-wrap">'
+    st.markdown(
+        """
+<div class="top3-header">
+    <div class="top3-title">★ TOP 3</div>
+    <div class="top3-line"></div>
+    <div class="top3-center">🏆</div>
+    <div class="top3-line right"></div>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+
+    cards_by_position = {}
 
     for _, row in top3.iterrows():
-        positie = int(row["positie"])
-        style = cup_map.get(positie, cup_map[3])
+        pos = int(row["positie"])
+        style = style_map.get(pos, style_map[3])
+        css_class = style["class"]
 
-        cards_html += f"""
-<div class="podium-card {style["card_class"]}">
-    <div class="cup-icon {style["cup_class"]}">{style["cup"]}</div>
-    <div class="player-name">{row["deelnemer"]}</div>
-    <div class="player-points {style["points_class"]}">{int(row["punten"])}</div>
-    <div class="points-label">punten</div>
-    <div class="prediction-pill">⚽ {int(row["voorspellingen"])} voorspellingen</div>
+        cards_by_position[pos] = f"""
+<div class="podium-card {css_class}">
+    <div>
+        {trophy_svg(style["color"], style["stroke"], pos)}
+    </div>
+    <div class="podium-info">
+        <div class="rank-badge {css_class}">{pos}</div>
+        <div class="podium-name">{esc(row["deelnemer"])}</div>
+        <div class="podium-points {css_class}">{int(row["punten"])}</div>
+        <div class="podium-label">punten</div>
+        <div class="prediction-count">⚽ {int(row["voorspellingen"])} voorspellingen</div>
+    </div>
 </div>
 """
 
-    cards_html += "</div>"
+    podium_html = '<div class="podium-grid">'
+    podium_html += cards_by_position.get(2, "")
+    podium_html += cards_by_position.get(1, "")
+    podium_html += cards_by_position.get(3, "")
+    podium_html += "</div>"
 
-    st.markdown(cards_html, unsafe_allow_html=True)
+    st.markdown(podium_html, unsafe_allow_html=True)
 
     st.markdown("## 📋 Volledige rangschikking")
 
-    def rank_icon(pos):
+    table_html = """
+<table class="rank-table">
+<thead>
+<tr>
+    <th style="width:15%;">#</th>
+    <th>Deelnemer</th>
+    <th style="width:22%;">Punten</th>
+    <th style="width:25%;">Voorspellingen</th>
+</tr>
+</thead>
+<tbody>
+"""
+
+    for _, row in scoreboard.iterrows():
+        pos = int(row["positie"])
+        style = style_map.get(pos)
+        row_class = ""
+
         if pos == 1:
-            return "🏆 Goud"
-        if pos == 2:
-            return "🏆 Zilver"
-        if pos == 3:
-            return "🏆 Brons"
-        return str(pos)
+            row_class = "gold-row"
+        elif pos == 2:
+            row_class = "silver-row"
+        elif pos == 3:
+            row_class = "bronze-row"
 
-    display_df = scoreboard[
-        [
-            "positie",
-            "deelnemer",
-            "punten",
-            "voorspellingen",
-        ]
-    ].copy()
+        if style:
+            rank_display = f"""
+<span class="rank-cell">
+    <span class="mini-cup">{trophy_svg(style["color"], style["stroke"], pos)}</span>
+    <span>{pos}</span>
+</span>
+"""
+        else:
+            rank_display = str(pos)
 
-    display_df["positie"] = display_df["positie"].apply(rank_icon)
+        table_html += f"""
+<tr class="{row_class}">
+    <td>{rank_display}</td>
+    <td>{esc(row["deelnemer"])}</td>
+    <td>{int(row["punten"])}</td>
+    <td>⚽ {int(row["voorspellingen"])}</td>
+</tr>
+"""
 
-    display_df = display_df.rename(
-        columns={
-            "positie": "#",
-            "deelnemer": "Deelnemer",
-            "punten": "Punten",
-            "voorspellingen": "Voorspellingen",
-        }
-    )
+    table_html += """
+</tbody>
+</table>
+"""
 
-    st.dataframe(
-        display_df,
-        hide_index=True,
-        use_container_width=True,
-    )
+    st.markdown(table_html, unsafe_allow_html=True)
 
 
 def show_rules():
