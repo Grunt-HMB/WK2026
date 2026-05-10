@@ -229,15 +229,20 @@ def show_scoreboard(users_df, matches_df, predictions_df, results_df):
             }
         )
 
+        wanted_cols = [
+            "#",
+            "Ploeg",
+            "Punten",
+            "Gescoorde wedstrijden",
+        ]
+        
+        existing_cols = [
+            col for col in wanted_cols
+            if col in display_df.columns
+        ]
+        
         st.dataframe(
-            display_df[
-                [
-                    "#",
-                    "Deelnemer",
-                    "Punten",
-                    "Gescoorde wedstrijden",
-                ]
-            ],
+            display_df[existing_cols],
             hide_index=True,
             use_container_width=True,
         )
