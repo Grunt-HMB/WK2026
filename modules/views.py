@@ -160,20 +160,121 @@ def show_scoreboard(users_df, matches_df, predictions_df, results_df):
 
     st.markdown(
         """
-<h1 style="
-    display:flex;
-    align-items:center;
-    gap:14px;
-    font-size:2.5rem;
-    margin-bottom:0.2rem;
-">
-🏆 Rangschikking
-</h1>
+<style>
+.rank-title {
+    font-size: 2.4rem;
+    font-weight: 900;
+    margin-bottom: 0.2rem;
+}
+
+.rank-subtitle {
+    color: #94a3b8;
+    font-weight: 600;
+    margin-bottom: 2rem;
+}
+
+.podium-wrap {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+    margin-top: 1rem;
+    margin-bottom: 2rem;
+}
+
+.podium-card {
+    background: #111827;
+    border-radius: 24px;
+    padding: 26px 18px;
+    text-align: center;
+    min-height: 260px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.podium-gold {
+    border: 2px solid #facc15;
+    box-shadow: 0 0 28px rgba(250, 204, 21, 0.35);
+}
+
+.podium-silver {
+    border: 2px solid #cbd5e1;
+    box-shadow: 0 0 28px rgba(203, 213, 225, 0.28);
+}
+
+.podium-bronze {
+    border: 2px solid #fb923c;
+    box-shadow: 0 0 28px rgba(251, 146, 60, 0.28);
+}
+
+.cup-icon {
+    font-size: 4.5rem;
+    line-height: 1;
+    margin-bottom: 14px;
+}
+
+.cup-gold {
+    color: #facc15;
+    text-shadow: 0 0 18px rgba(250,204,21,0.55);
+}
+
+.cup-silver {
+    color: #e5e7eb;
+    text-shadow: 0 0 18px rgba(229,231,235,0.45);
+}
+
+.cup-bronze {
+    color: #fb923c;
+    text-shadow: 0 0 18px rgba(251,146,60,0.45);
+}
+
+.player-name {
+    font-size: 1.55rem;
+    font-weight: 900;
+    color: white;
+    margin-bottom: 10px;
+}
+
+.player-points {
+    font-size: 3rem;
+    font-weight: 900;
+    margin-bottom: 0;
+}
+
+.points-gold { color: #facc15; }
+.points-silver { color: #cbd5e1; }
+.points-bronze { color: #fb923c; }
+
+.points-label {
+    color: #94a3b8;
+    font-weight: 800;
+    margin-bottom: 18px;
+}
+
+.prediction-pill {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 14px;
+    padding: 10px;
+    font-weight: 800;
+    color: #e5e7eb;
+}
+
+@media (max-width: 900px) {
+    .podium-wrap {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
 """,
         unsafe_allow_html=True,
     )
 
-    st.caption("Overzicht van de huidige stand in de WK-pronostiek.")
+    st.markdown('<div class="rank-title">🏆 Rangschikking</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="rank-subtitle">Overzicht van de huidige stand in de WK-pronostiek.</div>',
+        unsafe_allow_html=True,
+    )
 
     if users_df is None or users_df.empty:
         st.warning("Geen gebruikers gevonden.")
@@ -188,6 +289,10 @@ def show_scoreboard(users_df, matches_df, predictions_df, results_df):
 
     users.columns = users.columns.astype(str).str.strip().str.lower()
     predictions.columns = predictions.columns.astype(str).str.strip().str.lower()
+
+    if "user_id" not in users.columns or "user_id" not in predictions.columns:
+        st.error("Kolom 'user_id' ontbreekt in Users of Predictions.")
+        return
 
     if "points" not in predictions.columns:
         predictions["points"] = 0
@@ -213,7 +318,6 @@ def show_scoreboard(users_df, matches_df, predictions_df, results_df):
 
     if "naam" in users.columns:
         name_col = "naam"
-
     elif "username" in users.columns:
         name_col = "username"
 
@@ -223,15 +327,8 @@ def show_scoreboard(users_df, matches_df, predictions_df, results_df):
         how="left",
     )
 
-    scoreboard = scoreboard.rename(
-        columns={
-            name_col: "deelnemer",
-        }
-    )
-
-    scoreboard["deelnemer"] = scoreboard["deelnemer"].fillna(
-        "Onbekende speler"
-    )
+    scoreboard = scoreboard.rename(columns={name_col: "deelnemer"})
+    scoreboard["deelnemer"] = scoreboard["deelnemer"].fillna("Onbekende speler")
 
     scoreboard = scoreboard.sort_values(
         ["punten", "voorspellingen", "deelnemer"],
@@ -241,156 +338,75 @@ def show_scoreboard(users_df, matches_df, predictions_df, results_df):
 
     scoreboard.insert(0, "positie", range(1, len(scoreboard) + 1))
 
-    medals = {
-        1: "🥇",
-        2: "🥈",
-        3: "🥉",
+    st.markdown("## 🏅 Huidige top 3")
+
+    top3 = scoreboard.head(3).copy()
+
+    cup_map = {
+        1: {
+            "cup": "🏆",
+            "card_class": "podium-gold",
+            "cup_class": "cup-gold",
+            "points_class": "points-gold",
+            "label": "Goud",
+        },
+        2: {
+            "cup": "🏆",
+            "card_class": "podium-silver",
+            "cup_class": "cup-silver",
+            "points_class": "points-silver",
+            "label": "Zilver",
+        },
+        3: {
+            "cup": "🏆",
+            "card_class": "podium-bronze",
+            "cup_class": "cup-bronze",
+            "points_class": "points-bronze",
+            "label": "Brons",
+        },
     }
 
-    scoreboard["medal"] = scoreboard["positie"].map(medals).fillna("")
+    cards_html = '<div class="podium-wrap">'
 
-    st.markdown(
-        """
-<h2 style="
-    display:flex;
-    align-items:center;
-    gap:10px;
-    margin-top:1.6rem;
-">
-🏅 Huidige top 3
-</h2>
-""",
-        unsafe_allow_html=True,
-    )
+    for _, row in top3.iterrows():
+        positie = int(row["positie"])
+        style = cup_map.get(positie, cup_map[3])
 
-    top3 = scoreboard.head(3)
-
-    if not top3.empty:
-        cols = st.columns(3)
-
-        gradients = {
-            1: "linear-gradient(145deg,#3b2f00,#facc15)",
-            2: "linear-gradient(145deg,#1e293b,#cbd5e1)",
-            3: "linear-gradient(145deg,#3f1d0d,#fdba74)",
-        }
-
-        borders = {
-            1: "#facc15",
-            2: "#cbd5e1",
-            3: "#fdba74",
-        }
-
-        shadows = {
-            1: "0 0 30px rgba(250,204,21,0.35)",
-            2: "0 0 22px rgba(203,213,225,0.25)",
-            3: "0 0 22px rgba(251,146,60,0.25)",
-        }
-
-        for i, (_, row) in enumerate(top3.iterrows()):
-            positie = int(row["positie"])
-
-            with cols[i]:
-                st.markdown(
-                    f"""
-<div style="
-    background:#111827;
-    border:2px solid {borders[positie]};
-    border-radius:24px;
-    padding:30px 20px;
-    text-align:center;
-    box-shadow:{shadows[positie]};
-    min-height:330px;
-    display:flex;
-    flex-direction:column;
-    justify-content:center;
-">
-
-<div style="
-    font-size:4rem;
-    margin-bottom:10px;
-">
-{row["medal"]}
+        cards_html += f"""
+<div class="podium-card {style["card_class"]}">
+    <div class="cup-icon {style["cup_class"]}">{style["cup"]}</div>
+    <div class="player-name">{row["deelnemer"]}</div>
+    <div class="player-points {style["points_class"]}">{int(row["punten"])}</div>
+    <div class="points-label">punten</div>
+    <div class="prediction-pill">⚽ {int(row["voorspellingen"])} voorspellingen</div>
 </div>
+"""
 
-<div style="
-    font-size:1.8rem;
-    font-weight:900;
-    color:white;
-    margin-bottom:12px;
-">
-{row["deelnemer"]}
-</div>
+    cards_html += "</div>"
 
-<div style="
-    font-size:3.2rem;
-    font-weight:900;
-    background:{gradients[positie]};
-    -webkit-background-clip:text;
-    -webkit-text-fill-color:transparent;
-    margin-bottom:5px;
-">
-{int(row["punten"])}
-</div>
+    st.markdown(cards_html, unsafe_allow_html=True)
 
-<div style="
-    color:#94a3b8;
-    font-weight:700;
-    font-size:1rem;
-    margin-bottom:18px;
-">
-punten
-</div>
+    st.markdown("## 📋 Volledige rangschikking")
 
-<div style="
-    background:rgba(255,255,255,0.05);
-    border:1px solid rgba(255,255,255,0.08);
-    border-radius:14px;
-    padding:10px;
-    color:#e2e8f0;
-    font-weight:700;
-">
-⚽ {int(row["voorspellingen"])} voorspellingen
-</div>
-
-</div>
-""",
-                    unsafe_allow_html=True,
-                )
-
-    st.markdown(
-        """
-<h2 style="
-    display:flex;
-    align-items:center;
-    gap:10px;
-    margin-top:2rem;
-">
-📋 Volledige rangschikking
-</h2>
-""",
-        unsafe_allow_html=True,
-    )
+    def rank_icon(pos):
+        if pos == 1:
+            return "🏆 Goud"
+        if pos == 2:
+            return "🏆 Zilver"
+        if pos == 3:
+            return "🏆 Brons"
+        return str(pos)
 
     display_df = scoreboard[
         [
             "positie",
-            "medal",
             "deelnemer",
             "punten",
             "voorspellingen",
         ]
     ].copy()
 
-    display_df["positie"] = display_df.apply(
-        lambda row: (
-            f'{row["medal"]} {row["positie"]}'
-            if row["medal"] != ""
-            else str(row["positie"])
-        ),
-        axis=1,
-    )
-
-    display_df = display_df.drop(columns=["medal"])
+    display_df["positie"] = display_df["positie"].apply(rank_icon)
 
     display_df = display_df.rename(
         columns={
