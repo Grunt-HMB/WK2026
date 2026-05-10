@@ -660,6 +660,7 @@ def build_scoreboard(users_df, matches_df, predictions_df, results_df):
     results_df = clean_df(results_df)
 
     users_df = ensure_cols(users_df, ["user_id", "naam", "team_name"])
+
     matches_df = ensure_cols(
         matches_df,
         [
@@ -675,11 +676,27 @@ def build_scoreboard(users_df, matches_df, predictions_df, results_df):
             "team2_placeholder",
         ],
     )
+
     predictions_df = ensure_cols(
         predictions_df,
-        ["user_id", "match_id", "prediction", "score1", "score2", "status"],
+        [
+            "user_id",
+            "match_id",
+            "prediction",
+            "score1",
+            "score2",
+            "status",
+        ],
     )
-    results_df = ensure_cols(results_df, ["match_id", "real_team1", "real_team2"])
+
+    results_df = ensure_cols(
+        results_df,
+        [
+            "match_id",
+            "real_team1",
+            "real_team2",
+        ],
+    )
 
     users_df["user_id"] = users_df["user_id"].astype(str).str.strip()
     matches_df["match_id"] = matches_df["match_id"].astype(str).str.strip()
@@ -703,9 +720,16 @@ def build_scoreboard(users_df, matches_df, predictions_df, results_df):
         naam = str(user.get("naam", user_id)).strip()
         team_name = str(user.get("team_name", "")).strip()
 
-        display_name = team_name if team_name else naam
+        if team_name and naam and team_name.lower() != naam.lower():
+            display_name = f"{team_name} ({naam})"
+        elif team_name:
+            display_name = team_name
+        else:
+            display_name = naam
 
-        user_preds_df = predictions_df[predictions_df["user_id"] == user_id].copy()
+        user_preds_df = predictions_df[
+            predictions_df["user_id"] == user_id
+        ].copy()
 
         user_points = 0
         scored_matches = 0
@@ -759,6 +783,7 @@ def build_scoreboard(users_df, matches_df, predictions_df, results_df):
                     predicted_bracket,
                     real_bracket,
                 )
+
                 user_points += ko_points
 
             detail_rows.append(
@@ -782,8 +807,16 @@ def build_scoreboard(users_df, matches_df, predictions_df, results_df):
     scoreboard = pd.DataFrame(rows)
 
     scoreboard = scoreboard.sort_values(
-        ["totaal_punten", "wedstrijden", "naam"],
-        ascending=[False, False, True],
+        [
+            "totaal_punten",
+            "wedstrijden",
+            "naam",
+        ],
+        ascending=[
+            False,
+            False,
+            True,
+        ],
         kind="stable",
     ).reset_index(drop=True)
 
