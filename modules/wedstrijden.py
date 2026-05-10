@@ -116,12 +116,18 @@ def show_wedstrijden(user, wedstrijden_df, predictions_df):
         st.write("Gevonden kolommen:", wedstrijden.columns.tolist())
         return
 
-    wedstrijden = create_sort_columns(wedstrijden)
+    wedstrijden["match_id_sort"] = (
+    wedstrijden["match_id"]
+    .astype(str)
+    .str.extract(r"(\d+)")
+    .fillna(999999)
+    .astype(int)
+)
 
-    wedstrijden = wedstrijden.sort_values(
-        ["datum_sort", "tijd_sort", "match_id_sort"],
-        kind="stable",
-    )
+wedstrijden = wedstrijden.sort_values(
+    ["match_id_sort"],
+    kind="stable",
+)
 
     wedstrijden, standings_df, best_thirds_df = resolve_knockout_teams(wedstrijden)
 
