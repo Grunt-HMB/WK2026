@@ -1,6 +1,11 @@
 import streamlit as st
 import pandas as pd
+import html
+import re
+
 from modules.scoring import build_scoreboard
+from modules.knockout_engine import calculate_group_standings, calculate_best_thirds
+
 
 def flag_img(code):
     code = str(code or "").strip().lower()
@@ -35,6 +40,10 @@ def normalize_sort_columns(df):
             df[col] = ""
 
     return df
+
+
+def esc(value):
+    return html.escape(str(value or ""))
 
 
 def show_my_predictions(user, matches_df, predictions_df):
@@ -154,265 +163,348 @@ def show_my_predictions(user, matches_df, predictions_df):
                         st.caption(status)
 
 
-def show_scoreboard(users_df, matches_df, predictions_df, results_df):
-    import streamlit as st
-    import pandas as pd
-    import html
-    import re
+def is_unresolved_team(value):
+    text = str(value or "").strip().upper().replace(" ", "")
 
-    from modules.scoring import build_scoreboard
-    from modules.knockout_engine import calculate_group_standings, calculate_best_thirds
+    if text == "":
+        return True
 
-    def esc(value):
-        return html.escape(str(value or ""))
+    patterns = [
+        r"^[123][A-L]+$",
+        r"^W\d+$",
+        r"^L\d+$",
+    ]
 
-    def is_unresolved_team(value):
-        text = str(value or "").strip().upper().replace(" ", "")
+    return any(re.match(pattern, text) for pattern in patterns)
 
-        if text == "":
-            return True
 
-        patterns = [
-            r"^[123][A-L]+$",
-            r"^W\d+$",
-            r"^L\d+$",
+def stage_label(value):
+    text = str(value or "").strip().lower()
+
+    labels = {
+        "round of 32": "1/16 finales",
+        "round of 16": "1/8 finales",
+        "quarterfinals": "Kwartfinales",
+        "semifinals": "Halve finales",
+        "third place": "Troostwedstrijd",
+        "final": "Finale",
+    }
+
+    return labels.get(text, str(value or "").strip())
+
+
+def show_prediction_ranking(users_df, matches_df, predictions_df, results_df):
+    scoreboard, details = build_scoreboard(
+        users_df,
+        matches_df,
+        predictions_df,
+        results_df,
+    )
+
+    if scoreboard is None or scoreboard.empty:
+        st.info("Er zijn nog geen punten berekend.")
+        return
+
+    scoreboard = scoreboard.copy().reset_index(drop=True)
+    scoreboard.insert(0, "positie", range(1, len(scoreboard) + 1))
+
+    table_html = """
+<style>
+.rank-wrap {
+    max-width: 780px;
+    margin: 18px auto 0 auto;
+}
+
+.rank-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    border-radius: 14px;
+    overflow: hidden;
+}
+
+.rank-table th {
+    background: rgba(255,255,255,0.04);
+    color: #cbd5e1;
+    font-weight: 800;
+    padding: 14px 16px;
+    text-align: center;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+.rank-table td {
+    padding: 15px 16px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+    color: white;
+    font-weight: 750;
+    text-align: center;
+}
+
+.rank-table tr:last-child td {
+    border-bottom: none;
+}
+
+.rank-table .rank-col {
+    width: 90px;
+}
+
+.rank-table .team-col {
+    text-align: left;
+    width: 42%;
+}
+
+.rank-table .points-col {
+    width: 120px;
+    font-weight: 900;
+}
+
+.rank-table .correct-col {
+    width: 190px;
+}
+
+.rank-table .top1 {
+    background: rgba(250, 204, 21, 0.10);
+}
+
+.rank-table .top2 {
+    background: rgba(203, 213, 225, 0.08);
+}
+
+.rank-table .top3 {
+    background: rgba(251, 146, 60, 0.08);
+}
+</style>
+
+<div class="rank-wrap">
+<table class="rank-table">
+<thead>
+<tr>
+    <th class="rank-col">#</th>
+    <th class="team-col">Ploeg</th>
+    <th class="points-col">Punten</th>
+    <th class="correct-col">Juiste voorspellingen</th>
+</tr>
+</thead>
+<tbody>
+"""
+
+    for _, row in scoreboard.iterrows():
+        pos = int(row["positie"])
+
+        if pos == 1:
+            rank_label = "🥇 1"
+            row_class = "top1"
+        elif pos == 2:
+            rank_label = "🥈 2"
+            row_class = "top2"
+        elif pos == 3:
+            rank_label = "🥉 3"
+            row_class = "top3"
+        else:
+            rank_label = str(pos)
+            row_class = ""
+
+        ploeg = esc(row.get("naam", ""))
+        punten = int(row.get("totaal_punten", 0))
+        juist = int(row.get("wedstrijden", 0))
+
+        table_html += f"""
+<tr class="{row_class}">
+    <td class="rank-col">{rank_label}</td>
+    <td class="team-col">{ploeg}</td>
+    <td class="points-col">{punten}</td>
+    <td class="correct-col">{juist}</td>
+</tr>
+"""
+
+    table_html += """
+</tbody>
+</table>
+</div>
+"""
+
+    st.markdown(table_html, unsafe_allow_html=True)
+
+
+def show_official_group_standings(matches_df):
+    standings_df = calculate_group_standings(matches_df)
+
+    if standings_df is None or standings_df.empty:
+        st.info("Er zijn nog geen officiële groepsstanden beschikbaar.")
+        return
+
+    groups = sorted(standings_df["groep"].dropna().unique().tolist())
+    cols = st.columns(2)
+
+    for index, group in enumerate(groups):
+        group_df = standings_df[
+            standings_df["groep"].astype(str).str.upper() == str(group).upper()
+        ].copy()
+
+        group_df = group_df[
+            [
+                "position",
+                "team",
+                "played",
+                "wins",
+                "draws",
+                "losses",
+                "goals_for",
+                "goals_against",
+                "goal_diff",
+                "points",
+            ]
         ]
 
-        return any(re.match(pattern, text) for pattern in patterns)
-
-    def stage_label(value):
-        text = str(value or "").strip().lower()
-
-        labels = {
-            "round of 32": "1/16 finales",
-            "round of 16": "1/8 finales",
-            "quarterfinals": "Kwartfinales",
-            "semifinals": "Halve finales",
-            "third place": "Troostwedstrijd",
-            "final": "Finale",
-        }
-
-        return labels.get(text, str(value or "").strip())
-
-    def show_prediction_ranking():
-        scoreboard, details = build_scoreboard(
-            users_df,
-            matches_df,
-            predictions_df,
-            results_df,
-        )
-
-        if scoreboard is None or scoreboard.empty:
-            st.info("Er zijn nog geen punten berekend.")
-            return
-
-        scoreboard = scoreboard.copy().reset_index(drop=True)
-        scoreboard.insert(0, "positie", range(1, len(scoreboard) + 1))
-
-        def positie_label(pos):
-            if pos == 1:
-                return "🥇 1"
-            if pos == 2:
-                return "🥈 2"
-            if pos == 3:
-                return "🥉 3"
-            return str(pos)
-
-        scoreboard["positie"] = scoreboard["positie"].apply(positie_label)
-
-        display_df = scoreboard.rename(
+        group_df = group_df.rename(
             columns={
-                "positie": "#",
-                "naam": "Ploeg",
-                "totaal_punten": "Punten",
-                "wedstrijden": "Juiste voorspellingen",
+                "position": "#",
+                "team": "Team",
+                "played": "P",
+                "wins": "W",
+                "draws": "G",
+                "losses": "V",
+                "goals_for": "DV",
+                "goals_against": "DT",
+                "goal_diff": "+/-",
+                "points": "Ptn",
             }
         )
 
-        wanted_cols = [
-            "#",
-            "Ploeg",
-            "Punten",
-            "Juiste voorspellingen",
-        ]
-        
-        existing_cols = [
-            col for col in wanted_cols
-            if col in display_df.columns
-        ]
-        
+        with cols[index % 2]:
+            with st.container(border=True):
+                st.markdown(f"### Groep {group}")
+                st.dataframe(
+                    group_df,
+                    hide_index=True,
+                    use_container_width=True,
+                )
+
+    best_thirds_df = calculate_best_thirds(standings_df)
+
+    if best_thirds_df is not None and not best_thirds_df.empty:
+        st.markdown("### 🥉 Beste derdes")
+
+        thirds = best_thirds_df[
+            [
+                "third_rank",
+                "groep",
+                "team",
+                "played",
+                "points",
+                "goal_diff",
+                "goals_for",
+                "qualified_third",
+            ]
+        ].copy()
+
+        thirds = thirds.rename(
+            columns={
+                "third_rank": "#",
+                "groep": "Groep",
+                "team": "Team",
+                "played": "P",
+                "points": "Ptn",
+                "goal_diff": "+/-",
+                "goals_for": "DV",
+                "qualified_third": "Door",
+            }
+        )
+
         st.dataframe(
-            display_df[existing_cols],
+            thirds,
             hide_index=True,
             use_container_width=True,
         )
 
-    def show_official_group_standings():
-        standings_df = calculate_group_standings(matches_df)
 
-        if standings_df is None or standings_df.empty:
-            st.info("Er zijn nog geen officiële groepsstanden beschikbaar.")
-            return
+def show_official_knockout(matches_df):
+    df = matches_df.copy()
+    df.columns = df.columns.astype(str).str.strip().str.lower()
 
-        groups = sorted(standings_df["groep"].dropna().unique().tolist())
-        cols = st.columns(2)
+    for col in ["match_id", "ronde", "stage", "datum", "tijd", "team1", "team2"]:
+        if col not in df.columns:
+            df[col] = ""
 
-        for index, group in enumerate(groups):
-            group_df = standings_df[
-                standings_df["groep"].astype(str).str.upper() == str(group).upper()
-            ].copy()
+    df["match_id_sort"] = (
+        df["match_id"]
+        .astype(str)
+        .str.extract(r"(\d+)")
+        .fillna(999999)
+        .astype(int)
+    )
 
-            group_df = group_df[
-                [
-                    "position",
-                    "team",
-                    "played",
-                    "wins",
-                    "draws",
-                    "losses",
-                    "goals_for",
-                    "goals_against",
-                    "goal_diff",
-                    "points",
-                ]
-            ]
-
-            group_df = group_df.rename(
-                columns={
-                    "position": "#",
-                    "team": "Team",
-                    "played": "P",
-                    "wins": "W",
-                    "draws": "G",
-                    "losses": "V",
-                    "goals_for": "DV",
-                    "goals_against": "DT",
-                    "goal_diff": "+/-",
-                    "points": "Ptn",
-                }
-            )
-
-            with cols[index % 2]:
-                with st.container(border=True):
-                    st.markdown(f"### Groep {group}")
-                    st.dataframe(
-                        group_df,
-                        hide_index=True,
-                        use_container_width=True,
-                    )
-
-        best_thirds_df = calculate_best_thirds(standings_df)
-
-        if best_thirds_df is not None and not best_thirds_df.empty:
-            st.markdown("### 🥉 Beste derdes")
-
-            thirds = best_thirds_df[
-                [
-                    "third_rank",
-                    "groep",
-                    "team",
-                    "played",
-                    "points",
-                    "goal_diff",
-                    "goals_for",
-                    "qualified_third",
-                ]
-            ].copy()
-
-            thirds = thirds.rename(
-                columns={
-                    "third_rank": "#",
-                    "groep": "Groep",
-                    "team": "Team",
-                    "played": "P",
-                    "points": "Ptn",
-                    "goal_diff": "+/-",
-                    "goals_for": "DV",
-                    "qualified_third": "Door",
-                }
-            )
-
-            st.dataframe(
-                thirds,
-                hide_index=True,
-                use_container_width=True,
-            )
-
-    def show_official_knockout():
-        df = matches_df.copy()
-        df.columns = df.columns.astype(str).str.strip().str.lower()
-
-        for col in ["match_id", "ronde", "stage", "datum", "tijd", "team1", "team2"]:
-            if col not in df.columns:
-                df[col] = ""
-
-        if "match_id_sort" not in df.columns:
-            df["match_id_sort"] = (
-                df["match_id"]
+    knockout = df[
+        ~(
+            (df["ronde"].astype(str).str.lower() == "group")
+            | (df["stage"].astype(str).str.lower().str.startswith("group"))
+            | (
+                df.get("groep", "")
                 .astype(str)
-                .str.extract(r"(\d+)")
-                .fillna(999999)
-                .astype(int)
+                .str.upper()
+                .isin(list("ABCDEFGHIJKL"))
             )
+        )
+    ].copy()
 
-        knockout = df[
-            ~(
-                (df["ronde"].astype(str).str.lower() == "group")
-                | (df["stage"].astype(str).str.lower().str.startswith("group"))
-                | (df.get("groep", "").astype(str).str.upper().isin(list("ABCDEFGHIJKL")))
-            )
-        ].copy()
+    if knockout.empty:
+        st.info("Geen eindrondes gevonden.")
+        return
 
-        if knockout.empty:
-            st.info("Geen eindrondes gevonden.")
-            return
+    knockout = knockout.sort_values("match_id_sort", kind="stable")
 
-        knockout = knockout.sort_values("match_id_sort", kind="stable")
+    current_round = None
 
-        current_round = None
+    for _, row in knockout.iterrows():
+        ronde = str(row.get("ronde", "")).strip()
 
-        for _, row in knockout.iterrows():
-            ronde = str(row.get("ronde", "")).strip()
-            if ronde == "":
-                ronde = str(row.get("stage", "")).strip()
+        if ronde == "":
+            ronde = str(row.get("stage", "")).strip()
 
-            label = stage_label(ronde)
+        label = stage_label(ronde)
 
-            if label != current_round:
-                st.markdown("---")
-                st.markdown(f"### 🏆 {label}")
-                current_round = label
+        if label != current_round:
+            st.markdown("---")
+            st.markdown(f"### 🏆 {label}")
+            current_round = label
 
-            team1 = str(row.get("team1", "")).strip()
-            team2 = str(row.get("team2", "")).strip()
+        team1 = str(row.get("team1", "")).strip()
+        team2 = str(row.get("team2", "")).strip()
 
-            team1_known = not is_unresolved_team(team1)
-            team2_known = not is_unresolved_team(team2)
+        team1_known = not is_unresolved_team(team1)
+        team2_known = not is_unresolved_team(team2)
 
-            team1_display = team1 if team1_known else f"⏳ {team1}"
-            team2_display = team2 if team2_known else f"⏳ {team2}"
+        team1_display = team1 if team1_known else f"⏳ {team1}"
+        team2_display = team2 if team2_known else f"⏳ {team2}"
 
-            status = "✅ bekend" if team1_known and team2_known else "⏳ nog niet volledig bekend"
+        status = (
+            "✅ bekend"
+            if team1_known and team2_known
+            else "⏳ nog niet volledig bekend"
+        )
 
-            with st.container(border=True):
-                c1, c2, c3, c4 = st.columns([0.9, 1.2, 4.0, 1.6])
+        with st.container(border=True):
+            c1, c2, c3, c4 = st.columns([0.9, 1.2, 4.0, 1.6])
 
-                with c1:
-                    st.markdown(f"**#{row.get('match_id', '')}**")
+            with c1:
+                st.markdown(f"**#{row.get('match_id', '')}**")
 
-                with c2:
-                    st.caption(str(row.get("datum", "")))
-                    st.caption(str(row.get("tijd", "")))
+            with c2:
+                st.caption(str(row.get("datum", "")))
+                st.caption(str(row.get("tijd", "")))
 
-                with c3:
-                    st.markdown(
-                        f"**{esc(team1_display)}**  -  **{esc(team2_display)}**",
-                        unsafe_allow_html=True,
-                    )
+            with c3:
+                st.markdown(
+                    f"**{esc(team1_display)}**  -  **{esc(team2_display)}**",
+                    unsafe_allow_html=True,
+                )
 
-                with c4:
-                    st.caption(status)
+            with c4:
+                st.caption(status)
 
+
+def show_scoreboard(users_df, matches_df, predictions_df, results_df):
     st.markdown("## 🏆 Rankschikking")
     st.caption("Pronostiekstand, officiële groepsstanden en eindrondes.")
 
@@ -425,13 +517,18 @@ def show_scoreboard(users_df, matches_df, predictions_df, results_df):
     )
 
     with tab1:
-        show_prediction_ranking()
+        show_prediction_ranking(
+            users_df,
+            matches_df,
+            predictions_df,
+            results_df,
+        )
 
     with tab2:
-        show_official_group_standings()
+        show_official_group_standings(matches_df)
 
     with tab3:
-        show_official_knockout()
+        show_official_knockout(matches_df)
 
 
 def show_rules():
@@ -441,6 +538,7 @@ def show_rules():
         """
 ### Punten
 - Juiste 1/X/2: **3 punten**
+- Juiste ploeg op juiste plaats in de eindrondes: **5 punten**
 
 ### Opslaan
 - **Voorlopig opslaan**: later nog wijzigen.
