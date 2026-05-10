@@ -155,51 +155,154 @@ def show_my_predictions(user, matches_df, predictions_df):
 
 
 def show_scoreboard(users_df, matches_df, predictions_df, results_df):
-    st.markdown("### Scorebord")
+    import streamlit as st
+    import pandas as pd
 
-    users_df = users_df.copy()
-    matches_df = matches_df.copy()
-    predictions_df = predictions_df.copy()
-    results_df = results_df.copy()
+    st.markdown("## 🏆 Rangschikking")
+    st.caption("Overzicht van de huidige stand in de WK-pronostiek.")
 
-    for df in [matches_df, predictions_df, results_df]:
-        if "match_id" in df.columns:
-            df["match_id"] = df["match_id"].astype(str).str.strip()
-
-    scoreboard, detail = build_scoreboard(
-        users_df,
-        matches_df,
-        predictions_df,
-        results_df,
-    )
-
-    if scoreboard.empty:
-        st.info("Nog geen scorebord beschikbaar.")
+    if users_df is None or users_df.empty:
+        st.warning("Geen gebruikers gevonden.")
         return
 
-    st.dataframe(scoreboard, use_container_width=True, hide_index=True)
+    if predictions_df is None or predictions_df.empty:
+        st.info("Er zijn nog geen voorspellingen opgeslagen.")
+        return
 
-    with st.expander("Detail per wedstrijd"):
-        columns = [
-            "naam",
-            "groep",
-            "team1",
-            "team2",
-            "prediction",
-            "score1",
-            "score2",
-            "real_team1",
-            "real_team2",
-            "punten",
-        ]
+    users = users_df.copy()
+    predictions = predictions_df.copy()
 
-        existing = [c for c in columns if c in detail.columns]
+    users.columns = users.columns.astype(str).str.strip().str.lower()
+    predictions.columns = predictions.columns.astype(str).str.strip().str.lower()
 
-        st.dataframe(
-            detail[existing],
-            use_container_width=True,
-            hide_index=True,
+    if "user_id" not in users.columns:
+        st.error("Kolom 'user_id' ontbreekt in Users.")
+        return
+
+    if "user_id" not in predictions.columns:
+        st.error("Kolom 'user_id' ontbreekt in Predictions.")
+        return
+
+    if "points" not in predictions.columns:
+        predictions["points"] = 0
+
+    predictions["points"] = pd.to_numeric(
+        predictions["points"],
+        errors="coerce",
+    ).fillna(0)
+
+    scoreboard = (
+        predictions
+        .groupby("user_id", as_index=False)
+        .agg(
+            punten=("points", "sum"),
+            voorspellingen=("match_id", "count"),
         )
+    )
+
+    scoreboard["user_id"] = scoreboard["user_id"].astype(str).str.strip()
+    users["user_id"] = users["user_id"].astype(str).str.strip()
+
+    name_col = "name"
+    if "naam" in users.columns:
+        name_col = "naam"
+    elif "username" in users.columns:
+        name_col = "username"
+
+    scoreboard = scoreboard.merge(
+        users[["user_id", name_col]],
+        on="user_id",
+        how="left",
+    )
+
+    scoreboard = scoreboard.rename(
+        columns={
+            name_col: "deelnemer",
+        }
+    )
+
+    scoreboard["deelnemer"] = scoreboard["deelnemer"].fillna(
+        "Onbekende speler"
+    )
+
+    scoreboard = scoreboard.sort_values(
+        ["punten", "voorspellingen", "deelnemer"],
+        ascending=[False, False, True],
+        kind="stable",
+    ).reset_index(drop=True)
+
+    scoreboard.insert(0, "positie", range(1, len(scoreboard) + 1))
+
+    def medal(pos):
+        if pos == 1:
+            return "🥇"
+        if pos == 2:
+            return "🥈"
+        if pos == 3:
+            return "🥉"
+        return f"{pos}"
+
+    scoreboard["rang"] = scoreboard["positie"].apply(medal)
+
+    top3 = scoreboard.head(3)
+
+    if not top3.empty:
+        st.markdown("### 🏅 Huidige top 3")
+
+        cols = st.columns(3)
+
+        for index, row in top3.iterrows():
+            with cols[index]:
+                st.markdown(
+                    f"""
+<div style="
+    background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+    border: 1px solid #cbd5e1;
+    border-radius: 18px;
+    padding: 18px;
+    text-align: center;
+    box-shadow: 0 6px 16px rgba(15,23,42,0.12);
+">
+    <div style="font-size: 2.4rem;">{row["rang"]}</div>
+    <div style="font-size: 1.15rem; font-weight: 900; margin-top: 6px;">
+        {row["deelnemer"]}
+    </div>
+    <div style="font-size: 1.8rem; font-weight: 900; margin-top: 8px;">
+        {int(row["punten"])}
+    </div>
+    <div style="color: #64748b; font-weight: 700;">
+        punten
+    </div>
+</div>
+""",
+                    unsafe_allow_html=True,
+                )
+
+    st.markdown("### 📋 Volledige rangschikking")
+
+    display_df = scoreboard[
+        [
+            "rang",
+            "deelnemer",
+            "punten",
+            "voorspellingen",
+        ]
+    ].copy()
+
+    display_df = display_df.rename(
+        columns={
+            "rang": "#",
+            "deelnemer": "Deelnemer",
+            "punten": "Punten",
+            "voorspellingen": "Voorspellingen",
+        }
+    )
+
+    st.dataframe(
+        display_df,
+        hide_index=True,
+        use_container_width=True,
+    )
 
 
 def show_rules():
