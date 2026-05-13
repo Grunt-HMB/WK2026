@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas as pd
 
 from modules.database import (
     load_matches,
@@ -9,31 +10,24 @@ from modules.database import (
 st.set_page_config(
     page_title="WK 2026",
     page_icon="⚽",
-    layout="centered",
+    layout="wide",
     initial_sidebar_state="collapsed",
 )
 
 USER_ID = "Tom"
 
-
 st.markdown("""
 <style>
-
 .block-container {
-    max-width: 900px;
     padding-top: 0 !important;
-    padding-left: 0.3rem !important;
-    padding-right: 0.3rem !important;
+    padding-left: 0.4rem !important;
+    padding-right: 0.4rem !important;
     padding-bottom: 5rem !important;
 }
 
 section[data-testid="stSidebar"] {
     display: none;
 }
-
-/* =========================================================
-VASTE TOPBALK
-========================================================= */
 
 .st-key-top_bar {
     position: fixed !important;
@@ -42,7 +36,7 @@ VASTE TOPBALK
     right: 0 !important;
     z-index: 999999 !important;
     background: #0e1117 !important;
-    padding: 0.35rem 0.5rem 0.45rem 0.5rem !important;
+    padding: 0.4rem 0.55rem 0.55rem 0.55rem !important;
     border-bottom: 1px solid rgba(255,255,255,0.12);
 }
 
@@ -53,209 +47,30 @@ VASTE TOPBALK
 }
 
 .top-spacer {
-    height: 188px;
+    height: 170px;
 }
 
 .st-key-top_bar div[data-testid="stAlert"] {
     padding: 0.45rem 0.7rem !important;
     font-size: 0.82rem !important;
-    margin-bottom: 0.25rem !important;
 }
 
 .st-key-top_bar button {
-    height: 39px !important;
-    min-height: 39px !important;
+    height: 40px !important;
+    min-height: 40px !important;
     border-radius: 11px !important;
     font-weight: 800 !important;
 }
 
-/* =========================================================
-MENU
-========================================================= */
-
-.st-key-menu_keuze div[role="radiogroup"] {
-    display: flex !important;
-    flex-direction: row !important;
-    flex-wrap: wrap !important;
-    gap: 0.15rem 0.45rem !important;
+div[data-testid="stDataFrame"] {
+    font-size: 0.8rem !important;
 }
 
-.st-key-menu_keuze label[data-baseweb="radio"] {
-    background: transparent !important;
-    border: none !important;
-    padding: 0.15rem 0.2rem !important;
-    margin: 0 !important;
-}
-
-.st-key-menu_keuze label[data-baseweb="radio"] > div:first-child {
-    display: none !important;
-}
-
-.st-key-menu_keuze label[data-baseweb="radio"] span {
-    font-size: 0.82rem !important;
-    font-weight: 800 !important;
-}
-
-/* =========================================================
-MATCH CARD
-========================================================= */
-
-[class*="st-key-match_"] {
-    background: #111827;
-    border: 1px solid rgba(255,255,255,0.13);
-    border-radius: 13px;
-    padding: 0.45rem;
-    margin-bottom: 0.42rem;
-}
-
-/* Forceer Streamlit columns naast elkaar */
-[class*="st-key-match_"] div[data-testid="stHorizontalBlock"] {
-    display: flex !important;
-    flex-direction: row !important;
-    flex-wrap: nowrap !important;
-    align-items: center !important;
-    gap: 0.3rem !important;
-}
-
-/* Datumkolom */
-[class*="st-key-match_"] div[data-testid="column"]:nth-of-type(1) {
-    flex: 0 0 58px !important;
-    width: 58px !important;
-    min-width: 58px !important;
-}
-
-/* Teamskolom */
-[class*="st-key-match_"] div[data-testid="column"]:nth-of-type(2) {
-    flex: 1 1 auto !important;
-    width: auto !important;
-    min-width: 0 !important;
-}
-
-/* Pronostiekkolom */
-[class*="st-key-match_"] div[data-testid="column"]:nth-of-type(3) {
-    flex: 0 0 104px !important;
-    width: 104px !important;
-    min-width: 104px !important;
-}
-
-.match-date {
-    font-size: 0.68rem;
-    line-height: 1.18;
-    color: #d1d5db;
-}
-
-.match-status {
-    color: #22c55e;
-    font-weight: 800;
-}
-
-.match-teams {
-    font-size: 0.78rem;
-    line-height: 1.18;
-    min-width: 0;
-    overflow: hidden;
-}
-
-.match-team {
-    font-weight: 800;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.match-vs {
-    font-size: 0.56rem;
-    color: #94a3b8;
-}
-
-/* =========================================================
-RADIO 1/X/2
-========================================================= */
-
-[class*="st-key-match_"] div[role="radiogroup"] {
-    display: flex !important;
-    flex-direction: row !important;
-    flex-wrap: nowrap !important;
-    justify-content: flex-end !important;
-    gap: 0.18rem !important;
-}
-
-[class*="st-key-match_"] label[data-baseweb="radio"] {
-    background: #1f2937;
-    border: 1px solid rgba(255,255,255,0.16);
-    border-radius: 8px;
-    min-width: 30px !important;
-    width: 30px !important;
-    height: 28px !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-}
-
-[class*="st-key-match_"] label[data-baseweb="radio"] span {
-    font-size: 0.72rem !important;
-    font-weight: 800 !important;
-}
-
-[class*="st-key-match_"] label[data-baseweb="radio"] > div:first-child {
-    margin-right: 0.06rem !important;
-}
-
-div[data-testid="stVerticalBlock"] {
-    gap: 0.32rem !important;
-}
-
-@media (max-width: 420px) {
-
+@media (max-width: 480px) {
     .top-spacer {
-        height: 184px;
-    }
-
-    [class*="st-key-match_"] {
-        padding: 0.38rem;
-    }
-
-    [class*="st-key-match_"] div[data-testid="stHorizontalBlock"] {
-        gap: 0.25rem !important;
-    }
-
-    [class*="st-key-match_"] div[data-testid="column"]:nth-of-type(1) {
-        flex-basis: 54px !important;
-        width: 54px !important;
-        min-width: 54px !important;
-    }
-
-    [class*="st-key-match_"] div[data-testid="column"]:nth-of-type(3) {
-        flex-basis: 96px !important;
-        width: 96px !important;
-        min-width: 96px !important;
-    }
-
-    .match-date {
-        font-size: 0.64rem;
-    }
-
-    .match-teams {
-        font-size: 0.73rem;
-    }
-
-    .match-vs {
-        font-size: 0.52rem;
-    }
-
-    [class*="st-key-match_"] label[data-baseweb="radio"] {
-        min-width: 27px !important;
-        width: 27px !important;
-        height: 26px !important;
-    }
-
-    [class*="st-key-match_"] label[data-baseweb="radio"] span {
-        font-size: 0.68rem !important;
+        height: 165px;
     }
 }
-
 </style>
 """, unsafe_allow_html=True)
 
@@ -269,41 +84,14 @@ def country_flag(code):
     return chr(ord(code[0]) + 127397) + chr(ord(code[1]) + 127397)
 
 
-def get_prediction_value(match_id):
-    data = st.session_state.local_predictions.get(str(match_id), {})
-
-    if isinstance(data, dict):
-        value = data.get("prediction", "")
-    else:
-        value = data
-
-    value = str(value).upper().strip()
-
-    if value not in ["1", "X", "2"]:
-        return "X"
-
-    return value
-
-
-def prediction_changed(match_id):
-    match_id = str(match_id).strip()
-    key = f"pred_{match_id}"
-
-    st.session_state.local_predictions[match_id] = {
-        "prediction": st.session_state.get(key, "X"),
-        "score1": "",
-        "score2": "",
-    }
-
+if "menu_keuze" not in st.session_state:
+    st.session_state.menu_keuze = "⚽ Wedstrijden"
 
 if "local_predictions" not in st.session_state:
     st.session_state.local_predictions = {}
 
 if "loaded_predictions" not in st.session_state:
     st.session_state.loaded_predictions = False
-
-if "menu_keuze" not in st.session_state:
-    st.session_state.menu_keuze = "⚽ Wedstrijden"
 
 
 @st.cache_data(ttl=60)
@@ -346,6 +134,7 @@ with st.container(key="top_bar"):
     )
 
     if st.button("OPSLAAN", use_container_width=True, type="primary"):
+
         saved = batch_save_predictions(
             user_id=USER_ID,
             local_predictions=st.session_state.local_predictions,
@@ -384,6 +173,8 @@ if st.session_state.menu_keuze == "⚽ Wedstrijden":
 
         wedstrijden["match_id"] = wedstrijden["match_id"].astype(str).str.strip()
 
+        rows = []
+
         for _, match in wedstrijden.iterrows():
 
             match_id = str(match.get("match_id", "")).strip()
@@ -400,52 +191,82 @@ if st.session_state.menu_keuze == "⚽ Wedstrijden":
             team1_code = str(match.get("team1_code", "")).strip()
             team2_code = str(match.get("team2_code", "")).strip()
 
-            radio_key = f"pred_{match_id}"
+            prediction_data = st.session_state.local_predictions.get(match_id, {})
+            prediction = ""
 
-            if radio_key not in st.session_state:
-                st.session_state[radio_key] = get_prediction_value(match_id)
+            if isinstance(prediction_data, dict):
+                prediction = str(prediction_data.get("prediction", "")).upper().strip()
+            else:
+                prediction = str(prediction_data).upper().strip()
 
-            with st.container(key=f"match_{match_id}"):
+            if prediction not in ["1", "X", "2"]:
+                prediction = "X"
 
-                col_date, col_teams, col_pred = st.columns(
-                    [0.55, 1.75, 0.85],
-                    vertical_alignment="center",
-                )
+            rows.append({
+                "match_id": match_id,
+                "Datum": datum,
+                "Tijd": tijd,
+                "Status": "🟢 Open",
+                "Wedstrijd": (
+                    f"{country_flag(team1_code)} {team1} "
+                    f"vs "
+                    f"{country_flag(team2_code)} {team2}"
+                ),
+                "Pronostiek": prediction,
+            })
 
-                with col_date:
-                    st.markdown(
-                        f"""
-                        <div class="match-date">
-                            <b>{datum}</b><br>
-                            {tijd}<br>
-                            <span class="match-status">🟢 Open</span>
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
+        editor_df = pd.DataFrame(rows)
 
-                with col_teams:
-                    st.markdown(
-                        f"""
-                        <div class="match-teams">
-                            <div class="match-team">{country_flag(team1_code)} {team1}</div>
-                            <div class="match-vs">tegen</div>
-                            <div class="match-team">{country_flag(team2_code)} {team2}</div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
+        edited_df = st.data_editor(
+            editor_df,
+            hide_index=True,
+            use_container_width=True,
+            height=620,
+            disabled=[
+                "match_id",
+                "Datum",
+                "Tijd",
+                "Status",
+                "Wedstrijd",
+            ],
+            column_config={
+                "match_id": None,
+                "Datum": st.column_config.TextColumn(
+                    "Datum",
+                    width="small",
+                ),
+                "Tijd": st.column_config.TextColumn(
+                    "Tijd",
+                    width="small",
+                ),
+                "Status": st.column_config.TextColumn(
+                    "Status",
+                    width="small",
+                ),
+                "Wedstrijd": st.column_config.TextColumn(
+                    "Wedstrijd",
+                    width="medium",
+                ),
+                "Pronostiek": st.column_config.SelectboxColumn(
+                    "1/X/2",
+                    options=["1", "X", "2"],
+                    required=True,
+                    width="small",
+                ),
+            },
+            key="wedstrijden_editor",
+        )
 
-                with col_pred:
-                    st.radio(
-                        "Pronostiek",
-                        ["1", "X", "2"],
-                        key=radio_key,
-                        horizontal=True,
-                        label_visibility="collapsed",
-                        on_change=prediction_changed,
-                        args=(match_id,),
-                    )
+        for _, row in edited_df.iterrows():
+
+            match_id = str(row["match_id"]).strip()
+            prediction = str(row["Pronostiek"]).upper().strip()
+
+            st.session_state.local_predictions[match_id] = {
+                "prediction": prediction,
+                "score1": "",
+                "score2": "",
+            }
 
 
 elif st.session_state.menu_keuze == "📊 Standen":
@@ -463,8 +284,4 @@ elif st.session_state.menu_keuze == "🏆 Knockout":
 elif st.session_state.menu_keuze == "👤 Mijn":
 
     st.subheader("👤 Mijn pronostiek")
-
-    if not st.session_state.local_predictions:
-        st.info("Nog geen pronostieken gekozen.")
-    else:
-        st.write(st.session_state.local_predictions)
+    st.write(st.session_state.local_predictions)
