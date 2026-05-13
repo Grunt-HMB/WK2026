@@ -1,203 +1,373 @@
 import streamlit as st
+import pandas as pd
 
-from modules.styles import inject_css
 from modules.database import (
-    ensure_sheets_exist,
-    load_all_data,
-    batch_upsert_predictions,
+    load_matches,
+    load_predictions,
+    batch_save_predictions,
 )
-from modules.auth import show_sidebar
-from modules.views import show_scoreboard, show_rules
-from modules.admin import show_admin_results
-from modules.wedstrijden import show_wedstrijden
-from modules.prediction_state import mark_predictions_saved
 
+
+# =========================================================
+# CONFIG
+# =========================================================
 
 st.set_page_config(
-    page_title="WK 2026 Pronostiek",
+    page_title="WK 2026",
     page_icon="⚽",
-    layout="wide",
+    layout="centered",
+    initial_sidebar_state="collapsed",
 )
 
-inject_css()
 
-st.markdown(
-    """
+# =========================================================
+# CSS
+# =========================================================
+
+st.markdown("""
 <style>
-.save-warning {
-    background: linear-gradient(135deg, #b91c1c, #ef4444);
-    color: white;
-    padding: 15px;
-    border-radius: 12px;
-    font-weight: 950;
-    text-align: center;
-    margin-bottom: 12px;
-    animation: pulseWarning 0.85s infinite;
-    border: 2px solid #fecaca;
-    letter-spacing: 0.02em;
+
+/* =========================================================
+ALGEMEEN
+========================================================= */
+
+.block-container {
+    max-width: 900px;
+    padding-top: 0.5rem !important;
+    padding-left: 0.7rem !important;
+    padding-right: 0.7rem !important;
+    padding-bottom: 4rem !important;
 }
 
-.save-ok {
-    background: linear-gradient(135deg, #14532d, #166534);
-    color: white;
-    padding: 14px;
-    border-radius: 12px;
+section[data-testid="stSidebar"] {
+    display: none;
+}
+
+/* =========================================================
+HEADER
+========================================================= */
+
+.main-title {
+    font-size: 1.8rem;
     font-weight: 800;
-    text-align: center;
+    margin-bottom: 0.4rem;
+}
+
+.save-bar {
+    position: sticky;
+    top: 0;
+    z-index: 999;
+
+    background: #0e1117;
+
+    padding-top: 0.4rem;
+    padding-bottom: 0.6rem;
+
+    margin-bottom: 1rem;
+}
+
+/* =========================================================
+CARD
+========================================================= */
+
+.match-card {
+    background: #111827;
+
+    border-radius: 16px;
+
+    padding: 14px;
+
     margin-bottom: 12px;
-    border: 1px solid #22c55e;
+
+    border: 1px solid rgba(255,255,255,0.06);
 }
 
-@keyframes pulseWarning {
-    0% {
-        transform: scale(1);
-        opacity: 1;
-        filter: brightness(1);
-        box-shadow: 0 0 0 rgba(239,68,68,0);
+.match-header {
+    font-size: 0.82rem;
+    color: #cbd5e1;
+
+    margin-bottom: 10px;
+
+    line-height: 1.4;
+}
+
+.team-name {
+    font-size: 1rem;
+    font-weight: 700;
+
+    margin-bottom: 6px;
+}
+
+/* =========================================================
+RADIO
+========================================================= */
+
+div[role="radiogroup"] {
+    display: flex !important;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+label[data-baseweb="radio"] {
+    background: #1f2937;
+
+    border-radius: 10px;
+
+    padding: 0.25rem 0.6rem;
+
+    min-width: 48px;
+
+    justify-content: center;
+
+    border: 1px solid rgba(255,255,255,0.08);
+}
+
+label[data-baseweb="radio"] span {
+    font-weight: 700 !important;
+}
+
+/* radio bolletje weg */
+label[data-baseweb="radio"] input {
+    display: none;
+}
+
+/* =========================================================
+MOBIEL
+========================================================= */
+
+@media (max-width: 768px) {
+
+    .block-container {
+        padding-left: 0.5rem !important;
+        padding-right: 0.5rem !important;
     }
 
-    50% {
-        transform: scale(1.08);
-        opacity: 0.72;
-        filter: brightness(1.45);
-        box-shadow: 0 0 34px rgba(248,113,113,1);
+    .main-title {
+        font-size: 1.45rem;
     }
 
-    100% {
-        transform: scale(1);
-        opacity: 1;
-        filter: brightness(1);
-        box-shadow: 0 0 0 rgba(239,68,68,0);
+    .match-card {
+        padding: 12px;
+        border-radius: 14px;
+    }
+
+    .team-name {
+        font-size: 0.96rem;
+    }
+
+    label[data-baseweb="radio"] {
+        min-width: 44px;
+        padding: 0.2rem 0.4rem;
     }
 }
+
 </style>
-""",
-    unsafe_allow_html=True,
-)
+""", unsafe_allow_html=True)
 
 
-def normalize_columns(df):
-    if df is None:
-        return None
+# =========================================================
+# SESSION STATE
+# =========================================================
 
-    df = df.copy()
-    df.columns = (
-        df.columns
-        .astype(str)
-        .str.strip()
-        .str.lower()
-    )
+if "local_predictions" not in st.session_state:
+    st.session_state.local_predictions = {}
 
-    return df
+if "loaded_predictions" not in st.session_state:
+    st.session_state.loaded_predictions = False
 
 
-try:
-    ensure_sheets_exist()
-    data = load_all_data()
+# =========================================================
+# DATA LOADING
+# =========================================================
 
-    users_df = normalize_columns(data["users"])
-    matches_df = normalize_columns(data["matches"])
-    predictions_df = normalize_columns(data["predictions"])
-    results_df = normalize_columns(data["results"])
-
-except Exception as e:
-    st.error("Fout bij laden van Google Sheets.")
-    st.exception(e)
-    st.stop()
+@st.cache_data(ttl=60)
+def get_matches_cached():
+    return load_matches()
 
 
-user = show_sidebar(users_df)
-
-if not user:
-    st.markdown(
-        '<div class="main-title">⚽ WK 2026 Pronostiek</div>',
-        unsafe_allow_html=True,
-    )
-
-    st.info("Log in of registreer via de zijbalk.")
-    st.stop()
+@st.cache_data(ttl=60)
+def get_predictions_cached(user_id):
+    return load_predictions(user_id)
 
 
-is_admin = str(user.get("admin", "")).upper() == "TRUE"
+matches_df = get_matches_cached()
 
-menu_items = [
-    "Wedstrijden",
-    "Rankschikking",
-    "Reglement",
-]
+USER_ID = "Tom"
 
-if is_admin:
-    menu_items.append("Admin - uitslagen")
+predictions_df = get_predictions_cached(USER_ID)
 
 
-dirty = st.session_state.get("predictions_dirty", False)
+# =========================================================
+# LOAD EXISTING PREDICTIONS
+# =========================================================
 
-st.sidebar.markdown("---")
+if not st.session_state.loaded_predictions:
 
-if dirty:
-    st.sidebar.markdown(
-        """
-<div class="save-warning">
-⚠️ Niet opgeslagen wijzigingen
-</div>
-""",
-        unsafe_allow_html=True,
-    )
-else:
-    st.sidebar.markdown(
-        """
-<div class="save-ok">
-✅ Alles opgeslagen
-</div>
-""",
-        unsafe_allow_html=True,
-    )
+    if not predictions_df.empty:
+
+        for _, row in predictions_df.iterrows():
+
+            st.session_state.local_predictions[
+                str(row["match_id"])
+            ] = row["prediction"]
+
+    st.session_state.loaded_predictions = True
 
 
-if st.sidebar.button("💾 Opslaan Pronostiek", use_container_width=True):
-    count = batch_upsert_predictions(
-        str(user["user_id"]),
-        st.session_state.get("local_predictions", {}),
-        "Voorlopig",
-    )
-
-    mark_predictions_saved()
-
-    st.sidebar.success(f"{count} keuzes opgeslagen.")
-    st.rerun()
-
-
-st.sidebar.markdown("---")
-
-menu = st.sidebar.radio("Menu", menu_items)
-
-
-if menu == "Wedstrijden":
-    show_wedstrijden(
-        user,
-        matches_df,
-        predictions_df,
-    )
-
-elif menu == "Rankschikking":
-    show_scoreboard(
-        users_df,
-        matches_df,
-        predictions_df,
-        results_df,
-    )
-
-elif menu == "Reglement":
-    show_rules()
-
-elif menu == "Admin - uitslagen":
-    show_admin_results(
-        matches_df,
-        results_df,
-    )
-
+# =========================================================
+# HEADER
+# =========================================================
 
 st.markdown(
-    '<div class="footer-line">WK 2026 Pronostiek © 2026</div>',
-    unsafe_allow_html=True,
+    '<div class="main-title">⚽ WK 2026 Pronostiek</div>',
+    unsafe_allow_html=True
 )
+
+
+# =========================================================
+# SAVE BAR
+# =========================================================
+
+st.markdown('<div class="save-bar">', unsafe_allow_html=True)
+
+save_col1, save_col2 = st.columns([3, 1])
+
+with save_col1:
+    st.info(
+        "Wijzigingen worden lokaal bijgehouden. Klik op OPSLAAN om alles tegelijk te bewaren.",
+        icon="💾"
+    )
+
+with save_col2:
+
+    if st.button(
+        "OPSLAAN",
+        use_container_width=True,
+        type="primary"
+    ):
+
+        batch_save_predictions(
+            USER_ID,
+            st.session_state.local_predictions
+        )
+
+        get_predictions_cached.clear()
+
+        st.success("Pronostiek opgeslagen")
+
+st.markdown('</div>', unsafe_allow_html=True)
+
+
+# =========================================================
+# TOP NAVIGATION
+# =========================================================
+
+wedstrijd_tab, standen_tab, knockout_tab, profiel_tab = st.tabs([
+    "⚽ Wedstrijden",
+    "📊 Standen",
+    "🏆 Knockout",
+    "👤 Mijn"
+])
+
+
+# =========================================================
+# WEDSTRIJDEN
+# =========================================================
+
+with wedstrijd_tab:
+
+    wedstrijden = matches_df.copy()
+
+    for _, match in wedstrijden.iterrows():
+
+        match_id = str(match["match_id"])
+
+        st.markdown(
+            '<div class="match-card">',
+            unsafe_allow_html=True
+        )
+
+        st.markdown(f"""
+        <div class="match-header">
+            {match['datum']}<br>
+            {match['tijd']}<br>
+            🟢 Open
+        </div>
+        """, unsafe_allow_html=True)
+
+        st.markdown(
+            f'<div class="team-name">🇧🇪 {match["team1"]}</div>',
+            unsafe_allow_html=True
+        )
+
+        st.markdown(
+            f'<div class="team-name">🇧🇷 {match["team2"]}</div>',
+            unsafe_allow_html=True
+        )
+
+        current_value = st.session_state.local_predictions.get(
+            match_id,
+            "X"
+        )
+
+        with st.form(f"form_{match_id}"):
+
+            prediction = st.radio(
+                "",
+                ["1", "X", "2"],
+                horizontal=True,
+                index=["1", "X", "2"].index(current_value),
+                key=f"radio_{match_id}",
+                label_visibility="collapsed"
+            )
+
+            submitted = st.form_submit_button(
+                "Bevestig",
+                use_container_width=True
+            )
+
+            if submitted:
+
+                st.session_state.local_predictions[
+                    match_id
+                ] = prediction
+
+                st.toast(
+                    f"Voorspelling opgeslagen: {prediction}",
+                    icon="⚽"
+                )
+
+        st.markdown('</div>', unsafe_allow_html=True)
+
+
+# =========================================================
+# STANDEN
+# =========================================================
+
+with standen_tab:
+
+    st.subheader("📊 Standen")
+
+    st.write("Hier komen de groepsstanden")
+
+
+# =========================================================
+# KNOCKOUT
+# =========================================================
+
+with knockout_tab:
+
+    st.subheader("🏆 Knockout")
+
+    st.write("Hier komt het knockoutschema")
+
+
+# =========================================================
+# PROFIEL
+# =========================================================
+
+with profiel_tab:
+
+    st.subheader("👤 Mijn pronostiek")
+
+    st.write(st.session_state.local_predictions)
