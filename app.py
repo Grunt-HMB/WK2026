@@ -16,13 +16,18 @@ st.set_page_config(
 USER_ID = "Tom"
 
 
+# =========================================================
+# CSS
+# =========================================================
+
 st.markdown("""
 <style>
+
 .block-container {
     max-width: 900px;
     padding-top: 0.25rem !important;
-    padding-left: 0.45rem !important;
-    padding-right: 0.45rem !important;
+    padding-left: 0.35rem !important;
+    padding-right: 0.35rem !important;
     padding-bottom: 5rem !important;
 }
 
@@ -30,97 +35,205 @@ section[data-testid="stSidebar"] {
     display: none;
 }
 
-/* Sticky opslaan */
+/* =========================================================
+OPSLAAN VAST BOVENAAN
+========================================================= */
+
 .st-key-sticky_save {
-    position: sticky;
-    top: 0;
-    z-index: 99999;
-    background: #0e1117;
-    padding: 0.4rem 0 0.75rem 0;
-    border-bottom: 1px solid rgba(255,255,255,0.08);
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 999999 !important;
+
+    background: #0e1117 !important;
+    padding: 0.35rem 0.55rem 0.55rem 0.55rem !important;
+    border-bottom: 1px solid rgba(255,255,255,0.12);
 }
 
-/* Compacte info */
+/* Breedte van de vaste balk beperken */
+.st-key-sticky_save > div {
+    max-width: 900px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* Ruimte maken onder vaste opslaanbalk */
+.save-spacer {
+    height: 118px;
+}
+
+/* Info compacter */
 .st-key-sticky_save div[data-testid="stAlert"] {
-    padding: 0.55rem 0.75rem !important;
-    font-size: 0.88rem !important;
+    padding: 0.45rem 0.7rem !important;
+    font-size: 0.84rem !important;
+    margin-bottom: 0.35rem !important;
 }
 
-/* Match cards */
+/* Opslaan knop */
+.st-key-sticky_save button {
+    height: 42px !important;
+    min-height: 42px !important;
+    border-radius: 11px !important;
+    font-weight: 800 !important;
+}
+
+/* =========================================================
+TABS
+========================================================= */
+
+button[data-baseweb="tab"] {
+    padding-left: 0.35rem !important;
+    padding-right: 0.35rem !important;
+    font-size: 0.9rem !important;
+}
+
+div[data-baseweb="tab-list"] {
+    gap: 0 !important;
+}
+
+/* =========================================================
+MATCH CARD
+========================================================= */
+
 [class*="st-key-match_"] {
     background: #111827;
     border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 14px;
-    padding: 0.65rem;
-    margin-bottom: 0.55rem;
+    border-radius: 13px;
+    padding: 0.45rem 0.5rem;
+    margin-bottom: 0.45rem;
 }
 
-/* Minder witruimte */
-div[data-testid="stVerticalBlock"] {
-    gap: 0.45rem !important;
-}
-
-/* Tabs kleiner */
-button[data-baseweb="tab"] {
-    padding-left: 0.4rem !important;
-    padding-right: 0.4rem !important;
-    font-size: 0.92rem !important;
-}
-
-/* Radio compact */
-div[role="radiogroup"] {
+/* Streamlit columns NIET laten stapelen op mobiel */
+[class*="st-key-match_"] div[data-testid="stHorizontalBlock"] {
     display: flex !important;
     flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
     gap: 0.35rem !important;
-    justify-content: flex-end !important;
 }
 
-label[data-baseweb="radio"] {
+/* Kolom 1: datum */
+[class*="st-key-match_"] div[data-testid="column"]:nth-of-type(1) {
+    flex: 0 0 62px !important;
+    width: 62px !important;
+    min-width: 62px !important;
+}
+
+/* Kolom 2: teams */
+[class*="st-key-match_"] div[data-testid="column"]:nth-of-type(2) {
+    flex: 1 1 auto !important;
+    width: auto !important;
+    min-width: 0 !important;
+}
+
+/* Kolom 3: radio */
+[class*="st-key-match_"] div[data-testid="column"]:nth-of-type(3) {
+    flex: 0 0 128px !important;
+    width: 128px !important;
+    min-width: 128px !important;
+}
+
+/* Tekst compacter */
+[class*="st-key-match_"] p {
+    margin-bottom: 0 !important;
+    line-height: 1.25 !important;
+}
+
+.match-date {
+    font-size: 0.74rem;
+    color: #d1d5db;
+}
+
+.match-teams {
+    font-size: 0.82rem;
+    line-height: 1.22;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.match-vs {
+    font-size: 0.62rem;
+    color: #94a3b8;
+}
+
+/* =========================================================
+RADIO 1 X 2
+========================================================= */
+
+[class*="st-key-match_"] div[role="radiogroup"] {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    justify-content: flex-end !important;
+    gap: 0.25rem !important;
+}
+
+[class*="st-key-match_"] label[data-baseweb="radio"] {
     background: #1f2937;
-    border: 1px solid rgba(255,255,255,0.15);
-    border-radius: 10px;
-    min-width: 34px;
-    height: 32px;
+    border: 1px solid rgba(255,255,255,0.16);
+    border-radius: 9px;
+    min-width: 34px !important;
+    width: 34px !important;
+    height: 31px !important;
     padding: 0 !important;
+    margin: 0 !important;
+
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
 }
 
-label[data-baseweb="radio"] span {
-    font-size: 0.86rem !important;
+[class*="st-key-match_"] label[data-baseweb="radio"] span {
+    font-size: 0.78rem !important;
     font-weight: 800 !important;
 }
 
-/* Radio bolletje kleiner */
-label[data-baseweb="radio"] > div:first-child {
-    margin-right: 0.25rem !important;
+[class*="st-key-match_"] label[data-baseweb="radio"] > div:first-child {
+    margin-right: 0.12rem !important;
 }
 
-/* Mobile */
-@media (max-width: 480px) {
-    .block-container {
-        padding-left: 0.35rem !important;
-        padding-right: 0.35rem !important;
+/* Minder algemene witruimte */
+div[data-testid="stVerticalBlock"] {
+    gap: 0.35rem !important;
+}
+
+@media (max-width: 420px) {
+    [class*="st-key-match_"] div[data-testid="column"]:nth-of-type(1) {
+        flex-basis: 56px !important;
+        width: 56px !important;
+        min-width: 56px !important;
     }
 
-    [class*="st-key-match_"] {
-        padding: 0.5rem;
-        border-radius: 12px;
+    [class*="st-key-match_"] div[data-testid="column"]:nth-of-type(3) {
+        flex-basis: 118px !important;
+        width: 118px !important;
+        min-width: 118px !important;
     }
 
-    button[data-baseweb="tab"] {
-        font-size: 0.86rem !important;
+    .match-date {
+        font-size: 0.7rem;
     }
 
-    label[data-baseweb="radio"] {
-        min-width: 32px;
-        height: 30px;
+    .match-teams {
+        font-size: 0.78rem;
+    }
+
+    [class*="st-key-match_"] label[data-baseweb="radio"] {
+        min-width: 31px !important;
+        width: 31px !important;
+        height: 29px !important;
     }
 }
+
 </style>
 """, unsafe_allow_html=True)
 
+
+# =========================================================
+# HELPERS
+# =========================================================
 
 def country_flag(code):
     code = str(code or "").strip().upper()
@@ -158,12 +271,20 @@ def prediction_changed(match_id):
     }
 
 
+# =========================================================
+# SESSION STATE
+# =========================================================
+
 if "local_predictions" not in st.session_state:
     st.session_state.local_predictions = {}
 
 if "loaded_predictions" not in st.session_state:
     st.session_state.loaded_predictions = False
 
+
+# =========================================================
+# DATA
+# =========================================================
 
 @st.cache_data(ttl=60)
 def get_matches_cached():
@@ -179,9 +300,16 @@ matches_df = get_matches_cached()
 predictions_df = get_predictions_cached(USER_ID)
 
 
+# =========================================================
+# BESTAANDE VOORSPELLINGEN LADEN
+# =========================================================
+
 if not st.session_state.loaded_predictions:
+
     if not predictions_df.empty:
+
         for _, row in predictions_df.iterrows():
+
             match_id = str(row.get("match_id", "")).strip()
 
             if match_id:
@@ -195,13 +323,13 @@ if not st.session_state.loaded_predictions:
 
 
 # =========================================================
-# STICKY OPSLAAN
+# VASTE OPSLAANBALK
 # =========================================================
 
 with st.container(key="sticky_save"):
 
     st.info(
-        "Wijzigingen blijven lokaal staan. Klik op OPSLAAN om alles tegelijk te bewaren.",
+        "Wijzigingen blijven lokaal. Klik op OPSLAAN om alles te bewaren.",
         icon="💾",
     )
 
@@ -214,8 +342,15 @@ with st.container(key="sticky_save"):
 
         get_predictions_cached.clear()
 
-        st.success(f"Pronostiek opgeslagen ({saved} wedstrijden).")
+        st.success(f"Opgeslagen: {saved} wedstrijden.")
 
+
+st.markdown('<div class="save-spacer"></div>', unsafe_allow_html=True)
+
+
+# =========================================================
+# TABS
+# =========================================================
 
 tab_wedstrijden, tab_standen, tab_knockout, tab_mijn = st.tabs([
     "⚽ Wedstrijden",
@@ -225,6 +360,10 @@ tab_wedstrijden, tab_standen, tab_knockout, tab_mijn = st.tabs([
 ])
 
 
+# =========================================================
+# WEDSTRIJDEN
+# =========================================================
+
 with tab_wedstrijden:
 
     wedstrijden = matches_df.copy()
@@ -233,6 +372,7 @@ with tab_wedstrijden:
         st.warning("Geen wedstrijden gevonden.")
 
     else:
+
         wedstrijden["match_id"] = wedstrijden["match_id"].astype(str).str.strip()
 
         for _, match in wedstrijden.iterrows():
@@ -259,25 +399,30 @@ with tab_wedstrijden:
             with st.container(key=f"match_{match_id}"):
 
                 col_date, col_teams, col_pred = st.columns(
-                    [0.75, 1.75, 1.05],
+                    [0.7, 1.55, 1.05],
                     vertical_alignment="center",
                 )
 
                 with col_date:
                     st.markdown(
                         f"""
-                        **{datum}**  
-                        {tijd}  
-                        🟢 **Open**
-                        """
+                        <div class="match-date">
+                            <b>{datum}</b><br>
+                            {tijd}<br>
+                            🟢 <b>Open</b>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
                     )
 
                 with col_teams:
                     st.markdown(
                         f"""
-                        **{country_flag(team1_code)} {team1}**  
-                        <small>tegen</small>  
-                        **{country_flag(team2_code)} {team2}**
+                        <div class="match-teams">
+                            <b>{country_flag(team1_code)} {team1}</b><br>
+                            <span class="match-vs">tegen</span><br>
+                            <b>{country_flag(team2_code)} {team2}</b>
+                        </div>
                         """,
                         unsafe_allow_html=True,
                     )
@@ -294,15 +439,27 @@ with tab_wedstrijden:
                     )
 
 
+# =========================================================
+# STANDEN
+# =========================================================
+
 with tab_standen:
     st.subheader("📊 Standen")
     st.write("Hier komen de groepsstanden.")
 
 
+# =========================================================
+# KNOCKOUT
+# =========================================================
+
 with tab_knockout:
     st.subheader("🏆 Knockout")
     st.write("Hier komt het knockoutschema.")
 
+
+# =========================================================
+# MIJN
+# =========================================================
 
 with tab_mijn:
     st.subheader("👤 Mijn pronostiek")
