@@ -51,26 +51,22 @@ OPSLAAN VAST BOVENAAN
     border-bottom: 1px solid rgba(255,255,255,0.12);
 }
 
-/* Breedte van de vaste balk beperken */
 .st-key-sticky_save > div {
     max-width: 900px;
     margin-left: auto;
     margin-right: auto;
 }
 
-/* Ruimte maken onder vaste opslaanbalk */
 .save-spacer {
     height: 118px;
 }
 
-/* Info compacter */
 .st-key-sticky_save div[data-testid="stAlert"] {
     padding: 0.45rem 0.7rem !important;
     font-size: 0.84rem !important;
     margin-bottom: 0.35rem !important;
 }
 
-/* Opslaan knop */
 .st-key-sticky_save button {
     height: 42px !important;
     min-height: 42px !important;
@@ -104,34 +100,36 @@ MATCH CARD
     margin-bottom: 0.45rem;
 }
 
-/* Streamlit columns NIET laten stapelen op mobiel */
+/* =========================================================
+MATCH LAYOUT
+========================================================= */
+
 [class*="st-key-match_"] div[data-testid="stHorizontalBlock"] {
     display: flex !important;
     flex-direction: row !important;
-    flex-wrap: nowrap !important;
     align-items: center !important;
-    gap: 0.35rem !important;
+    gap: 0.5rem !important;
 }
 
-/* Kolom 1: datum */
+/* Datum */
 [class*="st-key-match_"] div[data-testid="column"]:nth-of-type(1) {
-    flex: 0 0 62px !important;
-    width: 62px !important;
-    min-width: 62px !important;
+    flex: 0 0 64px !important;
+    width: 64px !important;
+    min-width: 64px !important;
 }
 
-/* Kolom 2: teams */
+/* Teams */
 [class*="st-key-match_"] div[data-testid="column"]:nth-of-type(2) {
     flex: 1 1 auto !important;
     width: auto !important;
     min-width: 0 !important;
 }
 
-/* Kolom 3: radio */
+/* Pronostiek */
 [class*="st-key-match_"] div[data-testid="column"]:nth-of-type(3) {
-    flex: 0 0 128px !important;
-    width: 128px !important;
-    min-width: 128px !important;
+    flex: 0 0 108px !important;
+    width: 108px !important;
+    min-width: 108px !important;
 }
 
 /* Tekst compacter */
@@ -147,10 +145,15 @@ MATCH CARD
 
 .match-teams {
     font-size: 0.82rem;
-    line-height: 1.22;
-    white-space: nowrap;
+    line-height: 1.18;
+    overflow: hidden;
+}
+
+.match-teams b {
+    display: block;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .match-vs {
@@ -167,16 +170,18 @@ RADIO 1 X 2
     flex-direction: row !important;
     flex-wrap: nowrap !important;
     justify-content: flex-end !important;
-    gap: 0.25rem !important;
+    gap: 0.22rem !important;
 }
 
 [class*="st-key-match_"] label[data-baseweb="radio"] {
     background: #1f2937;
     border: 1px solid rgba(255,255,255,0.16);
     border-radius: 9px;
-    min-width: 34px !important;
-    width: 34px !important;
-    height: 31px !important;
+
+    min-width: 30px !important;
+    width: 30px !important;
+    height: 28px !important;
+
     padding: 0 !important;
     margin: 0 !important;
 
@@ -186,12 +191,12 @@ RADIO 1 X 2
 }
 
 [class*="st-key-match_"] label[data-baseweb="radio"] span {
-    font-size: 0.78rem !important;
+    font-size: 0.76rem !important;
     font-weight: 800 !important;
 }
 
 [class*="st-key-match_"] label[data-baseweb="radio"] > div:first-child {
-    margin-right: 0.12rem !important;
+    margin-right: 0.08rem !important;
 }
 
 /* Minder algemene witruimte */
@@ -199,7 +204,25 @@ div[data-testid="stVerticalBlock"] {
     gap: 0.35rem !important;
 }
 
+/* =========================================================
+EXTRA KLEIN MOBIEL
+========================================================= */
+
 @media (max-width: 420px) {
+
+    .block-container {
+        padding-left: 0.25rem !important;
+        padding-right: 0.25rem !important;
+    }
+
+    [class*="st-key-match_"] {
+        padding: 0.4rem 0.45rem;
+    }
+
+    [class*="st-key-match_"] div[data-testid="stHorizontalBlock"] {
+        gap: 0.35rem !important;
+    }
+
     [class*="st-key-match_"] div[data-testid="column"]:nth-of-type(1) {
         flex-basis: 56px !important;
         width: 56px !important;
@@ -207,23 +230,31 @@ div[data-testid="stVerticalBlock"] {
     }
 
     [class*="st-key-match_"] div[data-testid="column"]:nth-of-type(3) {
-        flex-basis: 118px !important;
-        width: 118px !important;
-        min-width: 118px !important;
+        flex-basis: 98px !important;
+        width: 98px !important;
+        min-width: 98px !important;
     }
 
     .match-date {
-        font-size: 0.7rem;
+        font-size: 0.68rem;
     }
 
     .match-teams {
-        font-size: 0.78rem;
+        font-size: 0.76rem;
+    }
+
+    .match-vs {
+        font-size: 0.58rem;
     }
 
     [class*="st-key-match_"] label[data-baseweb="radio"] {
-        min-width: 31px !important;
-        width: 31px !important;
-        height: 29px !important;
+        min-width: 28px !important;
+        width: 28px !important;
+        height: 27px !important;
+    }
+
+    [class*="st-key-match_"] label[data-baseweb="radio"] span {
+        font-size: 0.72rem !important;
     }
 }
 
@@ -399,7 +430,7 @@ with tab_wedstrijden:
             with st.container(key=f"match_{match_id}"):
 
                 col_date, col_teams, col_pred = st.columns(
-                    [0.7, 1.55, 1.05],
+                    [0.65, 1.85, 0.9],
                     vertical_alignment="center",
                 )
 
@@ -419,8 +450,8 @@ with tab_wedstrijden:
                     st.markdown(
                         f"""
                         <div class="match-teams">
-                            <b>{country_flag(team1_code)} {team1}</b><br>
-                            <span class="match-vs">tegen</span><br>
+                            <b>{country_flag(team1_code)} {team1}</b>
+                            <span class="match-vs">tegen</span>
                             <b>{country_flag(team2_code)} {team2}</b>
                         </div>
                         """,
