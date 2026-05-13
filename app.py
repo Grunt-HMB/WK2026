@@ -26,8 +26,8 @@ st.markdown("""
 
 .block-container {
     padding-top: 0 !important;
-    padding-left: 0.35rem !important;
-    padding-right: 0.35rem !important;
+    padding-left: 0.15rem !important;
+    padding-right: 0.15rem !important;
     padding-bottom: 5rem !important;
 }
 
@@ -45,8 +45,9 @@ VASTE TOPBALK
     left: 0 !important;
     right: 0 !important;
     z-index: 999999 !important;
+
     background: #0e1117 !important;
-    padding: 0.4rem 0.55rem 0.55rem 0.55rem !important;
+    padding: 0.28rem 0.45rem 0.35rem 0.45rem !important;
     border-bottom: 1px solid rgba(255,255,255,0.12);
 }
 
@@ -57,20 +58,24 @@ VASTE TOPBALK
 }
 
 .top-spacer {
-    height: 168px;
+    height: 148px;
 }
 
+/* blauwe melding kleiner */
 .st-key-top_bar div[data-testid="stAlert"] {
-    padding: 0.45rem 0.7rem !important;
-    font-size: 0.82rem !important;
-    margin-bottom: 0.3rem !important;
+    padding: 0.35rem 0.55rem !important;
+    font-size: 0.74rem !important;
+    margin-bottom: 0.2rem !important;
+    border-radius: 10px !important;
 }
 
+/* knop kleiner */
 .st-key-top_bar button {
-    height: 40px !important;
-    min-height: 40px !important;
-    border-radius: 11px !important;
+    height: 36px !important;
+    min-height: 36px !important;
+    border-radius: 10px !important;
     font-weight: 800 !important;
+    font-size: 0.9rem !important;
 }
 
 /* =========================================================
@@ -80,24 +85,25 @@ MENU
 .st-key-menu_keuze div[role="radiogroup"] {
     display: flex !important;
     flex-direction: row !important;
-    flex-wrap: wrap !important;
-    gap: 0.1rem 0.45rem !important;
+    flex-wrap: nowrap !important;
+    justify-content: space-between !important;
+    gap: 0.1rem !important;
 }
 
 .st-key-menu_keuze label[data-baseweb="radio"] {
     background: transparent !important;
     border: none !important;
-    padding: 0.1rem 0.15rem !important;
+    padding: 0.05rem 0.08rem !important;
     margin: 0 !important;
-}
-
-.st-key-menu_keuze label[data-baseweb="radio"] span {
-    font-size: 0.82rem !important;
-    font-weight: 800 !important;
 }
 
 .st-key-menu_keuze label[data-baseweb="radio"] > div:first-child {
     display: none !important;
+}
+
+.st-key-menu_keuze label[data-baseweb="radio"] span {
+    font-size: 0.72rem !important;
+    font-weight: 800 !important;
 }
 
 /* =========================================================
@@ -105,42 +111,37 @@ DATA EDITOR
 ========================================================= */
 
 div[data-testid="stDataFrame"] {
-    font-size: 0.78rem !important;
-}
-
-div[data-testid="stDataFrame"] [role="gridcell"] {
-    padding-left: 0.25rem !important;
-    padding-right: 0.25rem !important;
-}
-
-div[data-testid="stDataFrame"] [role="columnheader"] {
-    padding-left: 0.25rem !important;
-    padding-right: 0.25rem !important;
     font-size: 0.72rem !important;
 }
 
-/* selectbox in data editor compacter */
-div[data-testid="stDataFrame"] input {
-    font-size: 0.78rem !important;
+div[data-testid="stDataFrame"] [role="gridcell"] {
+    padding-left: 0.18rem !important;
+    padding-right: 0.18rem !important;
 }
 
-/* Streamlit footer deels weg */
+div[data-testid="stDataFrame"] [role="columnheader"] {
+    padding-left: 0.18rem !important;
+    padding-right: 0.18rem !important;
+    font-size: 0.66rem !important;
+}
+
+div[data-testid="stDataFrame"] input {
+    font-size: 0.72rem !important;
+}
+
+/* footer weg */
 footer {
     visibility: hidden;
 }
 
 @media (max-width: 480px) {
     .top-spacer {
-        height: 164px;
+        height: 144px;
     }
 
     .block-container {
-        padding-left: 0.25rem !important;
-        padding-right: 0.25rem !important;
-    }
-
-    .st-key-menu_keuze label[data-baseweb="radio"] span {
-        font-size: 0.76rem !important;
+        padding-left: 0.05rem !important;
+        padding-right: 0.05rem !important;
     }
 }
 
@@ -188,12 +189,24 @@ def normalize_time(value):
     return txt
 
 
+def compact_date(value):
+    txt = str(value or "").strip()
+
+    # 11-06-26 -> 11/06
+    parts = txt.split("-")
+
+    if len(parts) >= 2:
+        return f"{parts[0]}/{parts[1]}"
+
+    return txt
+
+
 # =========================================================
 # SESSION STATE
 # =========================================================
 
 if "menu_keuze" not in st.session_state:
-    st.session_state.menu_keuze = "⚽ Wedstrijden"
+    st.session_state.menu_keuze = "⚽ Wedstr."
 
 if "local_predictions" not in st.session_state:
     st.session_state.local_predictions = {}
@@ -251,7 +264,7 @@ if not st.session_state.loaded_predictions:
 with st.container(key="top_bar"):
 
     st.info(
-        "Wijzigingen blijven lokaal. Klik op OPSLAAN om alles te bewaren.",
+        "Lokaal bewaard. Druk OPSLAAN.",
         icon="💾",
     )
 
@@ -265,14 +278,14 @@ with st.container(key="top_bar"):
 
         get_predictions_cached.clear()
 
-        st.success(f"Opgeslagen: {saved} wedstrijden.")
+        st.success(f"Opgeslagen: {saved}")
 
     st.radio(
         "Menu",
         [
-            "⚽ Wedstrijden",
-            "📊 Standen",
-            "🏆 Knockout",
+            "⚽ Wedstr.",
+            "📊 Stand",
+            "🏆 KO",
             "👤 Mijn",
         ],
         key="menu_keuze",
@@ -288,7 +301,7 @@ st.markdown('<div class="top-spacer"></div>', unsafe_allow_html=True)
 # PAGINA: WEDSTRIJDEN
 # =========================================================
 
-if st.session_state.menu_keuze == "⚽ Wedstrijden":
+if st.session_state.menu_keuze == "⚽ Wedstr.":
 
     wedstrijden = matches_df.copy()
 
@@ -308,7 +321,7 @@ if st.session_state.menu_keuze == "⚽ Wedstrijden":
             if not match_id:
                 continue
 
-            datum = str(match.get("datum", "")).strip()
+            datum = compact_date(match.get("datum", ""))
             tijd = normalize_time(match.get("tijd", ""))
 
             team1 = str(match.get("team1", "")).strip()
@@ -326,9 +339,8 @@ if st.session_state.menu_keuze == "⚽ Wedstrijden":
             rows.append({
                 "match_id": match_id,
                 "Wanneer": f"{datum} {tijd}",
-                "●": "🟢",
                 "Wedstrijd": wedstrijd,
-                "1/X/2": get_existing_prediction(match_id),
+                "Keuze": get_existing_prediction(match_id),
             })
 
         editor_df = pd.DataFrame(rows)
@@ -337,36 +349,35 @@ if st.session_state.menu_keuze == "⚽ Wedstrijden":
             editor_df,
             hide_index=True,
             use_container_width=True,
-            height=620,
+            height=640,
             disabled=[
                 "match_id",
                 "Wanneer",
-                "●",
                 "Wedstrijd",
+            ],
+            column_order=[
+                "Wanneer",
+                "Wedstrijd",
+                "Keuze",
             ],
             column_config={
                 "match_id": None,
 
                 "Wanneer": st.column_config.TextColumn(
                     "Wanneer",
-                    width="small",
-                ),
-
-                "●": st.column_config.TextColumn(
-                    "",
-                    width="small",
+                    width=78,
                 ),
 
                 "Wedstrijd": st.column_config.TextColumn(
                     "Wedstrijd",
-                    width="large",
+                    width=220,
                 ),
 
-                "1/X/2": st.column_config.SelectboxColumn(
+                "Keuze": st.column_config.SelectboxColumn(
                     "1/X/2",
                     options=["1", "X", "2"],
                     required=True,
-                    width="small",
+                    width=62,
                 ),
             },
             key="wedstrijden_editor",
@@ -375,7 +386,7 @@ if st.session_state.menu_keuze == "⚽ Wedstrijden":
         for _, row in edited_df.iterrows():
 
             match_id = str(row["match_id"]).strip()
-            prediction = str(row["1/X/2"]).upper().strip()
+            prediction = str(row["Keuze"]).upper().strip()
 
             if prediction not in ["1", "X", "2"]:
                 prediction = "X"
@@ -391,7 +402,7 @@ if st.session_state.menu_keuze == "⚽ Wedstrijden":
 # PAGINA: STANDEN
 # =========================================================
 
-elif st.session_state.menu_keuze == "📊 Standen":
+elif st.session_state.menu_keuze == "📊 Stand":
 
     st.subheader("📊 Standen")
     st.write("Hier komen de groepsstanden.")
@@ -401,7 +412,7 @@ elif st.session_state.menu_keuze == "📊 Standen":
 # PAGINA: KNOCKOUT
 # =========================================================
 
-elif st.session_state.menu_keuze == "🏆 Knockout":
+elif st.session_state.menu_keuze == "🏆 KO":
 
     st.subheader("🏆 Knockout")
     st.write("Hier komt het knockoutschema.")
@@ -415,24 +426,23 @@ elif st.session_state.menu_keuze == "👤 Mijn":
 
     st.subheader("👤 Mijn pronostiek")
 
-    if not st.session_state.local_predictions:
+    mijn_rows = []
+
+    for match_id, data in st.session_state.local_predictions.items():
+
+        if isinstance(data, dict):
+            prediction = data.get("prediction", "")
+        else:
+            prediction = data
+
+        mijn_rows.append({
+            "match_id": match_id,
+            "pronostiek": prediction,
+        })
+
+    if not mijn_rows:
         st.info("Nog geen pronostieken gekozen.")
     else:
-
-        mijn_rows = []
-
-        for match_id, data in st.session_state.local_predictions.items():
-
-            if isinstance(data, dict):
-                prediction = data.get("prediction", "")
-            else:
-                prediction = data
-
-            mijn_rows.append({
-                "match_id": match_id,
-                "pronostiek": prediction,
-            })
-
         st.dataframe(
             pd.DataFrame(mijn_rows),
             use_container_width=True,
