@@ -6,10 +6,6 @@ from modules.database import (
     batch_save_predictions,
 )
 
-# =========================================================
-# CONFIG
-# =========================================================
-
 st.set_page_config(
     page_title="WK 2026",
     page_icon="⚽",
@@ -20,241 +16,123 @@ st.set_page_config(
 USER_ID = "Tom"
 
 
-# =========================================================
-# CSS
-# =========================================================
-
 st.markdown("""
 <style>
-
-/* =========================================================
-ALGEMEEN
-========================================================= */
-
 .block-container {
     max-width: 900px;
-    padding-top: 0.4rem !important;
-    padding-left: 0.55rem !important;
-    padding-right: 0.55rem !important;
+    padding-top: 0.25rem !important;
+    padding-left: 0.45rem !important;
+    padding-right: 0.45rem !important;
     padding-bottom: 5rem !important;
 }
 
-/* Sidebar weg */
 section[data-testid="stSidebar"] {
     display: none;
 }
 
-/* Streamlit default spacing compacter */
-div[data-testid="stVerticalBlock"] {
-    gap: 0.55rem !important;
-}
-
-/* =========================================================
-STICKY OPSLAAN
-========================================================= */
-
-.sticky-save {
+/* Sticky opslaan */
+.st-key-sticky_save {
     position: sticky;
     top: 0;
-    z-index: 9999;
+    z-index: 99999;
     background: #0e1117;
-    padding-top: 0.4rem;
-    padding-bottom: 0.7rem;
-    margin-bottom: 0.6rem;
+    padding: 0.4rem 0 0.75rem 0;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
 }
 
-/* Info melding compacter */
-div[data-testid="stAlert"] {
-    padding: 0.65rem 0.85rem !important;
-    font-size: 0.9rem !important;
-    border-radius: 12px !important;
-}
-
-/* Opslaan knop */
-.stButton > button[kind="primary"] {
-    min-height: 44px !important;
-    font-weight: 800 !important;
-    font-size: 1rem !important;
-    border-radius: 12px !important;
-}
-
-/* =========================================================
-TABS
-========================================================= */
-
-button[data-baseweb="tab"] {
-    padding-left: 0.45rem !important;
-    padding-right: 0.45rem !important;
-    font-size: 0.95rem !important;
-}
-
-div[data-baseweb="tab-list"] {
-    gap: 0.1rem !important;
-}
-
-/* =========================================================
-WEDSTRIJD CARD
-========================================================= */
-
-.match-card {
-    background: #111827;
-    border: 1px solid rgba(255,255,255,0.10);
-    border-radius: 15px;
-    padding: 10px;
-    margin-bottom: 10px;
-}
-
-/* Binnenlayout */
-.match-grid {
-    display: grid;
-    grid-template-columns: 66px 1fr;
-    gap: 8px;
-    align-items: center;
-}
-
-.match-date {
-    color: #cbd5e1;
-    font-size: 0.82rem;
-    line-height: 1.35;
-}
-
-.match-status {
-    color: #22c55e;
-    font-weight: 800;
-    font-size: 0.82rem;
-    margin-top: 2px;
-}
-
-.match-teams {
-    min-width: 0;
-}
-
-.team {
-    font-size: 0.96rem;
-    font-weight: 800;
-    line-height: 1.32;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.vs {
-    font-size: 0.68rem;
-    color: #94a3b8;
-    margin: 0;
-}
-
-/* =========================================================
-RADIO 1/X/2
-========================================================= */
-
-.compact-radio div[role="radiogroup"] {
-    display: flex !important;
-    gap: 5px !important;
-    justify-content: flex-end !important;
-    flex-wrap: nowrap !important;
-}
-
-.compact-radio label[data-baseweb="radio"] {
-    background: #1f2937;
-    border: 1px solid rgba(255,255,255,0.14);
-    border-radius: 10px;
-    min-width: 36px;
-    height: 34px;
-    padding: 0 !important;
-    margin: 0 !important;
-    display: flex !important;
-    justify-content: center !important;
-    align-items: center !important;
-}
-
-.compact-radio label[data-baseweb="radio"] span {
-    font-weight: 800 !important;
+/* Compacte info */
+.st-key-sticky_save div[data-testid="stAlert"] {
+    padding: 0.55rem 0.75rem !important;
     font-size: 0.88rem !important;
 }
 
-/* Radio bolletje verbergen */
-.compact-radio label[data-baseweb="radio"] input {
-    display: none;
+/* Match cards */
+[class*="st-key-match_"] {
+    background: #111827;
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 14px;
+    padding: 0.65rem;
+    margin-bottom: 0.55rem;
 }
 
-/* Labelruimte weg */
-.compact-radio > div {
-    margin: 0 !important;
+/* Minder witruimte */
+div[data-testid="stVerticalBlock"] {
+    gap: 0.45rem !important;
 }
 
-/* =========================================================
-MOBIEL
-========================================================= */
+/* Tabs kleiner */
+button[data-baseweb="tab"] {
+    padding-left: 0.4rem !important;
+    padding-right: 0.4rem !important;
+    font-size: 0.92rem !important;
+}
 
+/* Radio compact */
+div[role="radiogroup"] {
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 0.35rem !important;
+    justify-content: flex-end !important;
+}
+
+label[data-baseweb="radio"] {
+    background: #1f2937;
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 10px;
+    min-width: 34px;
+    height: 32px;
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+label[data-baseweb="radio"] span {
+    font-size: 0.86rem !important;
+    font-weight: 800 !important;
+}
+
+/* Radio bolletje kleiner */
+label[data-baseweb="radio"] > div:first-child {
+    margin-right: 0.25rem !important;
+}
+
+/* Mobile */
 @media (max-width: 480px) {
-
     .block-container {
-        padding-left: 0.45rem !important;
-        padding-right: 0.45rem !important;
+        padding-left: 0.35rem !important;
+        padding-right: 0.35rem !important;
     }
 
-    .match-card {
-        padding: 9px;
-        border-radius: 14px;
+    [class*="st-key-match_"] {
+        padding: 0.5rem;
+        border-radius: 12px;
     }
 
-    .match-grid {
-        grid-template-columns: 60px 1fr;
-        gap: 7px;
+    button[data-baseweb="tab"] {
+        font-size: 0.86rem !important;
     }
 
-    .match-date {
-        font-size: 0.78rem;
-    }
-
-    .match-status {
-        font-size: 0.78rem;
-    }
-
-    .team {
-        font-size: 0.9rem;
-    }
-
-    .vs {
-        font-size: 0.64rem;
-    }
-
-    .compact-radio label[data-baseweb="radio"] {
-        min-width: 34px;
-        height: 32px;
-    }
-
-    .compact-radio label[data-baseweb="radio"] span {
-        font-size: 0.84rem !important;
+    label[data-baseweb="radio"] {
+        min-width: 32px;
+        height: 30px;
     }
 }
-
 </style>
 """, unsafe_allow_html=True)
 
 
-# =========================================================
-# HELPERS
-# =========================================================
-
-def flag_img(code):
-    code = str(code or "").strip().lower()
+def country_flag(code):
+    code = str(code or "").strip().upper()
 
     if len(code) != 2:
         return ""
 
-    return (
-        f'<img src="https://flagcdn.com/w20/{code}.png" '
-        f'style="width:20px;height:14px;object-fit:cover;'
-        f'border-radius:2px;margin-right:5px;vertical-align:-2px;">'
-    )
+    return chr(ord(code[0]) + 127397) + chr(ord(code[1]) + 127397)
 
 
 def get_prediction_value(match_id):
-    match_id = str(match_id).strip()
-
-    data = st.session_state.local_predictions.get(match_id, {})
+    data = st.session_state.local_predictions.get(str(match_id), {})
 
     if isinstance(data, dict):
         value = data.get("prediction", "")
@@ -271,20 +149,14 @@ def get_prediction_value(match_id):
 
 def prediction_changed(match_id):
     match_id = str(match_id).strip()
-    radio_key = f"pred_{match_id}"
-
-    value = st.session_state.get(radio_key, "X")
+    key = f"pred_{match_id}"
 
     st.session_state.local_predictions[match_id] = {
-        "prediction": value,
+        "prediction": st.session_state.get(key, "X"),
         "score1": "",
         "score2": "",
     }
 
-
-# =========================================================
-# SESSION STATE
-# =========================================================
 
 if "local_predictions" not in st.session_state:
     st.session_state.local_predictions = {}
@@ -292,10 +164,6 @@ if "local_predictions" not in st.session_state:
 if "loaded_predictions" not in st.session_state:
     st.session_state.loaded_predictions = False
 
-
-# =========================================================
-# DATA
-# =========================================================
 
 @st.cache_data(ttl=60)
 def get_matches_cached():
@@ -311,26 +179,17 @@ matches_df = get_matches_cached()
 predictions_df = get_predictions_cached(USER_ID)
 
 
-# =========================================================
-# BESTAANDE PRONOSTIEKEN LADEN
-# =========================================================
-
 if not st.session_state.loaded_predictions:
-
     if not predictions_df.empty:
-
         for _, row in predictions_df.iterrows():
-
             match_id = str(row.get("match_id", "")).strip()
 
-            if not match_id:
-                continue
-
-            st.session_state.local_predictions[match_id] = {
-                "prediction": str(row.get("prediction", "")).upper().strip(),
-                "score1": row.get("score1", ""),
-                "score2": row.get("score2", ""),
-            }
+            if match_id:
+                st.session_state.local_predictions[match_id] = {
+                    "prediction": str(row.get("prediction", "")).upper().strip(),
+                    "score1": row.get("score1", ""),
+                    "score2": row.get("score2", ""),
+                }
 
     st.session_state.loaded_predictions = True
 
@@ -339,30 +198,24 @@ if not st.session_state.loaded_predictions:
 # STICKY OPSLAAN
 # =========================================================
 
-st.markdown('<div class="sticky-save">', unsafe_allow_html=True)
+with st.container(key="sticky_save"):
 
-st.info(
-    "Wijzigingen blijven lokaal staan. Klik op OPSLAAN om alles tegelijk te bewaren.",
-    icon="💾",
-)
-
-if st.button("OPSLAAN", use_container_width=True, type="primary"):
-    saved = batch_save_predictions(
-        user_id=USER_ID,
-        local_predictions=st.session_state.local_predictions,
-        status="concept",
+    st.info(
+        "Wijzigingen blijven lokaal staan. Klik op OPSLAAN om alles tegelijk te bewaren.",
+        icon="💾",
     )
 
-    get_predictions_cached.clear()
+    if st.button("OPSLAAN", use_container_width=True, type="primary"):
+        saved = batch_save_predictions(
+            user_id=USER_ID,
+            local_predictions=st.session_state.local_predictions,
+            status="concept",
+        )
 
-    st.success(f"Pronostiek opgeslagen ({saved} wedstrijden).")
+        get_predictions_cached.clear()
 
-st.markdown("</div>", unsafe_allow_html=True)
+        st.success(f"Pronostiek opgeslagen ({saved} wedstrijden).")
 
-
-# =========================================================
-# TOP NAVIGATION
-# =========================================================
 
 tab_wedstrijden, tab_standen, tab_knockout, tab_mijn = st.tabs([
     "⚽ Wedstrijden",
@@ -372,20 +225,15 @@ tab_wedstrijden, tab_standen, tab_knockout, tab_mijn = st.tabs([
 ])
 
 
-# =========================================================
-# TAB: WEDSTRIJDEN
-# =========================================================
-
 with tab_wedstrijden:
 
     wedstrijden = matches_df.copy()
 
     if wedstrijden.empty:
         st.warning("Geen wedstrijden gevonden.")
-    else:
 
-        if "match_id" in wedstrijden.columns:
-            wedstrijden["match_id"] = wedstrijden["match_id"].astype(str).str.strip()
+    else:
+        wedstrijden["match_id"] = wedstrijden["match_id"].astype(str).str.strip()
 
         for _, match in wedstrijden.iterrows():
 
@@ -396,91 +244,67 @@ with tab_wedstrijden:
 
             datum = str(match.get("datum", "")).strip()
             tijd = str(match.get("tijd", "")).strip()
+
             team1 = str(match.get("team1", "")).strip()
             team2 = str(match.get("team2", "")).strip()
+
             team1_code = str(match.get("team1_code", "")).strip()
             team2_code = str(match.get("team2_code", "")).strip()
 
-            current_value = get_prediction_value(match_id)
             radio_key = f"pred_{match_id}"
 
             if radio_key not in st.session_state:
-                st.session_state[radio_key] = current_value
+                st.session_state[radio_key] = get_prediction_value(match_id)
 
-            st.markdown('<div class="match-card">', unsafe_allow_html=True)
+            with st.container(key=f"match_{match_id}"):
 
-            col_info, col_radio = st.columns(
-                [1.45, 0.55],
-                vertical_alignment="center",
-            )
-
-            with col_info:
-
-                html = f"""
-                <div class="match-grid">
-                    <div class="match-date">
-                        <b>{datum}</b><br>
-                        {tijd}<br>
-                        <div class="match-status">🟢 Open</div>
-                    </div>
-
-                    <div class="match-teams">
-                        <div class="team">{flag_img(team1_code)}{team1}</div>
-                        <div class="vs">tegen</div>
-                        <div class="team">{flag_img(team2_code)}{team2}</div>
-                    </div>
-                </div>
-                """
-
-                st.markdown(html, unsafe_allow_html=True)
-
-            with col_radio:
-
-                st.markdown('<div class="compact-radio">', unsafe_allow_html=True)
-
-                st.radio(
-                    "Pronostiek",
-                    ["1", "X", "2"],
-                    key=radio_key,
-                    horizontal=True,
-                    label_visibility="collapsed",
-                    on_change=prediction_changed,
-                    args=(match_id,),
+                col_date, col_teams, col_pred = st.columns(
+                    [0.75, 1.75, 1.05],
+                    vertical_alignment="center",
                 )
 
-                st.markdown("</div>", unsafe_allow_html=True)
+                with col_date:
+                    st.markdown(
+                        f"""
+                        **{datum}**  
+                        {tijd}  
+                        🟢 **Open**
+                        """
+                    )
 
-            st.markdown("</div>", unsafe_allow_html=True)
+                with col_teams:
+                    st.markdown(
+                        f"""
+                        **{country_flag(team1_code)} {team1}**  
+                        <small>tegen</small>  
+                        **{country_flag(team2_code)} {team2}**
+                        """,
+                        unsafe_allow_html=True,
+                    )
 
+                with col_pred:
+                    st.radio(
+                        "Pronostiek",
+                        ["1", "X", "2"],
+                        key=radio_key,
+                        horizontal=True,
+                        label_visibility="collapsed",
+                        on_change=prediction_changed,
+                        args=(match_id,),
+                    )
 
-# =========================================================
-# TAB: STANDEN
-# =========================================================
 
 with tab_standen:
-
     st.subheader("📊 Standen")
-
     st.write("Hier komen de groepsstanden.")
 
 
-# =========================================================
-# TAB: KNOCKOUT
-# =========================================================
-
 with tab_knockout:
-
     st.subheader("🏆 Knockout")
-
     st.write("Hier komt het knockoutschema.")
 
 
-# =========================================================
-# TAB: MIJN
-# =========================================================
-
 with tab_mijn:
-
     st.subheader("👤 Mijn pronostiek")
 
     if not st.session_state.local_predictions:
