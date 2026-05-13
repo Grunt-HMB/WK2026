@@ -20,8 +20,11 @@ def connect_to_gsheet():
         st.secrets["gcp_service_account"],
         scopes=SCOPES,
     )
+
     client = gspread.authorize(credentials)
+
     sheet_id = st.secrets["GOOGLE_SHEET_ID"]
+
     return client.open_by_key(sheet_id)
 
 
@@ -167,7 +170,12 @@ def clear_data_cache():
 
 def append_row(sheet_name, row):
     ws = get_worksheet(sheet_name)
-    ws.append_row(row, value_input_option="USER_ENTERED")
+
+    ws.append_row(
+        row,
+        value_input_option="USER_ENTERED",
+    )
+
     clear_data_cache()
 
 
@@ -186,12 +194,20 @@ def get_next_user_id(users_df):
     return max(ids) + 1 if ids else 1
 
 
-def batch_upsert_predictions(user_id, local_predictions, status, allowed_match_ids=None):
+def batch_upsert_predictions(
+    user_id,
+    local_predictions,
+    status,
+    allowed_match_ids=None,
+):
     if not local_predictions:
         return 0
 
     if allowed_match_ids is not None:
-        allowed_match_ids = set(str(x).strip() for x in allowed_match_ids)
+        allowed_match_ids = set(
+            str(x).strip()
+            for x in allowed_match_ids
+        )
 
         local_predictions = {
             str(match_id).strip(): data
@@ -210,6 +226,7 @@ def batch_upsert_predictions(user_id, local_predictions, status, allowed_match_i
             REQUIRED_SHEETS["Predictions"],
             value_input_option="USER_ENTERED",
         )
+
         rows = ws.get_all_values()
 
     existing_map = {}
@@ -217,28 +234,48 @@ def batch_upsert_predictions(user_id, local_predictions, status, allowed_match_i
     for row_index, row in enumerate(rows[1:], start=2):
         if len(row) >= 2:
             existing_map[
-                (str(row[0]).strip(), str(row[1]).strip())
+                (
+                    str(row[0]).strip(),
+                    str(row[1]).strip(),
+                )
             ] = row_index
 
     now = timestamp()
+
     updates = []
     appends = []
 
     for match_id, data in local_predictions.items():
         match_id = str(match_id).strip()
 
-        prediction = str(data.get("prediction", "")).upper().strip()
-        score1 = data.get("score1", "")
-        score2 = data.get("score2", "")
+        if isinstance(data, dict):
+            prediction = str(data.get("prediction", "")).upper().strip()
+            score1 = data.get("score1", "")
+            score2 = data.get("score2", "")
+        else:
+            prediction = str(data).upper().strip()
+            score1 = ""
+            score2 = ""
 
-        key = (str(user_id).strip(), match_id)
+        key = (
+            str(user_id).strip(),
+            match_id,
+        )
 
         if key in existing_map:
             row_index = existing_map[key]
+
             updates.append({
                 "range": f"C{row_index}:G{row_index}",
-                "values": [[prediction, score1, score2, status, now]],
+                "values": [[
+                    prediction,
+                    score1,
+                    score2,
+                    status,
+                    now,
+                ]],
             })
+
         else:
             appends.append([
                 user_id,
@@ -251,12 +288,19 @@ def batch_upsert_predictions(user_id, local_predictions, status, allowed_match_i
             ])
 
     if updates:
-        ws.batch_update(updates, value_input_option="USER_ENTERED")
+        ws.batch_update(
+            updates,
+            value_input_option="USER_ENTERED",
+        )
 
     if appends:
-        ws.append_rows(appends, value_input_option="USER_ENTERED")
+        ws.append_rows(
+            appends,
+            value_input_option="USER_ENTERED",
+        )
 
     clear_data_cache()
+
     return len(local_predictions)
 
 
@@ -269,19 +313,105 @@ def update_or_append_result(match_id, real_team1, real_team2):
             REQUIRED_SHEETS["Results"],
             value_input_option="USER_ENTERED",
         )
+
         rows = ws.get_all_values()
 
     now = timestamp()
 
     for index, row in enumerate(rows[1:], start=2):
         if len(row) >= 1 and str(row[0]).strip() == str(match_id).strip():
-            ws.update(f"B{index}:D{index}", [[real_team1, real_team2, now]])
+            ws.update(
+                f"B{index}:D{index}",
+                [[real_team1, real_team2, now]],
+            )
+
             clear_data_cache()
             return
 
     ws.append_row(
-        [match_id, real_team1, real_team2, now],
+        [
+            match_id,
+            real_team1,
+            real_team2,
+            now,
+        ],
         value_input_option="USER_ENTERED",
     )
 
     clear_data_cache()
+
+
+# =========================================================
+# EXTRA WRAPPERS VOOR MOBIELE / SNELLE APP
+# =========================================================
+
+def load_matches():
+    data = load_all_data()
+    return data["matches"]
+
+
+def load_predictions(user_id=None):
+    data = load_all_data()
+    predictions_df = data["predictions"]
+
+    if predictions_df.empty:
+        return predictions_df
+
+    if user_id is not None and "user_id" in predictions_df.columns:
+        predictions_df = predictions_df[
+            predictions_df["user_id"].astype(str).str.strip()
+            == str(user_id).strip()
+        ]
+
+    return predictions_df
+
+
+def load_results():
+    data = load_all_data()
+    return data["results"]
+
+
+def load_standings():
+    data = load_all_data()
+    return data["standings"]
+
+
+def load_best_thirds():
+    data = load_all_data()
+    return data["best_thirds"]
+
+
+def batch_save_predictions(
+    user_id,
+    local_predictions,
+    status="concept",
+    allowed_match_ids=None,
+):
+    if not local_predictions:
+        return 0
+
+    normalized_predictions = {}
+
+    for match_id, data in local_predictions.items():
+        match_id = str(match_id).strip()
+
+        if isinstance(data, dict):
+            normalized_predictions[match_id] = {
+                "prediction": str(data.get("prediction", "")).upper().strip(),
+                "score1": data.get("score1", ""),
+                "score2": data.get("score2", ""),
+            }
+
+        else:
+            normalized_predictions[match_id] = {
+                "prediction": str(data).upper().strip(),
+                "score1": "",
+                "score2": "",
+            }
+
+    return batch_upsert_predictions(
+        user_id=user_id,
+        local_predictions=normalized_predictions,
+        status=status,
+        allowed_match_ids=allowed_match_ids,
+    )
