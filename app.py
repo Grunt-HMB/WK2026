@@ -25,10 +25,10 @@ st.markdown("""
 <style>
 
 .block-container {
-    max-width: 720px;
+    max-width: 760px;
     padding-top: 0 !important;
-    padding-left: 0.35rem !important;
-    padding-right: 0.35rem !important;
+    padding-left: 0.25rem !important;
+    padding-right: 0.25rem !important;
     padding-bottom: 5rem !important;
 }
 
@@ -37,7 +37,7 @@ section[data-testid="stSidebar"] {
 }
 
 /* =========================================================
-TOPBALK
+VASTE TOPBALK
 ========================================================= */
 
 .st-key-top_bar {
@@ -46,31 +46,32 @@ TOPBALK
     left: 0 !important;
     right: 0 !important;
     z-index: 999999 !important;
+
     background: #0e1117 !important;
     padding: 0.28rem 0.45rem 0.35rem 0.45rem !important;
     border-bottom: 1px solid rgba(255,255,255,0.12);
 }
 
 .st-key-top_bar > div {
-    max-width: 720px;
+    max-width: 760px;
     margin-left: auto;
     margin-right: auto;
 }
 
 .top-spacer {
-    height: 138px;
+    height: 145px;
 }
 
 .st-key-top_bar div[data-testid="stAlert"] {
     padding: 0.32rem 0.5rem !important;
     font-size: 0.72rem !important;
-    margin-bottom: 0.18rem !important;
+    margin-bottom: 0.2rem !important;
     border-radius: 10px !important;
 }
 
 .st-key-top_bar button {
-    height: 35px !important;
-    min-height: 35px !important;
+    height: 36px !important;
+    min-height: 36px !important;
     border-radius: 10px !important;
     font-weight: 800 !important;
     font-size: 0.9rem !important;
@@ -108,64 +109,78 @@ MENU
 WEDSTRIJD CARD
 ========================================================= */
 
-.match-card {
+[class*="st-key-match_"] {
     background: #111827;
-    border: 1px solid rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.13);
     border-radius: 13px;
-    padding: 0.55rem;
-    margin-bottom: 0.5rem;
+    padding: 0.45rem 0.5rem;
+    margin-bottom: 0.45rem;
 }
 
-.match-row {
-    display: grid;
-    grid-template-columns: 64px 1fr 112px;
-    gap: 0.45rem;
-    align-items: center;
+/* Streamlit columns geforceerd naast elkaar */
+[class*="st-key-match_"] div[data-testid="stHorizontalBlock"] {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    gap: 0.35rem !important;
 }
 
-.match-date {
-    font-size: 0.7rem;
-    line-height: 1.18;
-    color: #d1d5db;
+/* Datumkolom */
+[class*="st-key-match_"] div[data-testid="column"]:nth-of-type(1) {
+    flex: 0 0 58px !important;
+    width: 58px !important;
+    min-width: 58px !important;
 }
 
-.match-teams {
-    min-width: 0;
-    font-size: 0.82rem;
-    line-height: 1.22;
+/* Teams */
+[class*="st-key-match_"] div[data-testid="column"]:nth-of-type(2) {
+    flex: 1 1 auto !important;
+    width: auto !important;
+    min-width: 0 !important;
 }
 
-.match-team {
-    font-weight: 800;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+/* 1/X/2 */
+[class*="st-key-match_"] div[data-testid="column"]:nth-of-type(3) {
+    flex: 0 0 116px !important;
+    width: 116px !important;
+    min-width: 116px !important;
 }
 
-.match-vs {
-    color: #94a3b8;
-    font-size: 0.58rem;
+[class*="st-key-match_"] p {
+    margin-bottom: 0 !important;
+    line-height: 1.22 !important;
 }
 
-/* =========================================================
-SEGMENTED CONTROL
-========================================================= */
-
-.match-card div[data-testid="stSegmentedControl"] {
-    margin-top: 0 !important;
+/* Datum tekst */
+[class*="st-key-match_"] div[data-testid="column"]:nth-of-type(1) p {
+    font-size: 0.68rem !important;
 }
 
-.match-card div[data-testid="stSegmentedControl"] button {
-    min-width: 30px !important;
-    height: 30px !important;
-    padding: 0 !important;
+/* Team tekst */
+[class*="st-key-match_"] div[data-testid="column"]:nth-of-type(2) p {
     font-size: 0.78rem !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+/* Segmented control */
+[class*="st-key-match_"] div[data-testid="stSegmentedControl"] {
+    margin: 0 !important;
+}
+
+[class*="st-key-match_"] div[data-testid="stSegmentedControl"] button {
+    min-width: 30px !important;
+    height: 29px !important;
+    padding: 0 !important;
+    font-size: 0.74rem !important;
     font-weight: 800 !important;
 }
 
-/* Minder algemene witruimte */
+/* Algemene spacing */
 div[data-testid="stVerticalBlock"] {
-    gap: 0.35rem !important;
+    gap: 0.32rem !important;
 }
 
 footer {
@@ -175,40 +190,46 @@ footer {
 @media (max-width: 430px) {
 
     .block-container {
-        padding-left: 0.2rem !important;
-        padding-right: 0.2rem !important;
+        padding-left: 0.15rem !important;
+        padding-right: 0.15rem !important;
     }
 
     .top-spacer {
-        height: 136px;
+        height: 142px;
     }
 
-    .match-card {
-        padding: 0.45rem;
-        margin-bottom: 0.42rem;
+    [class*="st-key-match_"] {
+        padding: 0.4rem 0.42rem;
     }
 
-    .match-row {
-        grid-template-columns: 58px 1fr 104px;
-        gap: 0.32rem;
+    [class*="st-key-match_"] div[data-testid="stHorizontalBlock"] {
+        gap: 0.28rem !important;
     }
 
-    .match-date {
-        font-size: 0.64rem;
+    [class*="st-key-match_"] div[data-testid="column"]:nth-of-type(1) {
+        flex-basis: 54px !important;
+        width: 54px !important;
+        min-width: 54px !important;
     }
 
-    .match-teams {
-        font-size: 0.76rem;
+    [class*="st-key-match_"] div[data-testid="column"]:nth-of-type(3) {
+        flex-basis: 108px !important;
+        width: 108px !important;
+        min-width: 108px !important;
     }
 
-    .match-vs {
-        font-size: 0.52rem;
+    [class*="st-key-match_"] div[data-testid="column"]:nth-of-type(1) p {
+        font-size: 0.64rem !important;
     }
 
-    .match-card div[data-testid="stSegmentedControl"] button {
+    [class*="st-key-match_"] div[data-testid="column"]:nth-of-type(2) p {
+        font-size: 0.74rem !important;
+    }
+
+    [class*="st-key-match_"] div[data-testid="stSegmentedControl"] button {
         min-width: 27px !important;
-        height: 28px !important;
-        font-size: 0.72rem !important;
+        height: 27px !important;
+        font-size: 0.68rem !important;
     }
 }
 
@@ -427,43 +448,40 @@ if st.session_state.menu_keuze == "⚽ Wedstr.":
             if key not in st.session_state:
                 st.session_state[key] = get_existing_prediction(match_id)
 
-            st.markdown('<div class="match-card">', unsafe_allow_html=True)
+            with st.container(key=f"match_{match_id}"):
 
-            col_html, col_choice = st.columns([1, 0.38], vertical_alignment="center")
-
-            with col_html:
-
-                st.markdown(
-                    f"""
-                    <div class="match-row">
-                        <div class="match-date">
-                            <b>{datum}</b><br>
-                            {tijd}<br>
-                            🟢
-                        </div>
-
-                        <div class="match-teams">
-                            <div class="match-team">{country_flag(team1_code)} {team1}</div>
-                            <div class="match-vs">tegen</div>
-                            <div class="match-team">{country_flag(team2_code)} {team2}</div>
-                        </div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
+                col_date, col_teams, col_choice = st.columns(
+                    [0.55, 2.25, 1.05],
+                    vertical_alignment="center",
                 )
 
-            with col_choice:
+                with col_date:
+                    st.markdown(
+                        f"""
+                        **{datum}**  
+                        {tijd}  
+                        🟢
+                        """
+                    )
 
-                st.segmented_control(
-                    "Pronostiek",
-                    ["1", "X", "2"],
-                    key=key,
-                    label_visibility="collapsed",
-                    on_change=prediction_changed,
-                    args=(match_id,),
-                )
+                with col_teams:
+                    st.markdown(
+                        f"""
+                        **{country_flag(team1_code)} {team1}**  
+                        tegen  
+                        **{country_flag(team2_code)} {team2}**
+                        """
+                    )
 
-            st.markdown("</div>", unsafe_allow_html=True)
+                with col_choice:
+                    st.segmented_control(
+                        "Pronostiek",
+                        ["1", "X", "2"],
+                        key=key,
+                        label_visibility="collapsed",
+                        on_change=prediction_changed,
+                        args=(match_id,),
+                    )
 
 
 # =========================================================
