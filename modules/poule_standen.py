@@ -1,7 +1,10 @@
 import pandas as pd
 import streamlit as st
 
-from modules.knockout_engine import calculate_group_standings
+from modules.knockout_engine import (
+    calculate_group_standings,
+    calculate_best_thirds,
+)
 
 
 def prediction_to_score(prediction):
@@ -86,6 +89,49 @@ def format_standings_table(df):
     return table
 
 
+def format_best_thirds_table(df):
+    if df is None or df.empty:
+        return pd.DataFrame()
+
+    table = df.copy()
+
+    cols = [
+        "third_rank",
+        "groep",
+        "team",
+        "played",
+        "wins",
+        "draws",
+        "losses",
+        "points",
+        "qualified",
+    ]
+
+    available_cols = [c for c in cols if c in table.columns]
+    table = table[available_cols].copy()
+
+    table = table.rename(
+        columns={
+            "third_rank": "#",
+            "groep": "Groep",
+            "team": "Ploeg",
+            "played": "Wedstr.",
+            "wins": "Gew.",
+            "draws": "Gelijk",
+            "losses": "Verl.",
+            "points": "Punten",
+            "qualified": "Door",
+        }
+    )
+
+    if "Door" in table.columns:
+        table["Door"] = table["Door"].apply(
+            lambda value: "✅" if bool(value) else "❌"
+        )
+
+    return table
+
+
 def apply_manual_full_order(group_df, group, prefix):
     if group_df is None or group_df.empty:
         return group_df
@@ -96,7 +142,11 @@ def apply_manual_full_order(group_df, group, prefix):
     df = group_df.copy()
 
     df["team"] = df["team"].astype(str).str.strip()
-    df["position"] = pd.to_numeric(df["position"], errors="coerce").fillna(999).astype(int)
+    df["position"] = (
+        pd.to_numeric(df["position"], errors="coerce")
+        .fillna(999)
+        .astype(int)
+    )
 
     df = df.sort_values("position", kind="stable").reset_index(drop=True)
 
@@ -151,6 +201,26 @@ def apply_manual_full_order(group_df, group, prefix):
     df["position"] = range(1, len(df) + 1)
 
     return df
+
+
+def show_best_thirds_block(official_standings_df):
+    st.markdown("---")
+    st.subheader("🥉 Beste derdes")
+    st.caption("Gebaseerd op de officiële uitslagen die de admin heeft ingevuld.")
+
+    if official_standings_df is None or official_standings_df.empty:
+        st.info("Nog geen officiële stand beschikbaar.")
+        return
+
+    official_best_thirds = calculate_best_thirds(official_standings_df)
+
+    table = format_best_thirds_table(official_best_thirds)
+
+    if table.empty:
+        st.info("Nog geen beste derdes beschikbaar.")
+        return
+
+    st.table(table)
 
 
 def show_poule_standen(matches_df, official_standings_df, predictions_df):
@@ -234,3 +304,7 @@ def show_poule_standen(matches_df, official_standings_df, predictions_df):
                     st.caption("Nog geen voorspelde stand.")
                 else:
                     st.table(user_table)
+
+    show_best_thirds_block(
+        official_standings_df=official_standings_df,
+    )
