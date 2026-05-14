@@ -2,9 +2,10 @@ import streamlit as st
 import pandas as pd
 
 from modules.database import load_matches, load_predictions, batch_save_predictions
+from modules.prediction_standings import show_all_group_standings
 
 
-def show_pronostiek(user_id="Tom"):
+def show_pronostiek(user_id="Tom", standings_df=None):
 
     def country_flag(code):
         code = str(code or "").strip().upper()
@@ -76,17 +77,19 @@ def show_pronostiek(user_id="Tom"):
         }
         return mapping.get(value, "⚽")
 
-    if "page" not in st.session_state:
-        st.session_state.page = "⚽ Wedstrijden"
+    if "prono_page" not in st.session_state:
+        st.session_state.prono_page = "⚽ Wedstrijden"
 
-    if "menu_choice" not in st.session_state:
-        st.session_state.menu_choice = menu_from_page(st.session_state.page)
+    if "prono_menu_choice" not in st.session_state:
+        st.session_state.prono_menu_choice = menu_from_page(st.session_state.prono_page)
 
     if "local_predictions" not in st.session_state:
         st.session_state.local_predictions = {}
 
-    if "loaded_predictions" not in st.session_state:
-        st.session_state.loaded_predictions = False
+    loaded_key = f"loaded_predictions_{user_id}"
+
+    if loaded_key not in st.session_state:
+        st.session_state[loaded_key] = False
 
     st.markdown("""
     <style>
@@ -194,7 +197,7 @@ def show_pronostiek(user_id="Tom"):
 
     matches_df, predictions_df = get_data(user_id)
 
-    if not st.session_state.loaded_predictions:
+    if not st.session_state[loaded_key]:
         if not predictions_df.empty:
             for _, row in predictions_df.iterrows():
                 match_id = str(row.get("match_id", "")).strip()
@@ -210,18 +213,18 @@ def show_pronostiek(user_id="Tom"):
                         "score2": row.get("score2", ""),
                     }
 
-        st.session_state.loaded_predictions = True
+        st.session_state[loaded_key] = True
 
     with st.container(key="top_bar"):
         st.segmented_control(
             "Menu",
             ["⚽", "📊", "🏆", "👤"],
-            key="menu_choice",
+            key="prono_menu_choice",
             label_visibility="collapsed",
             help="⚽ Wedstrijden | 📊 Standen | 🏆 Knockout | 👤 Mijn pronostiek",
         )
 
-        st.session_state.page = page_from_menu(st.session_state.menu_choice)
+        st.session_state.prono_page = page_from_menu(st.session_state.prono_menu_choice)
 
         if st.button(
             "💾 NU ALLES OPSLAAN",
@@ -234,7 +237,7 @@ def show_pronostiek(user_id="Tom"):
 
     st.markdown('<div class="top-spacer"></div>', unsafe_allow_html=True)
 
-    if st.session_state.page == "⚽ Wedstrijden":
+    if st.session_state.prono_page == "⚽ Wedstrijden":
 
         wedstrijden = matches_df.copy()
 
@@ -269,9 +272,6 @@ def show_pronostiek(user_id="Tom"):
 
                 pred_key = f"pred_{match_id}"
 
-                if pred_key not in st.session_state:
-                    st.session_state[pred_key] = get_prediction(match_id)
-
                 with st.container(key=f"match_card_{match_id}"):
 
                     col_info, col_pred = st.columns([1.9, 1], gap="small")
@@ -279,34 +279,40 @@ def show_pronostiek(user_id="Tom"):
                     with col_info:
                         st.markdown(
                             f"""
-    <div class="match-date-small"><b>{datum}</b> &nbsp; {tijd} &nbsp; 🟢</div>
-    <div class="match-teams-onecell">
-    {country_flag(team1_code)} {team1} <span style="color:#9ca3af;">vs</span> {country_flag(team2_code)} {team2}
-    </div>
+<div class="match-date-small"><b>{datum}</b> &nbsp; {tijd} &nbsp; 🟢</div>
+<div class="match-teams-onecell">
+{country_flag(team1_code)} {team1} <span style="color:#9ca3af;">vs</span> {country_flag(team2_code)} {team2}
+</div>
                             """,
                             unsafe_allow_html=True,
                         )
 
                     with col_pred:
-                        st.segmented_control(
-                            "Pronostiek",
-                            ["1", "X", "2"],
-                            key=pred_key,
-                            default=get_prediction(match_id),
-                            label_visibility="collapsed",
-                            on_change=prediction_changed,
-                            args=(match_id,),
-                        )
+                        kwargs = {
+                            "label": "Pronostiek",
+                            "options": ["1", "X", "2"],
+                            "key": pred_key,
+                            "label_visibility": "collapsed",
+                            "on_change": prediction_changed,
+                            "args": (match_id,),
+                        }
 
-    elif st.session_state.page == "📊 Standen":
-        st.subheader("📊 Standen")
-        st.write("Hier komen de groepsstanden.")
+                        if pred_key not in st.session_state:
+                            kwargs["default"] = get_prediction(match_id)
 
-    elif st.session_state.page == "🏆 Knockout":
+                        st.segmented_control(**kwargs)
+
+    elif st.session_state.prono_page == "📊 Standen":
+        show_all_group_standings(
+            official_standings_df=standings_df,
+            matches_df=matches_df,
+        )
+
+    elif st.session_state.prono_page == "🏆 Knockout":
         st.subheader("🏆 Knockout")
         st.write("Hier komt het knockoutschema.")
 
-    elif st.session_state.page == "👤 Mijn pronostiek":
+    elif st.session_state.prono_page == "👤 Mijn pronostiek":
         st.subheader("👤 Mijn pronostiek")
 
         rows = []
