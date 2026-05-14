@@ -19,45 +19,6 @@ def prediction_to_score(prediction):
     return "", ""
 
 
-def format_standings_table(df):
-    if df is None or df.empty:
-        return pd.DataFrame()
-
-    cols = [
-        "position",
-        "team",
-        "played",
-        "wins",
-        "draws",
-        "losses",
-        "goals_for",
-        "goals_against",
-        "goal_diff",
-        "points",
-    ]
-
-    available_cols = [c for c in cols if c in df.columns]
-
-    table = df[available_cols].copy()
-
-    table = table.rename(
-        columns={
-            "position": "#",
-            "team": "Team",
-            "played": "M",
-            "wins": "W",
-            "draws": "G",
-            "losses": "V",
-            "goals_for": "DV",
-            "goals_against": "DT",
-            "goal_diff": "DS",
-            "points": "Ptn",
-        }
-    )
-
-    return table
-
-
 def build_user_group_standings(matches_df, predictions_df):
     if matches_df is None or matches_df.empty:
         return pd.DataFrame()
@@ -91,6 +52,114 @@ def build_user_group_standings(matches_df, predictions_df):
         predicted_matches.at[idx, "score2"] = score2
 
     return calculate_group_standings(predicted_matches)
+
+
+def format_standings_table(df):
+    if df is None or df.empty:
+        return pd.DataFrame()
+
+    cols = [
+        "position",
+        "team",
+        "played",
+        "wins",
+        "draws",
+        "losses",
+        "points",
+    ]
+
+    available_cols = [c for c in cols if c in df.columns]
+    table = df[available_cols].copy()
+
+    table = table.rename(
+        columns={
+            "position": "#",
+            "team": "Ploeg",
+            "played": "Wedstr.",
+            "wins": "Gew.",
+            "draws": "Gelijk",
+            "losses": "Verl.",
+            "points": "Punten",
+        }
+    )
+
+    return table
+
+
+def apply_manual_tie_order(group_df, group, prefix):
+    if group_df is None or group_df.empty:
+        return group_df
+
+    required = ["team", "points", "position"]
+    for col in required:
+        if col not in group_df.columns:
+            return group_df
+
+    df = group_df.copy()
+    df["points"] = pd.to_numeric(df["points"], errors="coerce").fillna(0).astype(int)
+
+    tied_points = (
+        df.groupby("points")
+        .size()
+        .reset_index(name="count")
+    )
+
+    tied_points = tied_points[tied_points["count"] > 1]["points"].tolist()
+
+    if not tied_points:
+        df = df.sort_values("position", kind="stable").reset_index(drop=True)
+        df["position"] = range(1, len(df) + 1)
+        return df
+
+    st.caption("Bij gelijke punten kan je hieronder zelf de volgorde bepalen.")
+
+    manual_order = {}
+
+    for points in sorted(tied_points, reverse=True):
+        tied_teams = (
+            df[df["points"] == points]
+            .sort_values("position", kind="stable")["team"]
+            .astype(str)
+            .tolist()
+        )
+
+        st.markdown(f"**Gelijke punten: {points} punten**")
+
+        used = []
+
+        for place_index in range(len(tied_teams)):
+            absolute_position = int(
+                df[df["points"] > points].shape[0] + place_index + 1
+            )
+
+            available = [t for t in tied_teams if t not in used]
+            current_default = tied_teams[place_index]
+
+            if current_default not in available:
+                current_default = available[0]
+
+            choice = st.selectbox(
+                f"Plaats {absolute_position}",
+                available,
+                index=available.index(current_default),
+                key=f"tie_{prefix}_{group}_{points}_{absolute_position}",
+            )
+
+            used.append(choice)
+            manual_order[choice] = absolute_position
+
+    for team, position in manual_order.items():
+        df.loc[df["team"].astype(str) == str(team), "position"] = position
+
+    df = df.sort_values(
+        ["position", "team"],
+        ascending=[True, True],
+        kind="stable",
+    ).reset_index(drop=True)
+
+    df["position"] = range(1, len(df) + 1)
+
+    return df
 
 
 def show_poule_standen(matches_df, official_standings_df, predictions_df):
@@ -151,6 +220,7 @@ def show_poule_standen(matches_df, official_standings_df, predictions_df):
 
             with col_official:
                 st.markdown("#### Officieel")
+
                 official_table = format_standings_table(official_group)
 
                 if official_table.empty:
@@ -160,6 +230,13 @@ def show_poule_standen(matches_df, official_standings_df, predictions_df):
 
             with col_user:
                 st.markdown("#### Mijn voorspelling")
+
+                user_group = apply_manual_tie_order(
+                    user_group,
+                    group=group,
+                    prefix="user",
+                )
+
                 user_table = format_standings_table(user_group)
 
                 if user_table.empty:
