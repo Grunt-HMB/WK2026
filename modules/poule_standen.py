@@ -156,11 +156,7 @@ def show_poule_standen(matches_df, official_standings_df, predictions_df):
                 if official_table.empty:
                     st.caption("Nog geen officiële stand.")
                 else:
-                    st.dataframe(
-                        official_table,
-                        use_container_width=True,
-                        hide_index=True,
-                    )
+                    st.table(official_table)
 
             with col_user:
                 st.markdown("#### Mijn voorspelling")
@@ -169,8 +165,4 @@ def show_poule_standen(matches_df, official_standings_df, predictions_df):
                 if user_table.empty:
                     st.caption("Nog geen voorspelde stand.")
                 else:
-                    st.dataframe(
-                        user_table,
-                        use_container_width=True,
-                        hide_index=True,
-                    )
+                    st.table(user_table)
