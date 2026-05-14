@@ -88,6 +88,8 @@ def ensure_match_columns(matches_df):
         "team2_placeholder",
     ]
 
+    matches_df = matches_df.copy()
+
     for col in required_cols:
         if col not in matches_df.columns:
             matches_df[col] = ""
@@ -181,6 +183,9 @@ def append_row(sheet_name, row):
 
 def get_next_user_id(users_df):
     if users_df.empty:
+        return 1
+
+    if "user_id" not in users_df.columns:
         return 1
 
     ids = []
@@ -344,6 +349,11 @@ def update_or_append_result(match_id, real_team1, real_team2):
 # =========================================================
 # EXTRA WRAPPERS VOOR MOBIELE / SNELLE APP
 # =========================================================
+
+def load_users():
+    data = load_all_data()
+    return data["users"]
+
 
 def load_matches():
     data = load_all_data()
