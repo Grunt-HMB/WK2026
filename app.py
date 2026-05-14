@@ -107,7 +107,7 @@ st.markdown(f"""
 <style>
 .block-container {{
     max-width: 820px;
-    padding-top: 0.35rem !important;
+    padding-top: 0 !important;
     padding-left: 0.45rem !important;
     padding-right: 0.45rem !important;
     padding-bottom: 5rem !important;
@@ -118,18 +118,29 @@ section[data-testid="stSidebar"] {{
 }}
 
 .st-key-top_bar {{
-    position: sticky !important;
+    position: fixed !important;
     top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
     z-index: 999999 !important;
     background: #0e1117 !important;
-    padding: 0.35rem 0.35rem 0.45rem 0.35rem !important;
+    padding: 0.35rem 0.5rem 0.45rem 0.5rem !important;
     border-bottom: 1px solid rgba(255,255,255,0.12);
-    margin-bottom: 0.75rem;
+}}
+
+.st-key-top_bar > div {{
+    max-width: 820px;
+    margin-left: auto;
+    margin-right: auto;
+}}
+
+.top-spacer {{
+    height: 135px;
 }}
 
 .st-key-top_bar button {{
-    min-height: 32px !important;
-    height: 32px !important;
+    min-height: 31px !important;
+    height: 31px !important;
     border-radius: 10px !important;
     font-weight: 900 !important;
     padding: 0 !important;
@@ -138,6 +149,7 @@ section[data-testid="stSidebar"] {{
 .st-key-save_button button {{
     font-size: 0.82rem !important;
     height: 34px !important;
+    margin-top: 0.15rem !important;
 }}
 
 .st-key-nav_matches button,
@@ -257,6 +269,9 @@ with st.container(key="top_bar"):
         st.success(f"Opgeslagen: {saved} wedstrijden")
 
 
+st.markdown('<div class="top-spacer"></div>', unsafe_allow_html=True)
+
+
 if st.session_state.page == "⚽ Wedstrijden":
 
     wedstrijden = matches_df.copy()
@@ -292,6 +307,9 @@ if st.session_state.page == "⚽ Wedstrijden":
 
             pred_key = f"pred_{match_id}"
 
+            if pred_key not in st.session_state:
+                st.session_state[pred_key] = get_prediction(match_id)
+
             with st.container(key=f"match_card_{match_id}"):
 
                 col_info, col_pred = st.columns([1.9, 1], gap="small")
@@ -312,7 +330,6 @@ if st.session_state.page == "⚽ Wedstrijden":
                         "Pronostiek",
                         ["1", "X", "2"],
                         key=pred_key,
-                        default=get_prediction(match_id),
                         label_visibility="collapsed",
                         on_change=prediction_changed,
                         args=(match_id,),
