@@ -1,4 +1,3 @@
-Python
 import streamlit as st
 import pandas as pd
 
@@ -222,7 +221,6 @@ with st.container(key="top_bar"):
 
 
 st.markdown('<div class="top-spacer"></div>', unsafe_allow_html=True)
-st.markdown("<div style='height:14px'></div>", unsafe_allow_html=True)
 
 
 if st.session_state.page == "⚽ Wedstrijden":
