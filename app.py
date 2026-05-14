@@ -17,6 +17,15 @@ st.set_page_config(
 USER_ID = "Tom"
 
 # =========================================================
+# HELPERS
+# =========================================================
+
+def country_flag(code):
+    code = str(code or "").strip().upper()
+    if len(code) != 2: return "⚽"
+    return chr(ord(code[0]) + 127397) + chr(ord(code[1]) + 127397)
+
+# =========================================================
 # CSS - Forceer witte menu-tekst en fix breedte
 # =========================================================
 
@@ -90,9 +99,8 @@ section[data-testid="stSidebar"] { display: none; }
     gap: 12px;
 }
 
-/* Breedte voor datum fixen tegen afkappen */
 .match-date {
-    min-width: 50px; 
+    min-width: 55px; 
     font-size: 0.75rem;
     color: #9ca3af;
     text-align: center;
@@ -110,7 +118,7 @@ footer { visibility: hidden; }
 """, unsafe_allow_html=True)
 
 # =========================================================
-# DATA & SESSION (ongewijzigd)
+# DATA & SESSION
 # =========================================================
 
 if "local_predictions" not in st.session_state:
@@ -146,13 +154,12 @@ def save_all_predictions():
 # =========================================================
 
 with st.container(key="top_bar"):
-    st.info("Kies je uitslagen. Klik dan op OPSLAAN.", icon="⚡")
+    st.info("Kies uitslagen en klik op OPSLAAN.", icon="⚡")
     
     if st.button("💾 NU ALLES OPSLAAN", use_container_width=True, type="primary"):
         num = save_all_predictions()
         st.success(f"Opgeslagen: {num} wedstrijden!")
 
-    # Gebruik kortere teksten zonder icoontjes voor betere menu-rendering
     st.radio(
         "Menu", 
         ["Wedstr.", "Stand", "K.O.", "Mijn"], 
@@ -182,7 +189,6 @@ if st.session_state.menu_keuze == "Wedstr.":
             
             with col_info:
                 datum_raw = str(match.get('datum', ''))
-                # Fix: datum weergave
                 datum = datum_raw[5:].replace('-', '/') if len(datum_raw) > 5 else datum_raw
                 tijd = str(match.get('tijd', ''))[:5]
                 t1 = f"{country_flag(match.get('team1_code'))} {match.get('team1')}"
@@ -207,9 +213,7 @@ elif st.session_state.menu_keuze == "Mijn":
     st.subheader("Overzicht")
     huidige_lijst = [{"Match": k.replace("pred_", ""), "Uitslag": v} 
                      for k, v in st.session_state.items() if k.startswith("pred_")]
-    st.table(pd.DataFrame(huidige_lijst))
-
-def country_flag(code):
-    code = str(code or "").strip().upper()
-    if len(code) != 2: return "⚽"
-    return chr(ord(code[0]) + 127397) + chr(ord(code[1]) + 127397)
+    if huidige_lijst:
+        st.table(pd.DataFrame(huidige_lijst))
+    else:
+        st.write("Nog geen voorspellingen gedaan.")
