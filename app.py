@@ -68,103 +68,8 @@ def save_all_predictions():
     return saved
 
 
-st.markdown("""
-<style>
-.block-container {
-    max-width: 820px;
-    padding-top: 0 !important;
-    padding-left: 0.45rem !important;
-    padding-right: 0.45rem !important;
-    padding-bottom: 5rem !important;
-}
-
-section[data-testid="stSidebar"] {
-    display: none;
-}
-
-.st-key-top_bar {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    z-index: 999999 !important;
-    background: #0e1117 !important;
-    padding: 0.45rem 0.55rem 0.5rem 0.55rem !important;
-    border-bottom: 1px solid rgba(255,255,255,0.12);
-}
-
-.st-key-top_bar > div {
-    max-width: 820px;
-    margin-left: auto;
-    margin-right: auto;
-}
-
-.top-spacer {
-    height: 145px;
-}
-
-.st-key-top_bar div[data-testid="stAlert"] {
-    padding: 0.35rem 0.55rem !important;
-    font-size: 0.74rem !important;
-    margin-bottom: 0.2rem !important;
-    border-radius: 10px !important;
-}
-
-.st-key-top_bar button {
-    min-height: 35px !important;
-    height: 35px !important;
-    border-radius: 10px !important;
-    font-weight: 800 !important;
-}
-
-.st-key-top_bar div[data-baseweb="select"] {
-    font-size: 0.8rem !important;
-}
-
-[class*="st-key-match_card_"] {
-    background: #111827;
-    border: 1px solid rgba(255,255,255,0.13);
-    border-radius: 14px;
-    padding: 0.55rem !important;
-    margin-bottom: 0.5rem;
-}
-
-[class*="st-key-match_card_"] p {
-    margin-bottom: 0 !important;
-    line-height: 1.22 !important;
-}
-
-.match-date-small {
-    font-size: 0.78rem;
-    color: #cbd5e1;
-    line-height: 1.15;
-}
-
-.match-teams-onecell {
-    font-size: 0.92rem;
-    font-weight: 800;
-    line-height: 1.22;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-[class*="st-key-match_card_"] div[data-testid="stSegmentedControl"] {
-    margin-top: 0.35rem !important;
-}
-
-[class*="st-key-match_card_"] div[data-testid="stSegmentedControl"] button {
-    min-width: 46px !important;
-    height: 31px !important;
-    padding: 0 !important;
-    font-weight: 800 !important;
-}
-
-footer {
-    visibility: hidden;
-}
-</style>
-""", unsafe_allow_html=True)
+def set_page(page_name):
+    st.session_state.page = page_name
 
 
 if "page" not in st.session_state:
@@ -175,6 +80,132 @@ if "local_predictions" not in st.session_state:
 
 if "loaded_predictions" not in st.session_state:
     st.session_state.loaded_predictions = False
+
+
+active_css = ""
+
+active_map = {
+    "⚽ Wedstrijden": "nav_matches",
+    "📊 Standen": "nav_standings",
+    "🏆 Knockout": "nav_knockout",
+    "👤 Mijn pronostiek": "nav_profile",
+}
+
+active_key = active_map.get(st.session_state.page, "nav_matches")
+
+active_css = f"""
+.st-key-{active_key} button {{
+    background: #2563eb !important;
+    color: white !important;
+    border: 1px solid rgba(255,255,255,0.45) !important;
+}}
+"""
+
+st.markdown(f"""
+<style>
+.block-container {{
+    max-width: 820px;
+    padding-top: 0 !important;
+    padding-left: 0.45rem !important;
+    padding-right: 0.45rem !important;
+    padding-bottom: 5rem !important;
+}}
+
+section[data-testid="stSidebar"] {{
+    display: none;
+}}
+
+.st-key-top_bar {{
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 999999 !important;
+    background: #0e1117 !important;
+    padding: 0.45rem 0.55rem 0.5rem 0.55rem !important;
+    border-bottom: 1px solid rgba(255,255,255,0.12);
+}}
+
+.st-key-top_bar > div {{
+    max-width: 820px;
+    margin-left: auto;
+    margin-right: auto;
+}}
+
+.top-spacer {{
+    height: 142px;
+}}
+
+.st-key-top_bar div[data-testid="stAlert"] {{
+    padding: 0.35rem 0.55rem !important;
+    font-size: 0.74rem !important;
+    margin-bottom: 0.2rem !important;
+    border-radius: 10px !important;
+}}
+
+.st-key-top_bar button {{
+    min-height: 35px !important;
+    height: 35px !important;
+    border-radius: 10px !important;
+    font-weight: 900 !important;
+    font-size: 1.05rem !important;
+    padding: 0 !important;
+}}
+
+.st-key-nav_matches button,
+.st-key-nav_standings button,
+.st-key-nav_knockout button,
+.st-key-nav_profile button {{
+    background: #1f2937 !important;
+    border: 1px solid rgba(255,255,255,0.18) !important;
+}}
+
+{active_css}
+
+[class*="st-key-match_card_"] {{
+    background: #111827;
+    border: 1px solid rgba(255,255,255,0.13);
+    border-radius: 14px;
+    padding: 0.55rem !important;
+    margin-bottom: 0.5rem;
+}}
+
+[class*="st-key-match_card_"] p {{
+    margin-bottom: 0 !important;
+    line-height: 1.22 !important;
+}}
+
+.match-date-small {{
+    font-size: 0.78rem;
+    color: #cbd5e1;
+    line-height: 1.15;
+}}
+
+.match-teams-onecell {{
+    font-size: 0.92rem;
+    font-weight: 800;
+    line-height: 1.22;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}}
+
+[class*="st-key-match_card_"] div[data-testid="stSegmentedControl"] {{
+    margin-top: 0.35rem !important;
+}}
+
+[class*="st-key-match_card_"] div[data-testid="stSegmentedControl"] button {{
+    min-width: 46px !important;
+    height: 31px !important;
+    padding: 0 !important;
+    font-weight: 800 !important;
+}}
+
+footer {{
+    visibility: hidden;
+}}
+</style>
+""", unsafe_allow_html=True)
 
 
 @st.cache_data(ttl=60)
@@ -212,12 +243,43 @@ with st.container(key="top_bar"):
         saved = save_all_predictions()
         st.success(f"Opgeslagen: {saved} wedstrijden")
 
-    st.selectbox(
-        "Menu",
-        ["⚽ Wedstrijden", "📊 Standen", "🏆 Knockout", "👤 Mijn pronostiek"],
-        key="page",
-        label_visibility="collapsed",
-    )
+    nav1, nav2, nav3, nav4 = st.columns(4, gap="small")
+
+    with nav1:
+        if st.button(
+            "⚽",
+            key="nav_matches",
+            use_container_width=True,
+            help="Wedstrijden: voorspellingen invullen",
+        ):
+            set_page("⚽ Wedstrijden")
+
+    with nav2:
+        if st.button(
+            "📊",
+            key="nav_standings",
+            use_container_width=True,
+            help="Standen: groepsstanden bekijken",
+        ):
+            set_page("📊 Standen")
+
+    with nav3:
+        if st.button(
+            "🏆",
+            key="nav_knockout",
+            use_container_width=True,
+            help="Knockout: knockoutschema bekijken",
+        ):
+            set_page("🏆 Knockout")
+
+    with nav4:
+        if st.button(
+            "👤",
+            key="nav_profile",
+            use_container_width=True,
+            help="Mijn pronostiek: jouw ingevulde voorspellingen",
+        ):
+            set_page("👤 Mijn pronostiek")
 
 
 st.markdown('<div class="top-spacer"></div>', unsafe_allow_html=True)
