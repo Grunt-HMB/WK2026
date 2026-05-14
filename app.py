@@ -16,8 +16,10 @@ st.set_page_config(
 
 USER_ID = "Tom"
 
+
 st.markdown("""
 <style>
+
 .block-container {
     max-width: 720px;
     padding-top: 0 !important;
@@ -30,6 +32,10 @@ section[data-testid="stSidebar"] {
     display: none;
 }
 
+/* =========================================================
+TOPBALK
+========================================================= */
+
 .st-key-top_bar {
     position: fixed !important;
     top: 0 !important;
@@ -37,7 +43,7 @@ section[data-testid="stSidebar"] {
     right: 0 !important;
     z-index: 999999 !important;
     background: #0e1117 !important;
-    padding: 0.3rem 0.5rem 0.4rem 0.5rem !important;
+    padding: 0.3rem 0.55rem 0.45rem 0.55rem !important;
     border-bottom: 1px solid rgba(255,255,255,0.12);
 }
 
@@ -48,13 +54,13 @@ section[data-testid="stSidebar"] {
 }
 
 .top-spacer {
-    height: 145px;
+    height: 172px;
 }
 
 .st-key-top_bar div[data-testid="stAlert"] {
-    padding: 0.32rem 0.5rem !important;
-    font-size: 0.75rem !important;
-    margin-bottom: 0.2rem !important;
+    padding: 0.32rem 0.55rem !important;
+    font-size: 0.74rem !important;
+    margin-bottom: 0.25rem !important;
     border-radius: 10px !important;
 }
 
@@ -64,6 +70,10 @@ section[data-testid="stSidebar"] {
     border-radius: 10px !important;
     font-weight: 800 !important;
 }
+
+/* =========================================================
+MENU
+========================================================= */
 
 .st-key-menu_keuze div[role="radiogroup"] {
     display: flex !important;
@@ -86,42 +96,58 @@ section[data-testid="stSidebar"] {
     font-weight: 800 !important;
 }
 
-.match-card {
+/* =========================================================
+MATCH CARD
+========================================================= */
+
+[class*="st-key-match_card_"] {
     background: #111827;
     border: 1px solid rgba(255,255,255,0.13);
     border-radius: 13px;
-    padding: 0.55rem;
+    padding: 0.55rem 0.65rem 0.6rem 0.65rem;
     margin-bottom: 0.55rem;
 }
 
-.match-meta {
-    color: #cbd5e1;
-    font-size: 0.72rem;
-    margin-bottom: 0.25rem;
+.match-row {
+    display: grid;
+    grid-template-columns: 54px 1fr;
+    gap: 0.5rem;
+    align-items: center;
 }
 
-.match-line {
-    font-size: 0.88rem;
-    line-height: 1.28;
+.match-date {
+    font-size: 0.72rem;
+    color: #cbd5e1;
+    line-height: 1.18;
+}
+
+.match-teams {
+    min-width: 0;
+    font-size: 0.82rem;
     font-weight: 800;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
-.match-vs {
-    font-size: 0.66rem;
-    color: #9ca3af;
-    margin: 0.04rem 0;
+.match-status {
+    color: #22c55e;
+    font-weight: 900;
 }
 
-.match-card div[data-testid="stSegmentedControl"] button {
-    min-width: 42px !important;
-    height: 32px !important;
+/* 1/X/2 op tweede lijn */
+[class*="st-key-match_card_"] div[data-testid="stSegmentedControl"] {
+    margin-top: 0.45rem !important;
+}
+
+[class*="st-key-match_card_"] div[data-testid="stSegmentedControl"] button {
+    min-width: 52px !important;
+    height: 34px !important;
     padding: 0 !important;
     font-weight: 800 !important;
 }
 
+/* algemene ruimte */
 div[data-testid="stVerticalBlock"] {
     gap: 0.35rem !important;
 }
@@ -129,37 +155,86 @@ div[data-testid="stVerticalBlock"] {
 footer {
     visibility: hidden;
 }
+
+@media (max-width: 430px) {
+    .top-spacer {
+        height: 170px;
+    }
+
+    .block-container {
+        padding-left: 0.3rem !important;
+        padding-right: 0.3rem !important;
+    }
+
+    [class*="st-key-match_card_"] {
+        padding: 0.5rem 0.55rem 0.55rem 0.55rem;
+    }
+
+    .match-row {
+        grid-template-columns: 50px 1fr;
+        gap: 0.45rem;
+    }
+
+    .match-date {
+        font-size: 0.68rem;
+    }
+
+    .match-teams {
+        font-size: 0.78rem;
+    }
+
+    [class*="st-key-match_card_"] div[data-testid="stSegmentedControl"] button {
+        min-width: 48px !important;
+        height: 32px !important;
+    }
+}
+
 </style>
 """, unsafe_allow_html=True)
 
 
 def country_flag(code):
     code = str(code or "").strip().upper()
+
     if len(code) != 2:
         return ""
+
     return chr(ord(code[0]) + 127397) + chr(ord(code[1]) + 127397)
 
 
 def normalize_time(value):
     txt = str(value or "").strip()
+
     if txt.endswith(":00") and txt.count(":") == 2:
         txt = txt[: txt.rfind(":")]
+
     return txt
 
 
 def compact_date(value):
     txt = str(value or "").strip()
     parts = txt.split("-")
+
     if len(parts) >= 2:
         return f"{parts[0]}/{parts[1]}"
+
     return txt
 
 
 def get_existing_prediction(match_id):
     data = st.session_state.local_predictions.get(str(match_id), {})
-    value = data.get("prediction", "") if isinstance(data, dict) else data
+
+    if isinstance(data, dict):
+        value = data.get("prediction", "")
+    else:
+        value = data
+
     value = str(value).upper().strip()
-    return value if value in ["1", "X", "2"] else "X"
+
+    if value not in ["1", "X", "2"]:
+        return "X"
+
+    return value
 
 
 def prediction_changed(match_id):
@@ -198,9 +273,13 @@ predictions_df = get_predictions_cached(USER_ID)
 
 
 if not st.session_state.loaded_predictions:
+
     if not predictions_df.empty:
+
         for _, row in predictions_df.iterrows():
+
             match_id = str(row.get("match_id", "")).strip()
+
             if match_id:
                 st.session_state.local_predictions[match_id] = {
                     "prediction": str(row.get("prediction", "")).upper().strip(),
@@ -212,15 +291,19 @@ if not st.session_state.loaded_predictions:
 
 
 with st.container(key="top_bar"):
+
     st.info("Lokaal bewaard. Druk OPSLAAN.", icon="💾")
 
     if st.button("OPSLAAN", use_container_width=True, type="primary"):
+
         saved = batch_save_predictions(
             user_id=USER_ID,
             local_predictions=st.session_state.local_predictions,
             status="concept",
         )
+
         get_predictions_cached.clear()
+
         st.success(f"Opgeslagen: {saved}")
 
     st.radio(
@@ -241,6 +324,7 @@ if st.session_state.menu_keuze == "⚽ Wedstr.":
 
     if wedstrijden.empty:
         st.warning("Geen wedstrijden gevonden.")
+
     else:
         wedstrijden["match_id"] = wedstrijden["match_id"].astype(str).str.strip()
 
@@ -250,11 +334,14 @@ if st.session_state.menu_keuze == "⚽ Wedstr.":
             ].copy()
 
         sort_cols = [c for c in ["datum", "tijd", "match_id"] if c in wedstrijden.columns]
+
         if sort_cols:
             wedstrijden = wedstrijden.sort_values(sort_cols, kind="stable")
 
         for _, match in wedstrijden.iterrows():
+
             match_id = str(match.get("match_id", "")).strip()
+
             if not match_id:
                 continue
 
@@ -263,6 +350,7 @@ if st.session_state.menu_keuze == "⚽ Wedstr.":
 
             team1 = str(match.get("team1", "")).strip()
             team2 = str(match.get("team2", "")).strip()
+
             team1_code = str(match.get("team1_code", "")).strip()
             team2_code = str(match.get("team2_code", "")).strip()
 
@@ -271,55 +359,61 @@ if st.session_state.menu_keuze == "⚽ Wedstr.":
             if key not in st.session_state:
                 st.session_state[key] = get_existing_prediction(match_id)
 
-            st.markdown('<div class="match-card">', unsafe_allow_html=True)
+            with st.container(key=f"match_card_{match_id}"):
 
-            st.markdown(
-                f"""
-                <div class="match-meta">
-                    <b>{datum}</b> &nbsp; {tijd} &nbsp; 🟢
-                </div>
-                <div class="match-line">
-                    {country_flag(team1_code)} {team1}
-                </div>
-                <div class="match-vs">
-                    vs
-                </div>
-                <div class="match-line">
-                    {country_flag(team2_code)} {team2}
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
+                st.markdown(
+                    f"""
+                    <div class="match-row">
+                        <div class="match-date">
+                            <b>{datum}</b><br>
+                            {tijd}<br>
+                            <span class="match-status">●</span>
+                        </div>
 
-            st.segmented_control(
-                "Pronostiek",
-                ["1", "X", "2"],
-                key=key,
-                label_visibility="collapsed",
-                on_change=prediction_changed,
-                args=(match_id,),
-            )
+                        <div class="match-teams">
+                            {country_flag(team1_code)} {team1}
+                            <span style="color:#9ca3af;font-weight:600;">vs</span>
+                            {country_flag(team2_code)} {team2}
+                        </div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
 
-            st.markdown("</div>", unsafe_allow_html=True)
+                st.segmented_control(
+                    "Pronostiek",
+                    ["1", "X", "2"],
+                    key=key,
+                    label_visibility="collapsed",
+                    on_change=prediction_changed,
+                    args=(match_id,),
+                )
 
 
 elif st.session_state.menu_keuze == "📊 Stand":
+
     st.subheader("📊 Standen")
     st.write("Hier komen de groepsstanden.")
 
 
 elif st.session_state.menu_keuze == "🏆 KO":
+
     st.subheader("🏆 Knockout")
     st.write("Hier komt het knockoutschema.")
 
 
 elif st.session_state.menu_keuze == "👤 Mijn":
+
     st.subheader("👤 Mijn pronostiek")
 
     mijn_rows = []
 
     for match_id, data in st.session_state.local_predictions.items():
-        prediction = data.get("prediction", "") if isinstance(data, dict) else data
+
+        if isinstance(data, dict):
+            prediction = data.get("prediction", "")
+        else:
+            prediction = data
 
         mijn_rows.append({
             "match_id": match_id,
