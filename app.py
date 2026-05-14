@@ -17,20 +17,19 @@ st.set_page_config(
 USER_ID = "Tom"
 
 # =========================================================
-# CSS - Landscape optimalisatie & Menu Zichtbaarheid Fix
+# CSS - Forceer witte menu-tekst en fix breedte
 # =========================================================
 
 st.markdown("""
 <style>
-/* Container optimalisatie voor Landscape */
 .block-container {
     max-width: 800px;
-    padding: 0 0.5rem 5rem 0.5rem !important;
+    padding: 0 0.4rem 5rem 0.4rem !important;
 }
 
 section[data-testid="stSidebar"] { display: none; }
 
-/* Top Bar: Fixed bovenin */
+/* Top Bar */
 .st-key-top_bar {
     position: fixed !important;
     top: 0; left: 0; right: 0;
@@ -40,95 +39,70 @@ section[data-testid="stSidebar"] { display: none; }
     border-bottom: 2px solid rgba(255,255,255,0.1);
 }
 
-.top-spacer { height: 180px; }
+.top-spacer { height: 185px; }
 
-/* MENU FIX: Gedwongen zichtbaarheid */
-.st-key-menu_keuze {
-    margin-top: 10px !important;
-}
-
+/* MENU FIX: Forceer witte tekst boven de stippen */
 .st-key-menu_keuze div[role="radiogroup"] {
-    display: flex !important;
-    flex-direction: row !important;
-    justify-content: space-around !important;
     background: #1f2937 !important;
     border-radius: 12px !important;
-    padding: 5px !important;
-    gap: 5px !important;
+    padding: 6px !important;
+    gap: 8px !important;
 }
 
-/* De labels (knoppen) zelf */
 .st-key-menu_keuze label {
     flex: 1 !important;
     background: rgba(255,255,255,0.05) !important;
     border-radius: 8px !important;
     padding: 8px 2px !important;
-    cursor: pointer !important;
 }
 
-/* Verberg de radio-cirkel die Streamlit er soms tussen propt */
-.st-key-menu_keuze label div[data-testid="stMarkdownContainer"] {
-    display: block !important;
-}
-.st-key-menu_keuze label div:first-child { 
-    display: none !important; 
-}
-
-/* Tekst styling in het menu */
-.st-key-menu_keuze label p {
-    color: #ffffff !important;
+/* De 'p' en 'span' binnen de radio buttons MOETEN wit zijn */
+.st-key-menu_keuze label p, 
+.st-key-menu_keuze label span,
+.st-key-menu_keuze [data-testid="stMarkdownContainer"] p {
+    color: white !important;
     font-size: 0.85rem !important;
     font-weight: 700 !important;
-    margin: 0 !important;
-    text-align: center !important;
+    opacity: 1 !important;
+    visibility: visible !important;
 }
 
-/* Actieve tab kleur */
+/* Verberg de radio-cirkels */
+.st-key-menu_keuze label div:first-child { display: none !important; }
+
+/* Actieve tab */
 .st-key-menu_keuze label[data-checked="true"] {
     background: #3b82f6 !important;
 }
 
-/* Match Cards - Landscape vriendelijk */
+/* Match Cards */
 [class*="st-key-match_card_"] {
     background: #111827;
     border: 1px solid rgba(255,255,255,0.1);
     border-radius: 12px;
     padding: 0.6rem !important;
-    margin-bottom: 0.5rem;
-}
-
-.match-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    margin-bottom: 0.4rem;
 }
 
 .match-info {
     display: flex;
     align-items: center;
-    gap: 15px;
-    flex-grow: 1;
+    gap: 12px;
 }
 
+/* Breedte voor datum fixen tegen afkappen */
 .match-date {
-    min-width: 60px;
+    min-width: 50px; 
     font-size: 0.75rem;
     color: #9ca3af;
     text-align: center;
-    border-right: 1px solid rgba(255,255,255,0.1);
-    padding-right: 10px;
+    line-height: 1.2;
 }
 
 .match-teams {
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     font-weight: 600;
-}
-
-/* Knoppen iets groter voor Landscape/Vingers */
-[class*="st-key-match_card_"] div[data-testid="stSegmentedControl"] button {
-    min-width: 45px !important;
-    height: 35px !important;
-    font-size: 0.85rem !important;
+    line-height: 1.4;
 }
 
 footer { visibility: hidden; }
@@ -136,22 +110,17 @@ footer { visibility: hidden; }
 """, unsafe_allow_html=True)
 
 # =========================================================
-# HELPERS & DATA (ongewijzigd maar essentieel)
+# DATA & SESSION (ongewijzigd)
 # =========================================================
 
-def country_flag(code):
-    code = str(code or "").strip().upper()
-    if len(code) != 2: return "⚽"
-    return chr(ord(code[0]) + 127397) + chr(ord(code[1]) + 127397)
+if "local_predictions" not in st.session_state:
+    st.session_state.local_predictions = {}
 
 @st.cache_data(ttl=60)
 def get_data():
     return load_matches(), load_predictions(USER_ID)
 
 matches_df, predictions_df = get_data()
-
-if "local_predictions" not in st.session_state:
-    st.session_state.local_predictions = {}
 
 if "loaded" not in st.session_state:
     for _, row in predictions_df.iterrows():
@@ -183,7 +152,7 @@ with st.container(key="top_bar"):
         num = save_all_predictions()
         st.success(f"Opgeslagen: {num} wedstrijden!")
 
-    # Menu met expliciete labels voor betere rendering
+    # Gebruik kortere teksten zonder icoontjes voor betere menu-rendering
     st.radio(
         "Menu", 
         ["Wedstr.", "Stand", "K.O.", "Mijn"], 
@@ -195,7 +164,7 @@ with st.container(key="top_bar"):
 st.markdown('<div class="top-spacer"></div>', unsafe_allow_html=True)
 
 # =========================================================
-# WEDSTRIJDEN LIJST
+# PAGINA: WEDSTRIJDEN
 # =========================================================
 
 if st.session_state.menu_keuze == "Wedstr.":
@@ -209,11 +178,11 @@ if st.session_state.menu_keuze == "Wedstr.":
         safe_default = db_val if db_val in ["1", "X", "2"] else "X"
 
         with st.container(key=f"match_card_{mid}"):
-            # Info links, Knoppen rechts
-            col_info, col_pred = st.columns([2.5, 1.0], gap="small")
+            col_info, col_pred = st.columns([1.7, 1.0], gap="small")
             
             with col_info:
                 datum_raw = str(match.get('datum', ''))
+                # Fix: datum weergave
                 datum = datum_raw[5:].replace('-', '/') if len(datum_raw) > 5 else datum_raw
                 tijd = str(match.get('tijd', ''))[:5]
                 t1 = f"{country_flag(match.get('team1_code'))} {match.get('team1')}"
@@ -239,3 +208,8 @@ elif st.session_state.menu_keuze == "Mijn":
     huidige_lijst = [{"Match": k.replace("pred_", ""), "Uitslag": v} 
                      for k, v in st.session_state.items() if k.startswith("pred_")]
     st.table(pd.DataFrame(huidige_lijst))
+
+def country_flag(code):
+    code = str(code or "").strip().upper()
+    if len(code) != 2: return "⚽"
+    return chr(ord(code[0]) + 127397) + chr(ord(code[1]) + 127397)
