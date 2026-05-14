@@ -36,26 +36,29 @@ def format_time(value):
 
 
 def get_prediction(match_id):
-    data = st.session_state.local_predictions.get(str(match_id), "X")
+    data = st.session_state.local_predictions.get(str(match_id), "")
 
     if isinstance(data, dict):
-        value = data.get("prediction", "X")
+        value = data.get("prediction", "")
     else:
         value = data
 
     value = str(value).upper().strip()
-    return value if value in ["1", "X", "2"] else "X"
+    return value if value in ["1", "X", "2"] else None
 
 
 def prediction_changed(match_id):
     key = f"pred_{match_id}"
-    value = st.session_state.get(key, "X")
+    value = st.session_state.get(key, None)
 
-    st.session_state.local_predictions[str(match_id)] = {
-        "prediction": value,
-        "score1": "",
-        "score2": "",
-    }
+    if value in ["1", "X", "2"]:
+        st.session_state.local_predictions[str(match_id)] = {
+            "prediction": value,
+            "score1": "",
+            "score2": "",
+        }
+    else:
+        st.session_state.local_predictions.pop(str(match_id), None)
 
 
 def save_all_predictions():
@@ -104,7 +107,7 @@ st.markdown(f"""
 <style>
 .block-container {{
     max-width: 820px;
-    padding-top: 0 !important;
+    padding-top: 0.45rem !important;
     padding-left: 0.45rem !important;
     padding-right: 0.45rem !important;
     padding-bottom: 5rem !important;
@@ -115,31 +118,10 @@ section[data-testid="stSidebar"] {{
 }}
 
 .st-key-top_bar {{
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    z-index: 999999 !important;
     background: #0e1117 !important;
-    padding: 0.4rem 0.5rem 0.45rem 0.5rem !important;
+    padding: 0.35rem 0.35rem 0.5rem 0.35rem !important;
     border-bottom: 1px solid rgba(255,255,255,0.12);
-}}
-
-.st-key-top_bar > div {{
-    max-width: 820px;
-    margin-left: auto;
-    margin-right: auto;
-}}
-
-.top-spacer {{
-    height: 170px;
-}}
-
-.st-key-top_bar div[data-testid="stAlert"] {{
-    padding: 0.28rem 0.5rem !important;
-    font-size: 0.72rem !important;
-    margin-bottom: 0.25rem !important;
-    border-radius: 10px !important;
+    margin-bottom: 1rem;
 }}
 
 .st-key-top_bar button {{
@@ -231,15 +213,14 @@ if not st.session_state.loaded_predictions:
             if not match_id:
                 continue
 
-            prediction = str(row.get("prediction", "X")).upper().strip()
-            if prediction not in ["1", "X", "2"]:
-                prediction = "X"
+            prediction = str(row.get("prediction", "")).upper().strip()
 
-            st.session_state.local_predictions[match_id] = {
-                "prediction": prediction,
-                "score1": row.get("score1", ""),
-                "score2": row.get("score2", ""),
-            }
+            if prediction in ["1", "X", "2"]:
+                st.session_state.local_predictions[match_id] = {
+                    "prediction": prediction,
+                    "score1": row.get("score1", ""),
+                    "score2": row.get("score2", ""),
+                }
 
     st.session_state.loaded_predictions = True
 
@@ -263,8 +244,6 @@ with st.container(key="top_bar"):
         if st.button("👤", key="nav_profile", help="Mijn pronostiek"):
             set_page("👤 Mijn pronostiek")
 
-    st.info("Kies uitslagen en druk OPSLAAN.", icon="⚡")
-
     if st.button(
         "💾 NU ALLES OPSLAAN",
         key="save_button",
@@ -273,10 +252,6 @@ with st.container(key="top_bar"):
     ):
         saved = save_all_predictions()
         st.success(f"Opgeslagen: {saved} wedstrijden")
-
-
-st.markdown('<div class="top-spacer"></div>', unsafe_allow_html=True)
-st.write("")
 
 
 if st.session_state.page == "⚽ Wedstrijden":
@@ -297,6 +272,8 @@ if st.session_state.page == "⚽ Wedstrijden":
         if sort_cols:
             wedstrijden = wedstrijden.sort_values(sort_cols, kind="stable")
 
+        st.write("")
+
         for _, match in wedstrijden.iterrows():
             match_id = str(match.get("match_id", "")).strip()
             if not match_id:
@@ -313,7 +290,9 @@ if st.session_state.page == "⚽ Wedstrijden":
             pred_key = f"pred_{match_id}"
 
             if pred_key not in st.session_state:
-                st.session_state[pred_key] = get_prediction(match_id)
+                existing_prediction = get_prediction(match_id)
+                if existing_prediction in ["1", "X", "2"]:
+                    st.session_state[pred_key] = existing_prediction
 
             with st.container(key=f"match_card_{match_id}"):
 
@@ -362,10 +341,11 @@ elif st.session_state.page == "👤 Mijn pronostiek":
         else:
             prediction = data
 
-        rows.append({
-            "match_id": match_id,
-            "pronostiek": prediction,
-        })
+        if prediction in ["1", "X", "2"]:
+            rows.append({
+                "match_id": match_id,
+                "pronostiek": prediction,
+            })
 
     if rows:
         st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
