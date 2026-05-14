@@ -91,12 +91,16 @@ def apply_manual_tie_order(group_df, group, prefix):
         return group_df
 
     required = ["team", "points", "position"]
+
     for col in required:
         if col not in group_df.columns:
             return group_df
 
     df = group_df.copy()
+
+    df["team"] = df["team"].astype(str).str.strip()
     df["points"] = pd.to_numeric(df["points"], errors="coerce").fillna(0).astype(int)
+    df["position"] = pd.to_numeric(df["position"], errors="coerce").fillna(999).astype(int)
 
     tied_points = (
         df.groupby("points")
@@ -111,45 +115,49 @@ def apply_manual_tie_order(group_df, group, prefix):
         df["position"] = range(1, len(df) + 1)
         return df
 
-    st.caption("Bij gelijke punten kan je hieronder zelf de volgorde bepalen.")
+    st.markdown("##### Volgorde bij gelijke punten")
 
-    manual_order = {}
+    manual_positions = {}
 
     for points in sorted(tied_points, reverse=True):
-        tied_teams = (
+        tied_rows = (
             df[df["points"] == points]
-            .sort_values("position", kind="stable")["team"]
-            .astype(str)
-            .tolist()
+            .sort_values("position", kind="stable")
+            .copy()
         )
 
-        st.markdown(f"**Gelijke punten: {points} punten**")
+        tied_teams = tied_rows["team"].tolist()
 
-        used = []
+        teams_above = df[df["points"] > points].shape[0]
+        start_position = teams_above + 1
 
-        for place_index in range(len(tied_teams)):
-            absolute_position = int(
-                df[df["points"] > points].shape[0] + place_index + 1
-            )
+        point_label = "punt" if points == 1 else "punten"
+        st.caption(f"Gelijke stand: {points} {point_label}")
 
-            available = [t for t in tied_teams if t not in used]
-            current_default = tied_teams[place_index]
+        chosen = []
 
-            if current_default not in available:
-                current_default = available[0]
+        for offset, original_team in enumerate(tied_teams):
+            position = start_position + offset
 
-            choice = st.selectbox(
-                f"Plaats {absolute_position}",
+            available = [team for team in tied_teams if team not in chosen]
+
+            if original_team in available:
+                default_index = available.index(original_team)
+            else:
+                default_index = 0
+
+            selected_team = st.selectbox(
+                f"Plaats {position}",
                 available,
-                index=available.index(current_default),
-                key=f"tie_{prefix}_{group}_{points}_{absolute_position}",
+                index=default_index,
+                key=f"tie_{prefix}_{group}_{points}_{position}",
             )
 
-            used.append(choice)
-            manual_order[choice] = absolute_position
+            chosen.append(selected_team)
+            manual_positions[selected_team] = position
 
-    for team, position in manual_order.items():
-        df.loc[df["team"].astype(str) == str(team), "position"] = position
+    for team, position in manual_positions.items():
+        df.loc[df["team"] == team, "position"] = position
 
     df = df.sort_values(
         ["position", "team"],
