@@ -1,5 +1,7 @@
 import streamlit as st
 import pandas as pd
+import textwrap
+import html
 
 from modules.database import (
     load_matches,
@@ -17,10 +19,6 @@ st.set_page_config(
 USER_ID = "Tom"
 
 
-# =========================================================
-# CSS
-# =========================================================
-
 st.markdown("""
 <style>
 
@@ -36,21 +34,14 @@ section[data-testid="stSidebar"] {
     display: none;
 }
 
-/* =========================================================
-TOP BAR
-========================================================= */
-
 .st-key-top_bar {
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
     right: 0 !important;
     z-index: 999999 !important;
-
     background: #0e1117 !important;
-
     padding: 0.3rem 0.55rem 0.45rem 0.55rem !important;
-
     border-bottom: 1px solid rgba(255,255,255,0.12);
 }
 
@@ -61,7 +52,7 @@ TOP BAR
 }
 
 .top-spacer {
-    height: 175px;
+    height: 172px;
 }
 
 .st-key-top_bar div[data-testid="stAlert"] {
@@ -72,26 +63,22 @@ TOP BAR
 }
 
 .st-key-top_bar button {
-    height: 38px !important;
-    min-height: 38px !important;
+    height: 36px !important;
+    min-height: 36px !important;
     border-radius: 10px !important;
     font-weight: 800 !important;
 }
 
-/* =========================================================
-MENU
-========================================================= */
-
 .st-key-menu_keuze div[role="radiogroup"] {
     display: flex !important;
+    flex-direction: row !important;
     justify-content: space-between !important;
-    gap: 0.3rem !important;
 }
 
 .st-key-menu_keuze label[data-baseweb="radio"] {
     background: transparent !important;
     border: none !important;
-    padding: 0 !important;
+    padding: 0.05rem !important;
 }
 
 .st-key-menu_keuze label[data-baseweb="radio"] > div:first-child {
@@ -99,79 +86,67 @@ MENU
 }
 
 .st-key-menu_keuze label[data-baseweb="radio"] span {
-    font-size: 0.78rem !important;
+    font-size: 0.76rem !important;
     font-weight: 800 !important;
 }
-
-/* =========================================================
-MATCH CARD
-========================================================= */
 
 [class*="st-key-match_card_"] {
     background: #111827;
     border: 1px solid rgba(255,255,255,0.13);
-    border-radius: 14px;
-    padding: 0.6rem 0.65rem 0.7rem 0.65rem;
-    margin-bottom: 0.6rem;
+    border-radius: 13px;
+    padding: 0.55rem 0.65rem 0.6rem 0.65rem;
+    margin-bottom: 0.55rem;
 }
 
 .match-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: 54px 1fr;
+    gap: 0.5rem;
     align-items: center;
-    gap: 0.7rem;
 }
 
 .match-date {
-    width: 58px;
-    min-width: 58px;
-
     font-size: 0.72rem;
-    line-height: 1.15;
-
-    color: #d1d5db;
-}
-
-.match-status {
-    color: #22c55e;
-    font-size: 0.9rem;
-    font-weight: 900;
+    color: #cbd5e1;
+    line-height: 1.18;
 }
 
 .match-teams {
-    flex: 1;
     min-width: 0;
-
-    font-size: 0.84rem;
+    font-size: 0.82rem;
     font-weight: 800;
-
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
-/* =========================================================
-1/X/2
-========================================================= */
+.match-status {
+    color: #22c55e;
+    font-weight: 900;
+}
 
 [class*="st-key-match_card_"] div[data-testid="stSegmentedControl"] {
-    margin-top: 0.55rem !important;
+    margin-top: 0.45rem !important;
 }
 
 [class*="st-key-match_card_"] div[data-testid="stSegmentedControl"] button {
-    min-width: 56px !important;
+    min-width: 52px !important;
     height: 34px !important;
-
+    padding: 0 !important;
     font-weight: 800 !important;
 }
 
-/* =========================================================
-MOBILE
-========================================================= */
+div[data-testid="stVerticalBlock"] {
+    gap: 0.35rem !important;
+}
+
+footer {
+    visibility: hidden;
+}
 
 @media (max-width: 430px) {
-
     .top-spacer {
-        height: 172px;
+        height: 170px;
     }
 
     .block-container {
@@ -180,16 +155,15 @@ MOBILE
     }
 
     [class*="st-key-match_card_"] {
-        padding: 0.55rem;
+        padding: 0.5rem 0.55rem 0.55rem 0.55rem;
     }
 
     .match-row {
-        gap: 0.55rem;
+        grid-template-columns: 50px 1fr;
+        gap: 0.45rem;
     }
 
     .match-date {
-        width: 52px;
-        min-width: 52px;
         font-size: 0.68rem;
     }
 
@@ -198,22 +172,14 @@ MOBILE
     }
 
     [class*="st-key-match_card_"] div[data-testid="stSegmentedControl"] button {
-        min-width: 52px !important;
+        min-width: 48px !important;
         height: 32px !important;
     }
-}
-
-footer {
-    visibility: hidden;
 }
 
 </style>
 """, unsafe_allow_html=True)
 
-
-# =========================================================
-# HELPERS
-# =========================================================
 
 def country_flag(code):
     code = str(code or "").strip().upper()
@@ -235,7 +201,6 @@ def normalize_time(value):
 
 def compact_date(value):
     txt = str(value or "").strip()
-
     parts = txt.split("-")
 
     if len(parts) >= 2:
@@ -245,7 +210,6 @@ def compact_date(value):
 
 
 def get_existing_prediction(match_id):
-
     data = st.session_state.local_predictions.get(str(match_id), {})
 
     if isinstance(data, dict):
@@ -262,9 +226,7 @@ def get_existing_prediction(match_id):
 
 
 def prediction_changed(match_id):
-
     key = f"pred_{match_id}"
-
     prediction = st.session_state.get(key, "X")
 
     st.session_state.local_predictions[str(match_id)] = {
@@ -274,9 +236,31 @@ def prediction_changed(match_id):
     }
 
 
-# =========================================================
-# SESSION STATE
-# =========================================================
+def render_match_info(datum, tijd, team1, team2, team1_code, team2_code):
+    team1_safe = html.escape(str(team1))
+    team2_safe = html.escape(str(team2))
+
+    html_block = f"""
+<div class="match-row">
+    <div class="match-date">
+        <b>{datum}</b><br>
+        {tijd}<br>
+        <span class="match-status">●</span>
+    </div>
+
+    <div class="match-teams">
+        {country_flag(team1_code)} {team1_safe}
+        <span style="color:#9ca3af;font-weight:600;">vs</span>
+        {country_flag(team2_code)} {team2_safe}
+    </div>
+</div>
+"""
+
+    st.markdown(
+        textwrap.dedent(html_block).strip(),
+        unsafe_allow_html=True,
+    )
+
 
 if "menu_keuze" not in st.session_state:
     st.session_state.menu_keuze = "⚽ Wedstr."
@@ -287,10 +271,6 @@ if "local_predictions" not in st.session_state:
 if "loaded_predictions" not in st.session_state:
     st.session_state.loaded_predictions = False
 
-
-# =========================================================
-# DATA
-# =========================================================
 
 @st.cache_data(ttl=60)
 def get_matches_cached():
@@ -306,10 +286,6 @@ matches_df = get_matches_cached()
 predictions_df = get_predictions_cached(USER_ID)
 
 
-# =========================================================
-# LOAD BESTAANDE VOORSPELLINGEN
-# =========================================================
-
 if not st.session_state.loaded_predictions:
 
     if not predictions_df.empty:
@@ -319,7 +295,6 @@ if not st.session_state.loaded_predictions:
             match_id = str(row.get("match_id", "")).strip()
 
             if match_id:
-
                 st.session_state.local_predictions[match_id] = {
                     "prediction": str(row.get("prediction", "")).upper().strip(),
                     "score1": row.get("score1", ""),
@@ -329,22 +304,11 @@ if not st.session_state.loaded_predictions:
     st.session_state.loaded_predictions = True
 
 
-# =========================================================
-# TOP BAR
-# =========================================================
-
 with st.container(key="top_bar"):
 
-    st.info(
-        "Lokaal bewaard. Druk OPSLAAN.",
-        icon="💾",
-    )
+    st.info("Lokaal bewaard. Druk OPSLAAN.", icon="💾")
 
-    if st.button(
-        "OPSLAAN",
-        use_container_width=True,
-        type="primary",
-    ):
+    if st.button("OPSLAAN", use_container_width=True, type="primary"):
 
         saved = batch_save_predictions(
             user_id=USER_ID,
@@ -365,117 +329,59 @@ with st.container(key="top_bar"):
     )
 
 
-st.markdown(
-    '<div class="top-spacer"></div>',
-    unsafe_allow_html=True,
-)
+st.markdown('<div class="top-spacer"></div>', unsafe_allow_html=True)
 
-
-# =========================================================
-# WEDSTRIJDEN
-# =========================================================
 
 if st.session_state.menu_keuze == "⚽ Wedstr.":
 
     wedstrijden = matches_df.copy()
 
     if wedstrijden.empty:
-
         st.warning("Geen wedstrijden gevonden.")
 
     else:
-
-        wedstrijden["match_id"] = (
-            wedstrijden["match_id"]
-            .astype(str)
-            .str.strip()
-        )
+        wedstrijden["match_id"] = wedstrijden["match_id"].astype(str).str.strip()
 
         if "ronde" in wedstrijden.columns:
-
             wedstrijden = wedstrijden[
-                wedstrijden["ronde"]
-                .astype(str)
-                .str.lower()
-                .str.contains("groep", na=False)
+                wedstrijden["ronde"].astype(str).str.lower().str.contains("groep", na=False)
             ].copy()
 
-        sort_cols = [
-            c for c in ["datum", "tijd", "match_id"]
-            if c in wedstrijden.columns
-        ]
+        sort_cols = [c for c in ["datum", "tijd", "match_id"] if c in wedstrijden.columns]
 
         if sort_cols:
-            wedstrijden = wedstrijden.sort_values(
-                sort_cols,
-                kind="stable",
-            )
+            wedstrijden = wedstrijden.sort_values(sort_cols, kind="stable")
 
         for _, match in wedstrijden.iterrows():
 
-            match_id = str(
-                match.get("match_id", "")
-            ).strip()
+            match_id = str(match.get("match_id", "")).strip()
 
             if not match_id:
                 continue
 
-            datum = compact_date(
-                match.get("datum", "")
-            )
+            datum = compact_date(match.get("datum", ""))
+            tijd = normalize_time(match.get("tijd", ""))
 
-            tijd = normalize_time(
-                match.get("tijd", "")
-            )
+            team1 = str(match.get("team1", "")).strip()
+            team2 = str(match.get("team2", "")).strip()
 
-            team1 = str(
-                match.get("team1", "")
-            ).strip()
-
-            team2 = str(
-                match.get("team2", "")
-            ).strip()
-
-            team1_code = str(
-                match.get("team1_code", "")
-            ).strip()
-
-            team2_code = str(
-                match.get("team2_code", "")
-            ).strip()
+            team1_code = str(match.get("team1_code", "")).strip()
+            team2_code = str(match.get("team2_code", "")).strip()
 
             key = f"pred_{match_id}"
 
             if key not in st.session_state:
-                st.session_state[key] = (
-                    get_existing_prediction(match_id)
-                )
+                st.session_state[key] = get_existing_prediction(match_id)
 
-            with st.container(
-                key=f"match_card_{match_id}"
-            ):
+            with st.container(key=f"match_card_{match_id}"):
 
-                st.markdown(
-                    f"""
-                    <div class="match-row">
-
-                        <div class="match-date">
-                            <b>{datum}</b><br>
-                            {tijd}<br>
-                            <span class="match-status">●</span>
-                        </div>
-
-                        <div class="match-teams">
-                            {country_flag(team1_code)} {team1}
-                            <span style="color:#9ca3af;font-weight:600;">
-                                vs
-                            </span>
-                            {country_flag(team2_code)} {team2}
-                        </div>
-
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
+                render_match_info(
+                    datum,
+                    tijd,
+                    team1,
+                    team2,
+                    team1_code,
+                    team2_code,
                 )
 
                 st.segmented_control(
@@ -488,19 +394,11 @@ if st.session_state.menu_keuze == "⚽ Wedstr.":
                 )
 
 
-# =========================================================
-# STANDEN
-# =========================================================
-
 elif st.session_state.menu_keuze == "📊 Stand":
 
     st.subheader("📊 Standen")
     st.write("Hier komen de groepsstanden.")
 
-
-# =========================================================
-# KO
-# =========================================================
 
 elif st.session_state.menu_keuze == "🏆 KO":
 
@@ -508,19 +406,13 @@ elif st.session_state.menu_keuze == "🏆 KO":
     st.write("Hier komt het knockoutschema.")
 
 
-# =========================================================
-# MIJN
-# =========================================================
-
 elif st.session_state.menu_keuze == "👤 Mijn":
 
     st.subheader("👤 Mijn pronostiek")
 
     mijn_rows = []
 
-    for match_id, data in (
-        st.session_state.local_predictions.items()
-    ):
+    for match_id, data in st.session_state.local_predictions.items():
 
         if isinstance(data, dict):
             prediction = data.get("prediction", "")
@@ -533,11 +425,8 @@ elif st.session_state.menu_keuze == "👤 Mijn":
         })
 
     if not mijn_rows:
-
         st.info("Nog geen pronostieken gekozen.")
-
     else:
-
         st.dataframe(
             pd.DataFrame(mijn_rows),
             use_container_width=True,
