@@ -17,7 +17,7 @@ st.set_page_config(
 USER_ID = "Tom"
 
 # =========================================================
-# CSS - De definitieve "One-Row" Fix
+# CSS - Fix voor Menu Zichtbaarheid & Snelheid
 # =========================================================
 
 st.markdown("""
@@ -29,33 +29,44 @@ st.markdown("""
 
 section[data-testid="stSidebar"] { display: none; }
 
-/* Top Bar */
+/* FIX: Menu & Top Bar zichtbaarheid */
 .st-key-top_bar {
     position: fixed !important;
     top: 0; left: 0; right: 0;
     z-index: 999999;
-    background: #0e1117;
-    padding: 0.3rem 0.5rem;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
+    background: #0e1117 !important; /* Forceer donkere achtergrond */
+    padding: 0.5rem 0.5rem 0.8rem 0.5rem !important;
+    border-bottom: 2px solid rgba(255,255,255,0.1);
 }
 
-.top-spacer { height: 175px; }
+.top-spacer { height: 190px; }
 
-/* Menu Styling */
+/* Menu Knoppen Styling */
 .st-key-menu_keuze div[role="radiogroup"] {
     display: flex !important;
     justify-content: space-between !important;
+    background: #1f2937;
+    border-radius: 12px;
+    padding: 4px;
 }
 
 .st-key-menu_keuze label {
-    background: rgba(255,255,255,0.05) !important;
-    border-radius: 8px !important;
-    padding: 5px 10px !important;
+    flex: 1;
+    text-align: center;
+    background: transparent !important;
+    border: none !important;
+    padding: 6px 2px !important;
+    margin: 0 !important;
 }
 
+/* Verberg cirkels en selectie-indicator */
 .st-key-menu_keuze label div:first-child { display: none !important; }
+.st-key-menu_keuze label[data-checked="true"] {
+    background: #3b82f6 !important; /* Blauwe kleur voor actieve tab */
+    border-radius: 8px !important;
+}
 
-/* Match Card Container */
+/* Match Card */
 [class*="st-key-match_card_"] {
     background: #111827;
     border: 1px solid rgba(255,255,255,0.1);
@@ -64,50 +75,31 @@ section[data-testid="stSidebar"] { display: none; }
     margin-bottom: 0.3rem;
 }
 
-/* Flexbox Row voor de wedstrijd */
-.match-row {
+.match-info-container {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    width: 100%;
-    gap: 5px;
+    gap: 8px;
 }
 
 .match-date {
-    min-width: 45px;
+    min-width: 42px;
     font-size: 0.7rem;
     color: #9ca3af;
-    line-height: 1.2;
+    line-height: 1.1;
 }
 
 .match-teams {
     flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-}
-
-.team-line {
-    font-size: 0.8rem;
+    font-size: 0.82rem;
     font-weight: 600;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    display: flex;
-    align-items: center;
-    gap: 4px;
+    line-height: 1.3;
 }
 
-/* Segmented control klein houden */
-[class*="st-key-match_card_"] div[data-testid="stSegmentedControl"] {
-    min-width: 100px;
-}
-
+/* Knoppen compacter */
 [class*="st-key-match_card_"] div[data-testid="stSegmentedControl"] button {
-    min-width: 32px !important;
-    height: 28px !important;
-    font-size: 0.7rem !important;
-    padding: 0 !important;
+    min-width: 34px !important;
+    height: 30px !important;
+    font-size: 0.75rem !important;
 }
 
 footer { visibility: hidden; }
@@ -115,36 +107,7 @@ footer { visibility: hidden; }
 """, unsafe_allow_html=True)
 
 # =========================================================
-# HELPERS
-# =========================================================
-
-def country_flag(code):
-    code = str(code or "").strip().upper()
-    if len(code) != 2: return "⚽"
-    return chr(ord(code[0]) + 127397) + chr(ord(code[1]) + 127397)
-
-def normalize_time(value):
-    txt = str(value or "").strip()
-    return txt[:5] if ":" in txt else txt
-
-def compact_date(value):
-    txt = str(value or "").strip()
-    parts = txt.split("-")
-    return f"{parts[0]}/{parts[1]}" if len(parts) >= 2 else txt
-
-def get_existing_prediction(match_id):
-    data = st.session_state.local_predictions.get(str(match_id), "X")
-    return data.get("prediction", "X") if isinstance(data, dict) else str(data).upper()
-
-def prediction_changed(match_id):
-    key = f"pred_{match_id}"
-    st.session_state.local_predictions[str(match_id)] = {
-        "prediction": st.session_state.get(key, "X"),
-        "score1": "", "score2": "",
-    }
-
-# =========================================================
-# DATA
+# DATA & SESSION
 # =========================================================
 
 if "local_predictions" not in st.session_state:
@@ -156,71 +119,95 @@ def get_data():
 
 matches_df, predictions_df = get_data()
 
+# Eenmalig laden van database naar session state
 if "loaded" not in st.session_state:
     for _, row in predictions_df.iterrows():
         mid = str(row.get("match_id", ""))
         if mid:
-            st.session_state.local_predictions[mid] = {
-                "prediction": str(row.get("prediction", "X")).upper(),
-                "score1": row.get("score1", ""), "score2": row.get("score2", ""),
-            }
+            st.session_state.local_predictions[mid] = str(row.get("prediction", "X")).upper()
     st.session_state.loaded = True
 
 # =========================================================
-# UI
+# HELPERS
+# =========================================================
+
+def country_flag(code):
+    code = str(code or "").strip().upper()
+    if len(code) != 2: return "⚽"
+    return chr(ord(code[0]) + 127397) + chr(ord(code[1]) + 127397)
+
+def save_all():
+    """Batch save functie die alles in één keer wegschrijft"""
+    # Verzamel alle huidige session_state keuzes
+    to_save = {}
+    for key, val in st.session_state.items():
+        if key.startswith("pred_") and val:
+            mid = key.replace("pred_", "")
+            to_save[mid] = {"prediction": val, "score1": "", "score2": ""}
+    
+    if to_save:
+        saved_count = batch_save_predictions(USER_ID, to_save, "concept")
+        st.cache_data.clear()
+        return saved_count
+    return 0
+
+# =========================================================
+# UI - TOP BAR
 # =========================================================
 
 with st.container(key="top_bar"):
-    st.info("Lokaal bewaard. Klik op OPSLAAN.", icon="💾")
-    if st.button("OPSLAAN", use_container_width=True, type="primary"):
-        saved = batch_save_predictions(USER_ID, st.session_state.local_predictions, "concept")
-        st.cache_data.clear()
-        st.success("Opgeslagen!")
+    st.info("Kies je uitslagen en klik op OPSLAAN.", icon="⚡")
+    
+    if st.button("💾 NU ALLES OPSLAAN", use_container_width=True, type="primary"):
+        count = save_all()
+        st.success(f"Gelukt! {count} wedstrijden opgeslagen.")
 
     st.radio("Menu", ["⚽ Wedstr.", "📊 Stand", "🏆 KO", "👤 Mijn"], 
              key="menu_keuze", horizontal=True, label_visibility="collapsed")
 
 st.markdown('<div class="top-spacer"></div>', unsafe_allow_html=True)
 
+# =========================================================
+# WEDSTRIJDEN LIJST
+# =========================================================
+
 if st.session_state.menu_keuze == "⚽ Wedstr.":
     df = matches_df.copy()
-    if "ronde" in df.columns:
-        df = df[df["ronde"].astype(str).str.lower().str.contains("groep", na=False)]
     
     for _, match in df.iterrows():
         mid = str(match.get("match_id", ""))
         key = f"pred_{mid}"
-        if key not in st.session_state:
-            st.session_state[key] = get_existing_prediction(mid)
-
-        # We gebruiken een combinatie van HTML (voor de rij-flow) en Streamlit (voor de knoppen)
+        
+        # Snelheidstip: Gebruik 'value' zonder 'on_change' voor directe respons
+        default_val = st.session_state.local_predictions.get(mid, "X")
+        
         with st.container(key=f"match_card_{mid}"):
-            # We maken 2 kolommen: Links de info (HTML), Rechts de knoppen (Streamlit)
-            # Dit is de enige manier om overlap te voorkomen op mobiel
-            col_info, col_pred = st.columns([2.2, 1.0], gap="small")
+            col_info, col_pred = st.columns([1.8, 1.0], gap="small")
             
             with col_info:
+                datum = str(match.get('datum', ''))[5:] if match.get('datum') else ""
+                tijd = str(match.get('tijd', ''))[:5]
+                t1 = f"{country_flag(match.get('team1_code'))} {match.get('team1')}"
+                t2 = f"{country_flag(match.get('team2_code'))} {match.get('team2')}"
+                
                 st.markdown(f"""
-                <div class="match-row">
-                    <div class="match-date">
-                        <b>{compact_date(match.get('datum'))}</b><br>{normalize_time(match.get('tijd'))}
-                    </div>
-                    <div class="match-teams">
-                        <div class="team-line">{country_flag(match.get('team1_code'))} {match.get('team1')}</div>
-                        <div class="team-line">{country_flag(match.get('team2_code'))} {match.get('team2')}</div>
-                    </div>
+                <div class="match-info-container">
+                    <div class="match-date"><b>{datum}</b><br>{tijd}</div>
+                    <div class="match-teams">{t1}<br>{t2}</div>
                 </div>
                 """, unsafe_allow_html=True)
             
             with col_pred:
+                # Door on_change weg te laten is de UI veel vlotter
                 st.segmented_control(
                     "P", ["1", "X", "2"],
                     key=key,
-                    label_visibility="collapsed",
-                    on_change=prediction_changed,
-                    args=(mid,)
+                    default=default_val,
+                    label_visibility="collapsed"
                 )
 
 elif st.session_state.menu_keuze == "👤 Mijn":
-    st.subheader("Mijn Keuzes")
-    st.write(st.session_state.local_predictions)
+    st.subheader("Mijn Voorlopige Keuzes")
+    # Toon wat er momenteel in de widgets staat
+    huidige_keuzes = {k.replace("pred_", ""): v for k, v in st.session_state.items() if k.startswith("pred_")}
+    st.write(huidige_keuzes)
