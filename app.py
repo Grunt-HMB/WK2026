@@ -82,8 +82,6 @@ if "loaded_predictions" not in st.session_state:
     st.session_state.loaded_predictions = False
 
 
-active_css = ""
-
 active_map = {
     "⚽ Wedstrijden": "nav_matches",
     "📊 Standen": "nav_standings",
@@ -100,6 +98,7 @@ active_css = f"""
     border: 1px solid rgba(255,255,255,0.45) !important;
 }}
 """
+
 
 st.markdown(f"""
 <style>
@@ -122,7 +121,7 @@ section[data-testid="stSidebar"] {{
     right: 0 !important;
     z-index: 999999 !important;
     background: #0e1117 !important;
-    padding: 0.45rem 0.55rem 0.5rem 0.55rem !important;
+    padding: 0.4rem 0.5rem 0.45rem 0.5rem !important;
     border-bottom: 1px solid rgba(255,255,255,0.12);
 }}
 
@@ -133,29 +132,38 @@ section[data-testid="stSidebar"] {{
 }}
 
 .top-spacer {{
-    height: 142px;
+    height: 170px;
 }}
 
 .st-key-top_bar div[data-testid="stAlert"] {{
-    padding: 0.35rem 0.55rem !important;
-    font-size: 0.74rem !important;
-    margin-bottom: 0.2rem !important;
+    padding: 0.28rem 0.5rem !important;
+    font-size: 0.72rem !important;
+    margin-bottom: 0.25rem !important;
     border-radius: 10px !important;
 }}
 
 .st-key-top_bar button {{
-    min-height: 35px !important;
-    height: 35px !important;
+    min-height: 32px !important;
+    height: 32px !important;
     border-radius: 10px !important;
     font-weight: 900 !important;
-    font-size: 1.05rem !important;
     padding: 0 !important;
+}}
+
+.st-key-save_button button {{
+    font-size: 0.82rem !important;
+    height: 34px !important;
 }}
 
 .st-key-nav_matches button,
 .st-key-nav_standings button,
 .st-key-nav_knockout button,
 .st-key-nav_profile button {{
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    font-size: 1rem !important;
     background: #1f2937 !important;
     border: 1px solid rgba(255,255,255,0.18) !important;
 }}
@@ -237,52 +245,38 @@ if not st.session_state.loaded_predictions:
 
 
 with st.container(key="top_bar"):
-    st.info("Kies uitslagen en druk OPSLAAN.", icon="⚡")
-
-    if st.button("💾 NU ALLES OPSLAAN", use_container_width=True, type="primary"):
-        saved = save_all_predictions()
-        st.success(f"Opgeslagen: {saved} wedstrijden")
-
-    nav1, nav2, nav3, nav4 = st.columns(4, gap="small")
+    nav1, nav2, nav3, nav4 = st.columns([1, 1, 1, 1], gap="small")
 
     with nav1:
-        if st.button(
-            "⚽",
-            key="nav_matches",
-            use_container_width=True,
-            help="Wedstrijden: voorspellingen invullen",
-        ):
+        if st.button("⚽", key="nav_matches", help="Wedstrijden"):
             set_page("⚽ Wedstrijden")
 
     with nav2:
-        if st.button(
-            "📊",
-            key="nav_standings",
-            use_container_width=True,
-            help="Standen: groepsstanden bekijken",
-        ):
+        if st.button("📊", key="nav_standings", help="Standen"):
             set_page("📊 Standen")
 
     with nav3:
-        if st.button(
-            "🏆",
-            key="nav_knockout",
-            use_container_width=True,
-            help="Knockout: knockoutschema bekijken",
-        ):
+        if st.button("🏆", key="nav_knockout", help="Knockout"):
             set_page("🏆 Knockout")
 
     with nav4:
-        if st.button(
-            "👤",
-            key="nav_profile",
-            use_container_width=True,
-            help="Mijn pronostiek: jouw ingevulde voorspellingen",
-        ):
+        if st.button("👤", key="nav_profile", help="Mijn pronostiek"):
             set_page("👤 Mijn pronostiek")
+
+    st.info("Kies uitslagen en druk OPSLAAN.", icon="⚡")
+
+    if st.button(
+        "💾 NU ALLES OPSLAAN",
+        key="save_button",
+        use_container_width=True,
+        type="primary",
+    ):
+        saved = save_all_predictions()
+        st.success(f"Opgeslagen: {saved} wedstrijden")
 
 
 st.markdown('<div class="top-spacer"></div>', unsafe_allow_html=True)
+st.write("")
 
 
 if st.session_state.page == "⚽ Wedstrijden":
