@@ -17,7 +17,7 @@ st.set_page_config(
 USER_ID = "Tom"
 
 # =========================================================
-# CSS - Geoptimaliseerd voor 1 Rij Layout
+# CSS - Forceert 1 rij op mobiel
 # =========================================================
 
 st.markdown("""
@@ -26,8 +26,8 @@ st.markdown("""
 .block-container {
     max-width: 720px;
     padding-top: 0 !important;
-    padding-left: 0.4rem !important;
-    padding-right: 0.4rem !important;
+    padding-left: 0.3rem !important;
+    padding-right: 0.3rem !important;
     padding-bottom: 5rem !important;
 }
 
@@ -47,11 +47,6 @@ section[data-testid="stSidebar"] {
     border-bottom: 1px solid rgba(255,255,255,0.1);
 }
 
-.st-key-top_bar > div {
-    max-width: 720px;
-    margin: 0 auto;
-}
-
 .top-spacer {
     height: 180px;
 }
@@ -60,7 +55,6 @@ section[data-testid="stSidebar"] {
 .st-key-top_bar button {
     height: 38px !important;
     border-radius: 8px !important;
-    font-weight: 800 !important;
 }
 
 .st-key-menu_keuze div[role="radiogroup"] {
@@ -68,59 +62,47 @@ section[data-testid="stSidebar"] {
     justify-content: space-between !important;
 }
 
-.st-key-menu_keuze label[data-baseweb="radio"] {
-    background: transparent !important;
+.st-key-menu_keuze label {
     padding: 2px !important;
 }
 
-.st-key-menu_keuze label[data-baseweb="radio"] > div:first-child {
-    display: none !important;
+/* FORCEER HORIZONTALE KOLOMMEN OP MOBIEL */
+[data-testid="stHorizontalBlock"] {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    gap: 0.3rem !important;
 }
 
-.st-key-menu_keuze span {
-    font-size: 0.8rem !important;
-}
-
-/* Match Card - Compacte 1-Rij Layout */
+/* Match Card Styling */
 [class*="st-key-match_card_"] {
     background: #111827;
     border: 1px solid rgba(255,255,255,0.1);
     border-radius: 12px;
-    padding: 0.5rem 0.6rem !important;
+    padding: 0.4rem 0.5rem !important;
     margin-bottom: 0.4rem;
 }
 
-/* Verklein tekst voor mobiel om op 1 rij te passen */
+/* Tekst grootte en witruimte */
 [class*="st-key-match_card_"] p {
-    font-size: 0.82rem !important;
+    font-size: 0.78rem !important;
     margin: 0 !important;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    line-height: 1.2 !important;
+    white-space: nowrap !important;
 }
 
-/* Segmented Control (1 X 2) smaller maken */
-[class*="st-key-match_card_"] div[data-testid="stSegmentedControl"] {
-    gap: 2px !important;
-}
-
+/* Maak Segmented Control compacter */
 [class*="st-key-match_card_"] div[data-testid="stSegmentedControl"] button {
-    min-width: 35px !important;
-    height: 30px !important;
+    min-width: 32px !important;
+    height: 28px !important;
+    font-size: 0.7rem !important;
     padding: 0 !important;
-    font-size: 0.75rem !important;
 }
 
-div[data-testid="stVerticalBlock"] {
-    gap: 0.2rem !important;
-}
-
-footer {
-    visibility: hidden;
-}
+footer { visibility: hidden; }
 </style>
 """, unsafe_allow_html=True)
-
 
 # =========================================================
 # HELPERS
@@ -128,7 +110,7 @@ footer {
 
 def country_flag(code):
     code = str(code or "").strip().upper()
-    if len(code) != 2: return "🏳️"
+    if len(code) != 2: return "⚽"
     return chr(ord(code[0]) + 127397) + chr(ord(code[1]) + 127397)
 
 def normalize_time(value):
@@ -143,10 +125,8 @@ def compact_date(value):
 def get_existing_prediction(match_id):
     data = st.session_state.local_predictions.get(str(match_id), "X")
     if isinstance(data, dict):
-        val = data.get("prediction", "X")
-    else:
-        val = data
-    return str(val).upper()
+        return data.get("prediction", "X")
+    return str(data).upper()
 
 def prediction_changed(match_id):
     key = f"pred_{match_id}"
@@ -155,7 +135,6 @@ def prediction_changed(match_id):
         "score1": "",
         "score2": "",
     }
-
 
 # =========================================================
 # DATA & SESSION
@@ -181,7 +160,6 @@ if "loaded" not in st.session_state:
             }
     st.session_state.loaded = True
 
-
 # =========================================================
 # UI
 # =========================================================
@@ -191,52 +169,47 @@ with st.container(key="top_bar"):
     if st.button("OPSLAAN", use_container_width=True, type="primary"):
         saved = batch_save_predictions(USER_ID, st.session_state.local_predictions, "concept")
         st.cache_data.clear()
-        st.success(f"Opgeslagen!")
+        st.success("Opgeslagen!")
 
-    st.radio("M", ["⚽ Wedstr.", "📊 Stand", "🏆 KO", "👤 Mijn"], key="menu_keuze", horizontal=True, label_visibility="collapsed")
+    st.radio("Menu", ["⚽ Wedstr.", "📊 Stand", "🏆 KO", "👤 Mijn"], 
+             key="menu_keuze", horizontal=True, label_visibility="collapsed")
 
 st.markdown('<div class="top-spacer"></div>', unsafe_allow_html=True)
 
 if st.session_state.menu_keuze == "⚽ Wedstr.":
-    if matches_df.empty:
-        st.warning("Geen data.")
-    else:
-        # Filteren en sorteren
-        df = matches_df.copy()
-        if "ronde" in df.columns:
-            df = df[df["ronde"].astype(str).str.lower().str.contains("groep", na=False)]
+    df = matches_df.copy()
+    if "ronde" in df.columns:
+        df = df[df["ronde"].astype(str).str.lower().str.contains("groep", na=False)]
+    
+    for _, match in df.iterrows():
+        mid = str(match.get("match_id", ""))
+        t1 = f"{country_flag(match.get('team1_code'))} {match.get('team1')}"
+        t2 = f"{country_flag(match.get('team2_code'))} {match.get('team2')}"
         
-        for _, match in df.iterrows():
-            mid = str(match.get("match_id", ""))
-            t1 = f"{country_flag(match.get('team1_code'))} {match.get('team1')}"
-            t2 = f"{country_flag(match.get('team2_code'))} {match.get('team2')}"
-            
-            key = f"pred_{mid}"
-            if key not in st.session_state:
-                st.session_state[key] = get_existing_prediction(mid)
+        key = f"pred_{mid}"
+        if key not in st.session_state:
+            st.session_state[key] = get_existing_prediction(mid)
 
-            with st.container(key=f"match_card_{mid}"):
-                # Hier gebeurt de '1 rij' magie:
-                # Kolom 1: Datum/Tijd (smal)
-                # Kolom 2: Wedstrijd teams (breed)
-                # Kolom 3: 1X2 keuze (compact)
-                c1, c2, c3 = st.columns([0.5, 1.8, 0.9], vertical_alignment="center")
-                
-                with c1:
-                    st.markdown(f"**{compact_date(match.get('datum'))}**\n\n{normalize_time(match.get('tijd'))}")
-                
-                with c2:
-                    st.markdown(f"{t1}\n\n{t2}")
-                
-                with c3:
-                    st.segmented_control(
-                        "P", ["1", "X", "2"],
-                        key=key,
-                        label_visibility="collapsed",
-                        on_change=prediction_changed,
-                        args=(mid,)
-                    )
+        with st.container(key=f"match_card_{mid}"):
+            # We gebruiken hier st.columns maar de CSS hierboven dwingt ze horizontaal
+            c1, c2, c3 = st.columns([0.6, 1.8, 1.1], gap="small")
+            
+            with c1:
+                st.markdown(f"**{compact_date(match.get('datum'))}**\n\n{normalize_time(match.get('tijd'))}")
+            
+            with c2:
+                # Landen onder elkaar voor leesbaarheid binnen de rij
+                st.markdown(f"{t1}\n\n{t2}")
+            
+            with c3:
+                st.segmented_control(
+                    "P", ["1", "X", "2"],
+                    key=key,
+                    label_visibility="collapsed",
+                    on_change=prediction_changed,
+                    args=(mid,)
+                )
 
 elif st.session_state.menu_keuze == "👤 Mijn":
     st.subheader("Mijn keuzes")
-    st.write(st.session_state.local_predictions)
+    st.json(st.session_state.local_predictions)
