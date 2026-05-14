@@ -1,11 +1,7 @@
 import streamlit as st
 import pandas as pd
 
-from modules.database import (
-    load_matches,
-    load_predictions,
-    batch_save_predictions,
-)
+from modules.database import load_matches, load_predictions, batch_save_predictions
 
 st.set_page_config(
     page_title="WK 2026",
@@ -93,7 +89,7 @@ section[data-testid="stSidebar"] {
     right: 0 !important;
     z-index: 999999 !important;
     background: #0e1117 !important;
-    padding: 0.45rem 0.55rem 0.55rem 0.55rem !important;
+    padding: 0.45rem 0.55rem 0.5rem 0.55rem !important;
     border-bottom: 1px solid rgba(255,255,255,0.12);
 }
 
@@ -104,43 +100,62 @@ section[data-testid="stSidebar"] {
 }
 
 .top-spacer {
-    height: 178px;
+    height: 145px;
 }
 
 .st-key-top_bar div[data-testid="stAlert"] {
-    padding: 0.38rem 0.6rem !important;
-    font-size: 0.76rem !important;
-    margin-bottom: 0.25rem !important;
+    padding: 0.35rem 0.55rem !important;
+    font-size: 0.74rem !important;
+    margin-bottom: 0.2rem !important;
     border-radius: 10px !important;
 }
 
 .st-key-top_bar button {
-    min-height: 36px !important;
-    height: 36px !important;
+    min-height: 35px !important;
+    height: 35px !important;
     border-radius: 10px !important;
     font-weight: 800 !important;
+}
+
+.st-key-top_bar div[data-baseweb="select"] {
+    font-size: 0.8rem !important;
 }
 
 [class*="st-key-match_card_"] {
     background: #111827;
     border: 1px solid rgba(255,255,255,0.13);
     border-radius: 14px;
-    padding: 0.65rem !important;
-    margin-bottom: 0.55rem;
+    padding: 0.55rem !important;
+    margin-bottom: 0.5rem;
 }
 
 [class*="st-key-match_card_"] p {
     margin-bottom: 0 !important;
-    line-height: 1.25 !important;
+    line-height: 1.22 !important;
+}
+
+.match-date-small {
+    font-size: 0.78rem;
+    color: #cbd5e1;
+    line-height: 1.15;
+}
+
+.match-teams-onecell {
+    font-size: 0.92rem;
+    font-weight: 800;
+    line-height: 1.22;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 [class*="st-key-match_card_"] div[data-testid="stSegmentedControl"] {
-    margin-top: 0.45rem !important;
+    margin-top: 0.35rem !important;
 }
 
 [class*="st-key-match_card_"] div[data-testid="stSegmentedControl"] button {
-    min-width: 52px !important;
-    height: 34px !important;
+    min-width: 46px !important;
+    height: 31px !important;
     padding: 0 !important;
     font-weight: 800 !important;
 }
@@ -153,7 +168,7 @@ footer {
 
 
 if "page" not in st.session_state:
-    st.session_state.page = "Wedstrijden"
+    st.session_state.page = "⚽ Wedstrijden"
 
 if "local_predictions" not in st.session_state:
     st.session_state.local_predictions = {}
@@ -197,33 +212,18 @@ with st.container(key="top_bar"):
         saved = save_all_predictions()
         st.success(f"Opgeslagen: {saved} wedstrijden")
 
-    c1, c2, c3, c4 = st.columns(4)
-
-    with c1:
-        if st.button("⚽", use_container_width=True):
-            st.session_state.page = "Wedstrijden"
-            st.rerun()
-
-    with c2:
-        if st.button("📊", use_container_width=True):
-            st.session_state.page = "Stand"
-            st.rerun()
-
-    with c3:
-        if st.button("🏆", use_container_width=True):
-            st.session_state.page = "KO"
-            st.rerun()
-
-    with c4:
-        if st.button("👤", use_container_width=True):
-            st.session_state.page = "Mijn"
-            st.rerun()
+    st.selectbox(
+        "Menu",
+        ["⚽ Wedstrijden", "📊 Standen", "🏆 Knockout", "👤 Mijn pronostiek"],
+        key="page",
+        label_visibility="collapsed",
+    )
 
 
 st.markdown('<div class="top-spacer"></div>', unsafe_allow_html=True)
 
 
-if st.session_state.page == "Wedstrijden":
+if st.session_state.page == "⚽ Wedstrijden":
 
     wedstrijden = matches_df.copy()
 
@@ -251,7 +251,6 @@ if st.session_state.page == "Wedstrijden":
 
             team1 = str(match.get("team1", "")).strip()
             team2 = str(match.get("team2", "")).strip()
-
             team1_code = match.get("team1_code", "")
             team2_code = match.get("team2_code", "")
 
@@ -262,38 +261,41 @@ if st.session_state.page == "Wedstrijden":
 
             with st.container(key=f"match_card_{match_id}"):
 
-                col_date, col_match = st.columns([0.75, 2.6], gap="small")
+                col_info, col_pred = st.columns([1.9, 1], gap="small")
 
-                with col_date:
-                    st.markdown(f"**{datum}**  \n{tijd}  \n🟢")
-
-                with col_match:
+                with col_info:
                     st.markdown(
-                        f"**{country_flag(team1_code)} {team1}**  \n"
-                        f"**{country_flag(team2_code)} {team2}**"
+                        f"""
+<div class="match-date-small"><b>{datum}</b> &nbsp; {tijd} &nbsp; 🟢</div>
+<div class="match-teams-onecell">
+{country_flag(team1_code)} {team1} <span style="color:#9ca3af;">vs</span> {country_flag(team2_code)} {team2}
+</div>
+                        """,
+                        unsafe_allow_html=True,
                     )
 
-                st.segmented_control(
-                    "Pronostiek",
-                    ["1", "X", "2"],
-                    key=pred_key,
-                    label_visibility="collapsed",
-                    on_change=prediction_changed,
-                    args=(match_id,),
-                )
+                with col_pred:
+                    st.segmented_control(
+                        "Pronostiek",
+                        ["1", "X", "2"],
+                        key=pred_key,
+                        label_visibility="collapsed",
+                        on_change=prediction_changed,
+                        args=(match_id,),
+                    )
 
 
-elif st.session_state.page == "Stand":
+elif st.session_state.page == "📊 Standen":
     st.subheader("📊 Standen")
     st.write("Hier komen de groepsstanden.")
 
 
-elif st.session_state.page == "KO":
+elif st.session_state.page == "🏆 Knockout":
     st.subheader("🏆 Knockout")
     st.write("Hier komt het knockoutschema.")
 
 
-elif st.session_state.page == "Mijn":
+elif st.session_state.page == "👤 Mijn pronostiek":
     st.subheader("👤 Mijn pronostiek")
 
     rows = []
@@ -310,10 +312,6 @@ elif st.session_state.page == "Mijn":
         })
 
     if rows:
-        st.dataframe(
-            pd.DataFrame(rows),
-            use_container_width=True,
-            hide_index=True,
-        )
+        st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
     else:
         st.info("Nog geen voorspellingen gekozen.")
