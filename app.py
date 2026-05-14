@@ -71,12 +71,31 @@ def save_all_predictions():
     return saved
 
 
-def set_page(page_name):
-    st.session_state.page = page_name
+def page_from_menu(value):
+    mapping = {
+        "⚽": "⚽ Wedstrijden",
+        "📊": "📊 Standen",
+        "🏆": "🏆 Knockout",
+        "👤": "👤 Mijn pronostiek",
+    }
+    return mapping.get(value, "⚽ Wedstrijden")
+
+
+def menu_from_page(value):
+    mapping = {
+        "⚽ Wedstrijden": "⚽",
+        "📊 Standen": "📊",
+        "🏆 Knockout": "🏆",
+        "👤 Mijn pronostiek": "👤",
+    }
+    return mapping.get(value, "⚽")
 
 
 if "page" not in st.session_state:
     st.session_state.page = "⚽ Wedstrijden"
+
+if "menu_choice" not in st.session_state:
+    st.session_state.menu_choice = menu_from_page(st.session_state.page)
 
 if "local_predictions" not in st.session_state:
     st.session_state.local_predictions = {}
@@ -85,39 +104,21 @@ if "loaded_predictions" not in st.session_state:
     st.session_state.loaded_predictions = False
 
 
-active_map = {
-    "⚽ Wedstrijden": "nav_matches",
-    "📊 Standen": "nav_standings",
-    "🏆 Knockout": "nav_knockout",
-    "👤 Mijn pronostiek": "nav_profile",
-}
-
-active_key = active_map.get(st.session_state.page, "nav_matches")
-
-active_css = f"""
-.st-key-{active_key} button {{
-    background: #2563eb !important;
-    color: white !important;
-    border: 1px solid rgba(255,255,255,0.45) !important;
-}}
-"""
-
-
-st.markdown(f"""
+st.markdown("""
 <style>
-.block-container {{
+.block-container {
     max-width: 820px;
     padding-top: 0 !important;
     padding-left: 0.45rem !important;
     padding-right: 0.45rem !important;
     padding-bottom: 5rem !important;
-}}
+}
 
-section[data-testid="stSidebar"] {{
+section[data-testid="stSidebar"] {
     display: none;
-}}
+}
 
-.st-key-top_bar {{
+.st-key-top_bar {
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
@@ -126,89 +127,80 @@ section[data-testid="stSidebar"] {{
     background: #0e1117 !important;
     padding: 0.35rem 0.5rem 0.45rem 0.5rem !important;
     border-bottom: 1px solid rgba(255,255,255,0.12);
-}}
+}
 
-.st-key-top_bar > div {{
+.st-key-top_bar > div {
     max-width: 820px;
     margin-left: auto;
     margin-right: auto;
-}}
+}
 
-.top-spacer {{
-    height: 135px;
-}}
+.top-spacer {
+    height: 112px;
+}
 
-.st-key-top_bar button {{
-    min-height: 31px !important;
-    height: 31px !important;
-    border-radius: 10px !important;
+.st-key-top_bar div[data-testid="stSegmentedControl"] {
+    margin-bottom: 0.25rem !important;
+}
+
+.st-key-top_bar div[data-testid="stSegmentedControl"] button {
+    min-height: 32px !important;
+    height: 32px !important;
+    padding: 0 !important;
+    font-size: 1.05rem !important;
     font-weight: 900 !important;
-    padding: 0 !important;
-}}
+}
 
-.st-key-save_button button {{
-    font-size: 0.82rem !important;
+.st-key-save_button button {
+    min-height: 34px !important;
     height: 34px !important;
-    margin-top: 0.15rem !important;
-}}
+    border-radius: 10px !important;
+    font-size: 0.82rem !important;
+    font-weight: 900 !important;
+}
 
-.st-key-nav_matches button,
-.st-key-nav_standings button,
-.st-key-nav_knockout button,
-.st-key-nav_profile button {{
-    width: 100% !important;
-    min-width: 0 !important;
-    max-width: 100% !important;
-    padding: 0 !important;
-    font-size: 1rem !important;
-    background: #1f2937 !important;
-    border: 1px solid rgba(255,255,255,0.18) !important;
-}}
-
-{active_css}
-
-[class*="st-key-match_card_"] {{
+[class*="st-key-match_card_"] {
     background: #111827;
     border: 1px solid rgba(255,255,255,0.13);
     border-radius: 14px;
     padding: 0.55rem !important;
     margin-bottom: 0.5rem;
-}}
+}
 
-[class*="st-key-match_card_"] p {{
+[class*="st-key-match_card_"] p {
     margin-bottom: 0 !important;
     line-height: 1.22 !important;
-}}
+}
 
-.match-date-small {{
+.match-date-small {
     font-size: 0.78rem;
     color: #cbd5e1;
     line-height: 1.15;
-}}
+}
 
-.match-teams-onecell {{
+.match-teams-onecell {
     font-size: 0.92rem;
     font-weight: 800;
     line-height: 1.22;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-}}
+}
 
-[class*="st-key-match_card_"] div[data-testid="stSegmentedControl"] {{
+[class*="st-key-match_card_"] div[data-testid="stSegmentedControl"] {
     margin-top: 0.35rem !important;
-}}
+}
 
-[class*="st-key-match_card_"] div[data-testid="stSegmentedControl"] button {{
+[class*="st-key-match_card_"] div[data-testid="stSegmentedControl"] button {
     min-width: 46px !important;
     height: 31px !important;
     padding: 0 !important;
     font-weight: 800 !important;
-}}
+}
 
-footer {{
+footer {
     visibility: hidden;
-}}
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -241,23 +233,15 @@ if not st.session_state.loaded_predictions:
 
 
 with st.container(key="top_bar"):
-    nav1, nav2, nav3, nav4 = st.columns([1, 1, 1, 1], gap="small")
+    st.segmented_control(
+        "Menu",
+        ["⚽", "📊", "🏆", "👤"],
+        key="menu_choice",
+        label_visibility="collapsed",
+        help="⚽ Wedstrijden | 📊 Standen | 🏆 Knockout | 👤 Mijn pronostiek",
+    )
 
-    with nav1:
-        if st.button("⚽", key="nav_matches", help="Wedstrijden"):
-            set_page("⚽ Wedstrijden")
-
-    with nav2:
-        if st.button("📊", key="nav_standings", help="Standen"):
-            set_page("📊 Standen")
-
-    with nav3:
-        if st.button("🏆", key="nav_knockout", help="Knockout"):
-            set_page("🏆 Knockout")
-
-    with nav4:
-        if st.button("👤", key="nav_profile", help="Mijn pronostiek"):
-            set_page("👤 Mijn pronostiek")
+    st.session_state.page = page_from_menu(st.session_state.menu_choice)
 
     if st.button(
         "💾 NU ALLES OPSLAAN",
@@ -330,6 +314,7 @@ if st.session_state.page == "⚽ Wedstrijden":
                         "Pronostiek",
                         ["1", "X", "2"],
                         key=pred_key,
+                        default=get_prediction(match_id),
                         label_visibility="collapsed",
                         on_change=prediction_changed,
                         args=(match_id,),
