@@ -141,8 +141,8 @@ if st.session_state.main_page == "🏠 Hoofdmenu":
         if st.button("📊 Poulestanden", use_container_width=True):
             go_to("📊 Poulestanden")
 
-        if st.button("📊 Algemene standen", use_container_width=True):
-            go_to("📊 Algemene standen")
+        if st.button("🏆 Scoreboard", use_container_width=True):
+            go_to("🏆 Scoreboard")
 
         if bool(user.get("admin", False)):
             st.write("---")
@@ -171,7 +171,7 @@ if st.session_state.main_page == "🏠 Hoofdmenu":
         st.write("---")
 
         if st.button("📊 Algemene standen bekijken", use_container_width=True):
-            go_to("📊 Algemene standen")
+            go_to("🏆 Scoreboard")
 
 
 elif st.session_state.main_page == "🔐 Inloggen":
@@ -203,7 +203,7 @@ elif st.session_state.main_page == "📊 Poulestanden":
         )
 
 
-elif st.session_state.main_page == "📊 Algemene standen":
+elif st.session_state.main_page == "🏆 Scoreboard":
     show_scoreboard(
         users_df=load_users(),
         predictions_df=load_predictions(),
