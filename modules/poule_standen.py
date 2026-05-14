@@ -86,75 +86,58 @@ def format_standings_table(df):
     return table
 
 
-def apply_manual_tie_order(group_df, group, prefix):
+def apply_manual_full_order(group_df, group, prefix):
     if group_df is None or group_df.empty:
         return group_df
 
-    required = ["team", "points", "position"]
-
-    for col in required:
-        if col not in group_df.columns:
-            return group_df
+    if "team" not in group_df.columns or "position" not in group_df.columns:
+        return group_df
 
     df = group_df.copy()
 
     df["team"] = df["team"].astype(str).str.strip()
-    df["points"] = pd.to_numeric(df["points"], errors="coerce").fillna(0).astype(int)
     df["position"] = pd.to_numeric(df["position"], errors="coerce").fillna(999).astype(int)
 
-    tied_points = (
-        df.groupby("points")
-        .size()
-        .reset_index(name="count")
-    )
+    df = df.sort_values("position", kind="stable").reset_index(drop=True)
 
-    tied_points = tied_points[tied_points["count"] > 1]["points"].tolist()
+    teams = df["team"].tolist()
 
-    if not tied_points:
-        df = df.sort_values("position", kind="stable").reset_index(drop=True)
-        df["position"] = range(1, len(df) + 1)
+    if len(teams) <= 1:
         return df
 
-    st.markdown("##### Volgorde bij gelijke punten")
+    use_manual = st.checkbox(
+        "Volgorde handmatig aanpassen",
+        value=False,
+        key=f"manual_order_enabled_{prefix}_{group}",
+    )
 
+    if not use_manual:
+        return df
+
+    st.caption("Kies hieronder zelf wie 1e, 2e, 3e en 4e wordt.")
+
+    chosen = []
     manual_positions = {}
 
-    for points in sorted(tied_points, reverse=True):
-        tied_rows = (
-            df[df["points"] == points]
-            .sort_values("position", kind="stable")
-            .copy()
+    for position in range(1, len(teams) + 1):
+        available = [team for team in teams if team not in chosen]
+
+        default_team = teams[position - 1]
+
+        if default_team in available:
+            default_index = available.index(default_team)
+        else:
+            default_index = 0
+
+        selected_team = st.selectbox(
+            f"Plaats {position}",
+            available,
+            index=default_index,
+            key=f"manual_order_{prefix}_{group}_{position}",
         )
 
-        tied_teams = tied_rows["team"].tolist()
-
-        teams_above = df[df["points"] > points].shape[0]
-        start_position = teams_above + 1
-
-        point_label = "punt" if points == 1 else "punten"
-        st.caption(f"Gelijke stand: {points} {point_label}")
-
-        chosen = []
-
-        for offset, original_team in enumerate(tied_teams):
-            position = start_position + offset
-
-            available = [team for team in tied_teams if team not in chosen]
-
-            if original_team in available:
-                default_index = available.index(original_team)
-            else:
-                default_index = 0
-
-            selected_team = st.selectbox(
-                f"Plaats {position}",
-                available,
-                index=default_index,
-                key=f"tie_{prefix}_{group}_{points}_{position}",
-            )
-
-            chosen.append(selected_team)
-            manual_positions[selected_team] = position
+        chosen.append(selected_team)
+        manual_positions[selected_team] = position
 
     for team, position in manual_positions.items():
         df.loc[df["team"] == team, "position"] = position
@@ -221,6 +204,12 @@ def show_poule_standen(matches_df, official_standings_df, predictions_df):
                 user_standings_df["groep"].astype(str).str.strip() == group
             ].copy()
 
+        user_group = apply_manual_full_order(
+            user_group,
+            group=group,
+            prefix="user",
+        )
+
         with st.container(border=True):
             st.markdown(f"### Groep {group}")
 
@@ -238,12 +227,6 @@ def show_poule_standen(matches_df, official_standings_df, predictions_df):
 
             with col_user:
                 st.markdown("#### Mijn voorspelling")
-
-                user_group = apply_manual_tie_order(
-                    user_group,
-                    group=group,
-                    prefix="user",
-                )
 
                 user_table = format_standings_table(user_group)
 
