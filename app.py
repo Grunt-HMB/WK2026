@@ -18,6 +18,7 @@ from modules.auth import (
 from modules.pronostiek import show_pronostiek
 from modules.admin_results import show_admin_results
 from modules.scoreboard import show_scoreboard
+from modules.poule_standen import show_poule_standen
 
 st.set_page_config(
     page_title="WK 2026",
@@ -137,11 +138,11 @@ if st.session_state.main_page == "🏠 Hoofdmenu":
         if st.button("⚽ Pronostiek invullen", use_container_width=True, type="primary"):
             go_to("⚽ Pronostiek")
 
+        if st.button("📊 Poulestanden", use_container_width=True):
+            go_to("📊 Poulestanden")
+
         if st.button("📊 Algemene standen", use_container_width=True):
             go_to("📊 Algemene standen")
-
-        if st.button("🖨️ Stand uitprinten / PDF maken", use_container_width=True):
-            go_to("🖨️ Stand uitprinten")
 
         if bool(user.get("admin", False)):
             st.write("---")
@@ -149,6 +150,9 @@ if st.session_state.main_page == "🏠 Hoofdmenu":
 
             if st.button("🏆 Officiële uitslagen", use_container_width=True):
                 go_to("🏆 Admin uitslagen")
+
+            if st.button("🖨️ Stand uitprinten / PDF maken", use_container_width=True):
+                go_to("🖨️ Stand uitprinten")
 
         st.write("---")
 
@@ -188,6 +192,25 @@ elif st.session_state.main_page == "⚽ Pronostiek":
         )
 
 
+elif st.session_state.main_page == "📊 Poulestanden":
+    user = require_login()
+
+    if user is not None:
+        show_poule_standen(
+            matches_df=load_matches(),
+            official_standings_df=load_standings(),
+            predictions_df=load_predictions(user["naam"]),
+        )
+
+
+elif st.session_state.main_page == "📊 Algemene standen":
+    show_scoreboard(
+        users_df=load_users(),
+        predictions_df=load_predictions(),
+        results_df=load_results(),
+    )
+
+
 elif st.session_state.main_page == "🏆 Admin uitslagen":
     user = require_login()
 
@@ -205,13 +228,8 @@ elif st.session_state.main_page == "🖨️ Stand uitprinten":
     user = require_login()
 
     if user is not None:
-        st.subheader("🖨️ Stand uitprinten")
-        st.info("Hier komt later de PDF-export.")
-
-
-elif st.session_state.main_page == "📊 Algemene standen":
-    show_scoreboard(
-        users_df=load_users(),
-        predictions_df=load_predictions(),
-        results_df=load_results(),
-    )
+        if bool(user.get("admin", False)):
+            st.subheader("🖨️ Stand uitprinten")
+            st.info("Hier komt later de PDF-export.")
+        else:
+            st.error("Geen adminrechten.")
