@@ -1,33 +1,53 @@
 import streamlit as st
 import pandas as pd
 
-from modules.database import load_matches, load_predictions, batch_save_predictions
-from modules.prediction_standings import show_all_group_standings
+from modules.database import (
+    load_matches,
+    load_predictions,
+    batch_save_predictions,
+)
 
 
 def show_pronostiek(user_id="Tom", standings_df=None):
 
+    # =========================================================
+    # HELPERS
+    # =========================================================
+
     def country_flag(code):
         code = str(code or "").strip().upper()
+
         if len(code) != 2:
             return "⚽"
-        return chr(ord(code[0]) + 127397) + chr(ord(code[1]) + 127397)
+
+        return (
+            chr(ord(code[0]) + 127397)
+            + chr(ord(code[1]) + 127397)
+        )
 
     def format_date(value):
         txt = str(value or "").strip()
+
         parts = txt.split("-")
+
         if len(parts) >= 2:
             return f"{parts[0]}/{parts[1]}"
+
         return txt
 
     def format_time(value):
         txt = str(value or "").strip()
+
         if txt.count(":") >= 2:
             return ":".join(txt.split(":")[:2])
+
         return txt
 
     def get_prediction(match_id):
-        data = st.session_state.local_predictions.get(str(match_id), "")
+        data = st.session_state.local_predictions.get(
+            str(match_id),
+            "",
+        )
 
         if isinstance(data, dict):
             value = data.get("prediction", "")
@@ -35,10 +55,12 @@ def show_pronostiek(user_id="Tom", standings_df=None):
             value = data
 
         value = str(value).upper().strip()
+
         return value if value in ["1", "X", "2"] else None
 
     def prediction_changed(match_id):
         key = f"pred_{match_id}"
+
         value = st.session_state.get(key, None)
 
         if value in ["1", "X", "2"]:
@@ -47,8 +69,12 @@ def show_pronostiek(user_id="Tom", standings_df=None):
                 "score1": "",
                 "score2": "",
             }
+
         else:
-            st.session_state.local_predictions.pop(str(match_id), None)
+            st.session_state.local_predictions.pop(
+                str(match_id),
+                None,
+            )
 
     def save_all_predictions():
         saved = batch_save_predictions(
@@ -56,32 +82,14 @@ def show_pronostiek(user_id="Tom", standings_df=None):
             local_predictions=st.session_state.local_predictions,
             status="concept",
         )
+
         st.cache_data.clear()
+
         return saved
 
-    def page_from_menu(value):
-        mapping = {
-            "⚽": "⚽ Wedstrijden",
-            "📊": "📊 Standen",
-            "🏆": "🏆 Knockout",
-            "👤": "👤 Mijn pronostiek",
-        }
-        return mapping.get(value, "⚽ Wedstrijden")
-
-    def menu_from_page(value):
-        mapping = {
-            "⚽ Wedstrijden": "⚽",
-            "📊 Standen": "📊",
-            "🏆 Knockout": "🏆",
-            "👤 Mijn pronostiek": "👤",
-        }
-        return mapping.get(value, "⚽")
-
-    if "prono_page" not in st.session_state:
-        st.session_state.prono_page = "⚽ Wedstrijden"
-
-    if "prono_menu_choice" not in st.session_state:
-        st.session_state.prono_menu_choice = menu_from_page(st.session_state.prono_page)
+    # =========================================================
+    # SESSION STATE
+    # =========================================================
 
     if "local_predictions" not in st.session_state:
         st.session_state.local_predictions = {}
@@ -91,8 +99,13 @@ def show_pronostiek(user_id="Tom", standings_df=None):
     if loaded_key not in st.session_state:
         st.session_state[loaded_key] = False
 
+    # =========================================================
+    # CSS
+    # =========================================================
+
     st.markdown("""
     <style>
+
     .block-container {
         max-width: 820px;
         padding-top: 0 !important;
@@ -123,19 +136,7 @@ def show_pronostiek(user_id="Tom", standings_df=None):
     }
 
     .top-spacer {
-        height: 112px;
-    }
-
-    .st-key-top_bar div[data-testid="stSegmentedControl"] {
-        margin-bottom: 0.25rem !important;
-    }
-
-    .st-key-top_bar div[data-testid="stSegmentedControl"] button {
-        min-height: 32px !important;
-        height: 32px !important;
-        padding: 0 !important;
-        font-size: 1.05rem !important;
-        font-weight: 900 !important;
+        height: 78px;
     }
 
     .st-key-save_button button {
@@ -188,25 +189,46 @@ def show_pronostiek(user_id="Tom", standings_df=None):
     footer {
         visibility: hidden;
     }
+
     </style>
     """, unsafe_allow_html=True)
 
+    # =========================================================
+    # DATA
+    # =========================================================
+
     @st.cache_data(ttl=60)
     def get_data(active_user_id):
-        return load_matches(), load_predictions(active_user_id)
+        return (
+            load_matches(),
+            load_predictions(active_user_id),
+        )
 
     matches_df, predictions_df = get_data(user_id)
 
+    # =========================================================
+    # LOAD SAVED PREDICTIONS
+    # =========================================================
+
     if not st.session_state[loaded_key]:
+
         if not predictions_df.empty:
+
             for _, row in predictions_df.iterrows():
-                match_id = str(row.get("match_id", "")).strip()
+
+                match_id = str(
+                    row.get("match_id", "")
+                ).strip()
+
                 if not match_id:
                     continue
 
-                prediction = str(row.get("prediction", "")).upper().strip()
+                prediction = str(
+                    row.get("prediction", "")
+                ).upper().strip()
 
                 if prediction in ["1", "X", "2"]:
+
                     st.session_state.local_predictions[match_id] = {
                         "prediction": prediction,
                         "score1": row.get("score1", ""),
@@ -215,121 +237,159 @@ def show_pronostiek(user_id="Tom", standings_df=None):
 
         st.session_state[loaded_key] = True
 
+    # =========================================================
+    # TOP BAR
+    # =========================================================
+
     with st.container(key="top_bar"):
-        st.segmented_control(
-            "Menu",
-            ["⚽", "📊", "🏆", "👤"],
-            key="prono_menu_choice",
-            label_visibility="collapsed",
-            help="⚽ Wedstrijden | 📊 Standen | 🏆 Knockout | 👤 Mijn pronostiek",
+
+        col_home, col_save = st.columns(
+            [1, 1.4],
+            gap="small",
         )
 
-        st.session_state.prono_page = page_from_menu(st.session_state.prono_menu_choice)
+        with col_home:
 
-        if st.button(
-            "💾 NU ALLES OPSLAAN",
-            key="save_button",
-            use_container_width=True,
-            type="primary",
+            if st.button(
+                "☰ Hoofdmenu",
+                key="back_to_main_menu",
+                use_container_width=True,
+            ):
+                st.session_state.main_page = "🏠 Hoofdmenu"
+                st.rerun()
+
+        with col_save:
+
+            if st.button(
+                "💾 OPSLAAN",
+                key="save_button",
+                use_container_width=True,
+                type="primary",
+            ):
+                saved = save_all_predictions()
+
+                st.success(
+                    f"Opgeslagen: {saved} wedstrijden"
+                )
+
+    st.markdown(
+        '<div class="top-spacer"></div>',
+        unsafe_allow_html=True,
+    )
+
+    # =========================================================
+    # WEDSTRIJDEN
+    # =========================================================
+
+    wedstrijden = matches_df.copy()
+
+    if wedstrijden.empty:
+        st.warning("Geen wedstrijden gevonden.")
+        return
+
+    wedstrijden["match_id"] = (
+        wedstrijden["match_id"]
+        .astype(str)
+        .str.strip()
+    )
+
+    if "ronde" in wedstrijden.columns:
+
+        wedstrijden = wedstrijden[
+            wedstrijden["ronde"]
+            .astype(str)
+            .str.lower()
+            .str.contains("groep", na=False)
+        ].copy()
+
+    sort_cols = [
+        c for c in ["datum", "tijd", "match_id"]
+        if c in wedstrijden.columns
+    ]
+
+    if sort_cols:
+        wedstrijden = wedstrijden.sort_values(
+            sort_cols,
+            kind="stable",
+        )
+
+    st.write("")
+
+    for _, match in wedstrijden.iterrows():
+
+        match_id = str(
+            match.get("match_id", "")
+        ).strip()
+
+        if not match_id:
+            continue
+
+        datum = format_date(
+            match.get("datum", "")
+        )
+
+        tijd = format_time(
+            match.get("tijd", "")
+        )
+
+        team1 = str(
+            match.get("team1", "")
+        ).strip()
+
+        team2 = str(
+            match.get("team2", "")
+        ).strip()
+
+        team1_code = match.get(
+            "team1_code",
+            "",
+        )
+
+        team2_code = match.get(
+            "team2_code",
+            "",
+        )
+
+        pred_key = f"pred_{match_id}"
+
+        with st.container(
+            key=f"match_card_{match_id}"
         ):
-            saved = save_all_predictions()
-            st.success(f"Opgeslagen: {saved} wedstrijden")
 
-    st.markdown('<div class="top-spacer"></div>', unsafe_allow_html=True)
+            col_info, col_pred = st.columns(
+                [1.9, 1],
+                gap="small",
+            )
 
-    if st.session_state.prono_page == "⚽ Wedstrijden":
+            with col_info:
 
-        wedstrijden = matches_df.copy()
-
-        if wedstrijden.empty:
-            st.warning("Geen wedstrijden gevonden.")
-        else:
-            wedstrijden["match_id"] = wedstrijden["match_id"].astype(str).str.strip()
-
-            if "ronde" in wedstrijden.columns:
-                wedstrijden = wedstrijden[
-                    wedstrijden["ronde"].astype(str).str.lower().str.contains("groep", na=False)
-                ].copy()
-
-            sort_cols = [c for c in ["datum", "tijd", "match_id"] if c in wedstrijden.columns]
-            if sort_cols:
-                wedstrijden = wedstrijden.sort_values(sort_cols, kind="stable")
-
-            st.write("")
-
-            for _, match in wedstrijden.iterrows():
-                match_id = str(match.get("match_id", "")).strip()
-                if not match_id:
-                    continue
-
-                datum = format_date(match.get("datum", ""))
-                tijd = format_time(match.get("tijd", ""))
-
-                team1 = str(match.get("team1", "")).strip()
-                team2 = str(match.get("team2", "")).strip()
-                team1_code = match.get("team1_code", "")
-                team2_code = match.get("team2_code", "")
-
-                pred_key = f"pred_{match_id}"
-
-                with st.container(key=f"match_card_{match_id}"):
-
-                    col_info, col_pred = st.columns([1.9, 1], gap="small")
-
-                    with col_info:
-                        st.markdown(
-                            f"""
-<div class="match-date-small"><b>{datum}</b> &nbsp; {tijd} &nbsp; 🟢</div>
-<div class="match-teams-onecell">
-{country_flag(team1_code)} {team1} <span style="color:#9ca3af;">vs</span> {country_flag(team2_code)} {team2}
+                st.markdown(
+                    f"""
+<div class="match-date-small">
+<b>{datum}</b> &nbsp; {tijd} &nbsp; 🟢
 </div>
-                            """,
-                            unsafe_allow_html=True,
-                        )
 
-                    with col_pred:
-                        kwargs = {
-                            "label": "Pronostiek",
-                            "options": ["1", "X", "2"],
-                            "key": pred_key,
-                            "label_visibility": "collapsed",
-                            "on_change": prediction_changed,
-                            "args": (match_id,),
-                        }
+<div class="match-teams-onecell">
+{country_flag(team1_code)} {team1}
+<span style="color:#9ca3af;">vs</span>
+{country_flag(team2_code)} {team2}
+</div>
+                    """,
+                    unsafe_allow_html=True,
+                )
 
-                        if pred_key not in st.session_state:
-                            kwargs["default"] = get_prediction(match_id)
+            with col_pred:
 
-                        st.segmented_control(**kwargs)
+                kwargs = {
+                    "label": "Pronostiek",
+                    "options": ["1", "X", "2"],
+                    "key": pred_key,
+                    "label_visibility": "collapsed",
+                    "on_change": prediction_changed,
+                    "args": (match_id,),
+                }
 
-    elif st.session_state.prono_page == "📊 Standen":
-        show_all_group_standings(
-            official_standings_df=standings_df,
-            matches_df=matches_df,
-        )
+                if pred_key not in st.session_state:
+                    kwargs["default"] = get_prediction(match_id)
 
-    elif st.session_state.prono_page == "🏆 Knockout":
-        st.subheader("🏆 Knockout")
-        st.write("Hier komt het knockoutschema.")
-
-    elif st.session_state.prono_page == "👤 Mijn pronostiek":
-        st.subheader("👤 Mijn pronostiek")
-
-        rows = []
-
-        for match_id, data in st.session_state.local_predictions.items():
-            if isinstance(data, dict):
-                prediction = data.get("prediction", "")
-            else:
-                prediction = data
-
-            if prediction in ["1", "X", "2"]:
-                rows.append({
-                    "match_id": match_id,
-                    "pronostiek": prediction,
-                })
-
-        if rows:
-            st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
-        else:
-            st.info("Nog geen voorspellingen gekozen.")
+                st.segmented_control(**kwargs)
