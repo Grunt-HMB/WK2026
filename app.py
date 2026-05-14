@@ -107,7 +107,7 @@ st.markdown(f"""
 <style>
 .block-container {{
     max-width: 820px;
-    padding-top: 0.45rem !important;
+    padding-top: 0.35rem !important;
     padding-left: 0.45rem !important;
     padding-right: 0.45rem !important;
     padding-bottom: 5rem !important;
@@ -118,10 +118,13 @@ section[data-testid="stSidebar"] {{
 }}
 
 .st-key-top_bar {{
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 999999 !important;
     background: #0e1117 !important;
-    padding: 0.35rem 0.35rem 0.5rem 0.35rem !important;
+    padding: 0.35rem 0.35rem 0.45rem 0.35rem !important;
     border-bottom: 1px solid rgba(255,255,255,0.12);
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
 }}
 
 .st-key-top_bar button {{
@@ -289,11 +292,6 @@ if st.session_state.page == "⚽ Wedstrijden":
 
             pred_key = f"pred_{match_id}"
 
-            if pred_key not in st.session_state:
-                existing_prediction = get_prediction(match_id)
-                if existing_prediction in ["1", "X", "2"]:
-                    st.session_state[pred_key] = existing_prediction
-
             with st.container(key=f"match_card_{match_id}"):
 
                 col_info, col_pred = st.columns([1.9, 1], gap="small")
@@ -314,6 +312,7 @@ if st.session_state.page == "⚽ Wedstrijden":
                         "Pronostiek",
                         ["1", "X", "2"],
                         key=pred_key,
+                        default=get_prediction(match_id),
                         label_visibility="collapsed",
                         on_change=prediction_changed,
                         args=(match_id,),
