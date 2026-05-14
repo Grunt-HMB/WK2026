@@ -17,99 +17,96 @@ st.set_page_config(
 USER_ID = "Tom"
 
 # =========================================================
-# CSS - Geoptimaliseerde Rij-Layout & Menu-Fix
+# CSS - De definitieve "One-Row" Fix
 # =========================================================
 
 st.markdown("""
 <style>
-/* Algemene Container */
 .block-container {
     max-width: 720px;
-    padding-top: 0 !important;
-    padding-left: 0.25rem !important;
-    padding-right: 0.25rem !important;
-    padding-bottom: 5rem !important;
+    padding: 0 0.3rem 5rem 0.3rem !important;
 }
 
-section[data-testid="stSidebar"] {
-    display: none;
-}
+section[data-testid="stSidebar"] { display: none; }
 
-/* Vaste Top Bar */
+/* Top Bar */
 .st-key-top_bar {
     position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    right: 0 !important;
-    z-index: 999999 !important;
-    background: #0e1117 !important;
-    padding: 0.3rem 0.4rem !important;
+    top: 0; left: 0; right: 0;
+    z-index: 999999;
+    background: #0e1117;
+    padding: 0.3rem 0.5rem;
     border-bottom: 1px solid rgba(255,255,255,0.1);
 }
 
-.top-spacer {
-    height: 175px;
-}
+.top-spacer { height: 175px; }
 
-/* Radio Menu Cirkels Verbergen */
-[data-testid="stMarkdownContainer"] p { margin-bottom: 0; }
-
-.st-key-menu_keuze div[data-testid="stWidgetLabel"] { display: none; }
-
+/* Menu Styling */
 .st-key-menu_keuze div[role="radiogroup"] {
     display: flex !important;
-    justify-content: space-around !important;
-    gap: 0 !important;
-}
-
-/* Verberg de radio-input cirkels volledig */
-.st-key-menu_keuze label[data-baseweb="radio"] div:first-child {
-    display: none !important;
+    justify-content: space-between !important;
 }
 
 .st-key-menu_keuze label {
     background: rgba(255,255,255,0.05) !important;
     border-radius: 8px !important;
-    padding: 4px 8px !important;
-    margin: 2px !important;
+    padding: 5px 10px !important;
 }
 
-/* FORCEER HORIZONTALE KOLOMMEN */
-[data-testid="stHorizontalBlock"] {
-    display: flex !important;
-    flex-direction: row !important;
-    flex-wrap: nowrap !important;
-    align-items: center !important;
-    width: 100% !important;
-}
+.st-key-menu_keuze label div:first-child { display: none !important; }
 
-/* Match Card Styling */
+/* Match Card Container */
 [class*="st-key-match_card_"] {
     background: #111827;
     border: 1px solid rgba(255,255,255,0.1);
     border-radius: 10px;
-    padding: 0.4rem !important;
+    padding: 0.5rem !important;
     margin-bottom: 0.3rem;
 }
 
-/* Tekst grootte finetuning */
-[class*="st-key-match_card_"] p {
-    font-size: 0.72rem !important;
-    line-height: 1.1 !important;
-    white-space: nowrap !important;
-    letter-spacing: -0.02em;
+/* Flexbox Row voor de wedstrijd */
+.match-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 5px;
 }
 
-/* Maak Segmented Control nog compacter */
+.match-date {
+    min-width: 45px;
+    font-size: 0.7rem;
+    color: #9ca3af;
+    line-height: 1.2;
+}
+
+.match-teams {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.team-line {
+    font-size: 0.8rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Segmented control klein houden */
 [class*="st-key-match_card_"] div[data-testid="stSegmentedControl"] {
-    width: auto !important;
+    min-width: 100px;
 }
 
 [class*="st-key-match_card_"] div[data-testid="stSegmentedControl"] button {
-    min-width: 28px !important;
-    width: 28px !important;
-    height: 26px !important;
-    font-size: 0.65rem !important;
+    min-width: 32px !important;
+    height: 28px !important;
+    font-size: 0.7rem !important;
     padding: 0 !important;
 }
 
@@ -137,20 +134,17 @@ def compact_date(value):
 
 def get_existing_prediction(match_id):
     data = st.session_state.local_predictions.get(str(match_id), "X")
-    if isinstance(data, dict):
-        return data.get("prediction", "X")
-    return str(data).upper()
+    return data.get("prediction", "X") if isinstance(data, dict) else str(data).upper()
 
 def prediction_changed(match_id):
     key = f"pred_{match_id}"
     st.session_state.local_predictions[str(match_id)] = {
         "prediction": st.session_state.get(key, "X"),
-        "score1": "",
-        "score2": "",
+        "score1": "", "score2": "",
     }
 
 # =========================================================
-# DATA & SESSION
+# DATA
 # =========================================================
 
 if "local_predictions" not in st.session_state:
@@ -168,8 +162,7 @@ if "loaded" not in st.session_state:
         if mid:
             st.session_state.local_predictions[mid] = {
                 "prediction": str(row.get("prediction", "X")).upper(),
-                "score1": row.get("score1", ""),
-                "score2": row.get("score2", ""),
+                "score1": row.get("score1", ""), "score2": row.get("score2", ""),
             }
     st.session_state.loaded = True
 
@@ -178,7 +171,7 @@ if "loaded" not in st.session_state:
 # =========================================================
 
 with st.container(key="top_bar"):
-    st.info("Keuzes zijn lokaal bewaard.", icon="💾")
+    st.info("Lokaal bewaard. Klik op OPSLAAN.", icon="💾")
     if st.button("OPSLAAN", use_container_width=True, type="primary"):
         saved = batch_save_predictions(USER_ID, st.session_state.local_predictions, "concept")
         st.cache_data.clear()
@@ -196,26 +189,30 @@ if st.session_state.menu_keuze == "⚽ Wedstr.":
     
     for _, match in df.iterrows():
         mid = str(match.get("match_id", ""))
-        t1 = f"{country_flag(match.get('team1_code'))} {match.get('team1')}"
-        t2 = f"{country_flag(match.get('team2_code'))} {match.get('team2')}"
-        
         key = f"pred_{mid}"
         if key not in st.session_state:
             st.session_state[key] = get_existing_prediction(mid)
 
+        # We gebruiken een combinatie van HTML (voor de rij-flow) en Streamlit (voor de knoppen)
         with st.container(key=f"match_card_{mid}"):
-            # Kolomverhouding aangepast voor maximale ruimte voor de teams
-            c1, c2, c3 = st.columns([0.5, 1.8, 0.9])
+            # We maken 2 kolommen: Links de info (HTML), Rechts de knoppen (Streamlit)
+            # Dit is de enige manier om overlap te voorkomen op mobiel
+            col_info, col_pred = st.columns([2.2, 1.0], gap="small")
             
-            with c1:
-                st.markdown(f"**{compact_date(match.get('datum'))}**\n\n{normalize_time(match.get('tijd'))}")
+            with col_info:
+                st.markdown(f"""
+                <div class="match-row">
+                    <div class="match-date">
+                        <b>{compact_date(match.get('datum'))}</b><br>{normalize_time(match.get('tijd'))}
+                    </div>
+                    <div class="match-teams">
+                        <div class="team-line">{country_flag(match.get('team1_code'))} {match.get('team1')}</div>
+                        <div class="team-line">{country_flag(match.get('team2_code'))} {match.get('team2')}</div>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
             
-            with c2:
-                # Teams onder elkaar binnen de middelste kolom
-                st.markdown(f"{t1}\n\n{t2}")
-            
-            with c3:
-                # De voorspelling aan de rechterkant
+            with col_pred:
                 st.segmented_control(
                     "P", ["1", "X", "2"],
                     key=key,
@@ -225,7 +222,5 @@ if st.session_state.menu_keuze == "⚽ Wedstr.":
                 )
 
 elif st.session_state.menu_keuze == "👤 Mijn":
-    st.subheader("Mijn keuzes")
-    # Simpele lijst voor controle
-    for mid, data in st.session_state.local_predictions.items():
-        st.write(f"Match {mid}: {data.get('prediction')}")
+    st.subheader("Mijn Keuzes")
+    st.write(st.session_state.local_predictions)
