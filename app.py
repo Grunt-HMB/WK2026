@@ -17,7 +17,7 @@ st.set_page_config(
 USER_ID = "Tom"
 
 # =========================================================
-# CSS - Forceert 1 rij op mobiel
+# CSS - Geoptimaliseerde Rij-Layout & Menu-Fix
 # =========================================================
 
 st.markdown("""
@@ -26,8 +26,8 @@ st.markdown("""
 .block-container {
     max-width: 720px;
     padding-top: 0 !important;
-    padding-left: 0.3rem !important;
-    padding-right: 0.3rem !important;
+    padding-left: 0.25rem !important;
+    padding-right: 0.25rem !important;
     padding-bottom: 5rem !important;
 }
 
@@ -43,60 +43,73 @@ section[data-testid="stSidebar"] {
     right: 0 !important;
     z-index: 999999 !important;
     background: #0e1117 !important;
-    padding: 0.4rem 0.5rem !important;
+    padding: 0.3rem 0.4rem !important;
     border-bottom: 1px solid rgba(255,255,255,0.1);
 }
 
 .top-spacer {
-    height: 180px;
+    height: 175px;
 }
 
-/* Knoppen en Radio */
-.st-key-top_bar button {
-    height: 38px !important;
-    border-radius: 8px !important;
-}
+/* Radio Menu Cirkels Verbergen */
+[data-testid="stMarkdownContainer"] p { margin-bottom: 0; }
+
+.st-key-menu_keuze div[data-testid="stWidgetLabel"] { display: none; }
 
 .st-key-menu_keuze div[role="radiogroup"] {
     display: flex !important;
-    justify-content: space-between !important;
+    justify-content: space-around !important;
+    gap: 0 !important;
+}
+
+/* Verberg de radio-input cirkels volledig */
+.st-key-menu_keuze label[data-baseweb="radio"] div:first-child {
+    display: none !important;
 }
 
 .st-key-menu_keuze label {
-    padding: 2px !important;
+    background: rgba(255,255,255,0.05) !important;
+    border-radius: 8px !important;
+    padding: 4px 8px !important;
+    margin: 2px !important;
 }
 
-/* FORCEER HORIZONTALE KOLOMMEN OP MOBIEL */
+/* FORCEER HORIZONTALE KOLOMMEN */
 [data-testid="stHorizontalBlock"] {
     display: flex !important;
     flex-direction: row !important;
     flex-wrap: nowrap !important;
     align-items: center !important;
-    gap: 0.3rem !important;
+    width: 100% !important;
 }
 
 /* Match Card Styling */
 [class*="st-key-match_card_"] {
     background: #111827;
     border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 12px;
-    padding: 0.4rem 0.5rem !important;
-    margin-bottom: 0.4rem;
+    border-radius: 10px;
+    padding: 0.4rem !important;
+    margin-bottom: 0.3rem;
 }
 
-/* Tekst grootte en witruimte */
+/* Tekst grootte finetuning */
 [class*="st-key-match_card_"] p {
-    font-size: 0.78rem !important;
-    margin: 0 !important;
-    line-height: 1.2 !important;
+    font-size: 0.72rem !important;
+    line-height: 1.1 !important;
     white-space: nowrap !important;
+    letter-spacing: -0.02em;
 }
 
-/* Maak Segmented Control compacter */
+/* Maak Segmented Control nog compacter */
+[class*="st-key-match_card_"] div[data-testid="stSegmentedControl"] {
+    width: auto !important;
+}
+
 [class*="st-key-match_card_"] div[data-testid="stSegmentedControl"] button {
-    min-width: 32px !important;
-    height: 28px !important;
-    font-size: 0.7rem !important;
+    min-width: 28px !important;
+    width: 28px !important;
+    height: 26px !important;
+    font-size: 0.65rem !important;
     padding: 0 !important;
 }
 
@@ -191,17 +204,18 @@ if st.session_state.menu_keuze == "⚽ Wedstr.":
             st.session_state[key] = get_existing_prediction(mid)
 
         with st.container(key=f"match_card_{mid}"):
-            # We gebruiken hier st.columns maar de CSS hierboven dwingt ze horizontaal
-            c1, c2, c3 = st.columns([0.6, 1.8, 1.1], gap="small")
+            # Kolomverhouding aangepast voor maximale ruimte voor de teams
+            c1, c2, c3 = st.columns([0.5, 1.8, 0.9])
             
             with c1:
                 st.markdown(f"**{compact_date(match.get('datum'))}**\n\n{normalize_time(match.get('tijd'))}")
             
             with c2:
-                # Landen onder elkaar voor leesbaarheid binnen de rij
+                # Teams onder elkaar binnen de middelste kolom
                 st.markdown(f"{t1}\n\n{t2}")
             
             with c3:
+                # De voorspelling aan de rechterkant
                 st.segmented_control(
                     "P", ["1", "X", "2"],
                     key=key,
@@ -212,4 +226,6 @@ if st.session_state.menu_keuze == "⚽ Wedstr.":
 
 elif st.session_state.menu_keuze == "👤 Mijn":
     st.subheader("Mijn keuzes")
-    st.json(st.session_state.local_predictions)
+    # Simpele lijst voor controle
+    for mid, data in st.session_state.local_predictions.items():
+        st.write(f"Match {mid}: {data.get('prediction')}")
