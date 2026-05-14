@@ -94,16 +94,25 @@ section[data-testid="stSidebar"] {
     margin-bottom: 0.55rem;
 }
 
-.match-line {
-    font-size: 0.82rem;
-    line-height: 1.35;
-    font-weight: 800;
-}
-
 .match-meta {
     color: #cbd5e1;
     font-size: 0.72rem;
     margin-bottom: 0.25rem;
+}
+
+.match-line {
+    font-size: 0.88rem;
+    line-height: 1.28;
+    font-weight: 800;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.match-vs {
+    font-size: 0.66rem;
+    color: #9ca3af;
+    margin: 0.04rem 0;
 }
 
 .match-card div[data-testid="stSegmentedControl"] button {
@@ -270,7 +279,13 @@ if st.session_state.menu_keuze == "⚽ Wedstr.":
                     <b>{datum}</b> &nbsp; {tijd} &nbsp; 🟢
                 </div>
                 <div class="match-line">
-                    {country_flag(team1_code)} {team1} vs {country_flag(team2_code)} {team2}
+                    {country_flag(team1_code)} {team1}
+                </div>
+                <div class="match-vs">
+                    vs
+                </div>
+                <div class="match-line">
+                    {country_flag(team2_code)} {team2}
                 </div>
                 """,
                 unsafe_allow_html=True,
