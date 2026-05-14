@@ -6,10 +6,6 @@ POINTS_RESULT = 1
 POINTS_EXACT_SCORE = 3
 
 
-def normalize_id(value):
-    return str(value or "").strip()
-
-
 def to_int_or_none(value):
     try:
         txt = str(value or "").strip()
@@ -47,20 +43,12 @@ def ensure_columns(df, columns):
 
 
 def build_scoreboard(users_df, predictions_df, results_df):
-    users_df = ensure_columns(
-        users_df,
-        ["user_id", "naam", "team_name"],
-    )
-
+    users_df = ensure_columns(users_df, ["user_id", "naam", "team_name"])
     predictions_df = ensure_columns(
         predictions_df,
         ["user_id", "match_id", "prediction", "score1", "score2"],
     )
-
-    results_df = ensure_columns(
-        results_df,
-        ["match_id", "real_team1", "real_team2"],
-    )
+    results_df = ensure_columns(results_df, ["match_id", "real_team1", "real_team2"])
 
     if predictions_df.empty or results_df.empty:
         return pd.DataFrame()
@@ -141,7 +129,7 @@ def build_scoreboard(users_df, predictions_df, results_df):
 
     summary["positie"] = range(1, len(summary) + 1)
 
-    summary = summary[
+    return summary[
         [
             "positie",
             "naam",
@@ -152,8 +140,6 @@ def build_scoreboard(users_df, predictions_df, results_df):
             "punten",
         ]
     ]
-
-    return summary
 
 
 def show_scoreboard(users_df, predictions_df, results_df):
