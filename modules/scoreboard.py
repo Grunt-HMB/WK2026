@@ -1,9 +1,11 @@
 import pandas as pd
 import streamlit as st
 
+from modules.knockout_engine import calculate_group_standings
 
-POINTS_RESULT = 1
-POINTS_EXACT_SCORE = 3
+
+POINTS_RESULT = 3
+POINTS_GROUP_POSITION = 5
 
 
 def to_int_or_none(value):
@@ -32,7 +34,25 @@ def result_from_score(score1, score2):
     return "X"
 
 
+def prediction_to_score(prediction):
+    prediction = str(prediction or "").upper().strip()
+
+    if prediction == "1":
+        return "1", "0"
+
+    if prediction == "X":
+        return "0", "0"
+
+    if prediction == "2":
+        return "0", "1"
+
+    return "", ""
+
+
 def ensure_columns(df, columns):
+    if df is None:
+        df = pd.DataFrame()
+
     df = df.copy()
 
     for col in columns:
@@ -42,20 +62,31 @@ def ensure_columns(df, columns):
     return df
 
 
-def build_scoreboard(users_df, predictions_df, results_df):
-    users_df = ensure_columns(users_df, ["user_id", "naam", "team_name"])
+def build_match_points(predictions_df, results_df):
     predictions_df = ensure_columns(
         predictions_df,
-        ["user_id", "match_id", "prediction", "score1", "score2"],
+        ["user_id", "match_id", "prediction"],
     )
-    results_df = ensure_columns(results_df, ["match_id", "real_team1", "real_team2"])
+
+    results_df = ensure_columns(
+        results_df,
+        ["match_id", "real_team1", "real_team2"],
+    )
 
     if predictions_df.empty or results_df.empty:
-        return pd.DataFrame()
+        return pd.DataFrame(
+            columns=[
+                "user_id",
+                "gespeeld",
+                "juiste_resultaten",
+                "punten_resultaat",
+            ]
+        )
 
-    users_df["user_id"] = users_df["user_id"].astype(str).str.strip()
     predictions_df["user_id"] = predictions_df["user_id"].astype(str).str.strip()
     predictions_df["match_id"] = predictions_df["match_id"].astype(str).str.strip()
+    predictions_df["prediction"] = predictions_df["prediction"].astype(str).str.upper().str.strip()
+
     results_df["match_id"] = results_df["match_id"].astype(str).str.strip()
 
     results_df["official_result"] = results_df.apply(
@@ -71,59 +102,246 @@ def build_scoreboard(users_df, predictions_df, results_df):
     ].copy()
 
     if results_df.empty:
-        return pd.DataFrame()
+        return pd.DataFrame(
+            columns=[
+                "user_id",
+                "gespeeld",
+                "juiste_resultaten",
+                "punten_resultaat",
+            ]
+        )
 
     merged = predictions_df.merge(
-        results_df[["match_id", "real_team1", "real_team2", "official_result"]],
+        results_df[["match_id", "official_result"]],
         on="match_id",
         how="inner",
     )
 
     if merged.empty:
+        return pd.DataFrame(
+            columns=[
+                "user_id",
+                "gespeeld",
+                "juiste_resultaten",
+                "punten_resultaat",
+            ]
+        )
+
+    merged["correct_result"] = merged["prediction"] == merged["official_result"]
+    merged["punten_resultaat"] = merged["correct_result"].astype(int) * POINTS_RESULT
+
+    return merged.groupby("user_id", as_index=False).agg(
+        gespeeld=("match_id", "count"),
+        juiste_resultaten=("correct_result", "sum"),
+        punten_resultaat=("punten_resultaat", "sum"),
+    )
+
+
+def build_predicted_group_standings_for_user(matches_df, user_predictions_df):
+    if matches_df is None or matches_df.empty:
         return pd.DataFrame()
 
-    merged["prediction"] = merged["prediction"].astype(str).str.upper().str.strip()
+    predicted_matches = matches_df.copy()
 
-    merged["punten_resultaat"] = merged.apply(
-        lambda row: POINTS_RESULT
-        if row.get("prediction", "") == row.get("official_result", "")
-        else 0,
-        axis=1,
+    for col in ["score1", "score2"]:
+        if col not in predicted_matches.columns:
+            predicted_matches[col] = ""
+
+        predicted_matches[col] = predicted_matches[col].astype("object")
+        predicted_matches[col] = ""
+
+    prediction_map = {}
+
+    if user_predictions_df is not None and not user_predictions_df.empty:
+        for _, row in user_predictions_df.iterrows():
+            match_id = str(row.get("match_id", "")).strip()
+            prediction = str(row.get("prediction", "")).upper().strip()
+
+            if match_id and prediction in ["1", "X", "2"]:
+                prediction_map[match_id] = prediction
+
+    for idx, row in predicted_matches.iterrows():
+        match_id = str(row.get("match_id", "")).strip()
+        prediction = prediction_map.get(match_id, "")
+
+        score1, score2 = prediction_to_score(prediction)
+
+        predicted_matches.at[idx, "score1"] = score1
+        predicted_matches.at[idx, "score2"] = score2
+
+    return calculate_group_standings(predicted_matches)
+
+
+def build_group_position_points(users_df, predictions_df, matches_df, official_standings_df):
+    users_df = ensure_columns(users_df, ["user_id"])
+    predictions_df = ensure_columns(predictions_df, ["user_id", "match_id", "prediction"])
+    official_standings_df = ensure_columns(
+        official_standings_df,
+        ["groep", "team", "position"],
     )
 
-    merged["punten_exact"] = merged.apply(
-        lambda row: POINTS_EXACT_SCORE
-        if (
-            to_int_or_none(row.get("score1", "")) is not None
-            and to_int_or_none(row.get("score2", "")) is not None
-            and to_int_or_none(row.get("score1", "")) == to_int_or_none(row.get("real_team1", ""))
-            and to_int_or_none(row.get("score2", "")) == to_int_or_none(row.get("real_team2", ""))
+    if (
+        users_df.empty
+        or predictions_df.empty
+        or matches_df is None
+        or matches_df.empty
+        or official_standings_df.empty
+    ):
+        return pd.DataFrame(
+            columns=[
+                "user_id",
+                "juiste_pouleposities",
+                "punten_poulepositie",
+            ]
         )
-        else 0,
-        axis=1,
+
+    users_df["user_id"] = users_df["user_id"].astype(str).str.strip()
+    predictions_df["user_id"] = predictions_df["user_id"].astype(str).str.strip()
+
+    official = official_standings_df.copy()
+    official["groep"] = official["groep"].astype(str).str.strip()
+    official["team"] = official["team"].astype(str).str.strip()
+    official["position"] = official["position"].astype(str).str.strip()
+
+    official = official[
+        (official["groep"] != "")
+        & (official["team"] != "")
+        & (official["position"] != "")
+    ].copy()
+
+    if official.empty:
+        return pd.DataFrame(
+            columns=[
+                "user_id",
+                "juiste_pouleposities",
+                "punten_poulepositie",
+            ]
+        )
+
+    rows = []
+
+    for user_id in users_df["user_id"].tolist():
+        user_predictions = predictions_df[
+            predictions_df["user_id"] == str(user_id)
+        ].copy()
+
+        predicted_standings = build_predicted_group_standings_for_user(
+            matches_df=matches_df,
+            user_predictions_df=user_predictions,
+        )
+
+        if predicted_standings is None or predicted_standings.empty:
+            rows.append({
+                "user_id": str(user_id),
+                "juiste_pouleposities": 0,
+                "punten_poulepositie": 0,
+            })
+            continue
+
+        predicted = predicted_standings.copy()
+
+        if "groep" not in predicted.columns or "team" not in predicted.columns or "position" not in predicted.columns:
+            rows.append({
+                "user_id": str(user_id),
+                "juiste_pouleposities": 0,
+                "punten_poulepositie": 0,
+            })
+            continue
+
+        predicted["groep"] = predicted["groep"].astype(str).str.strip()
+        predicted["team"] = predicted["team"].astype(str).str.strip()
+        predicted["position"] = predicted["position"].astype(str).str.strip()
+
+        compare = predicted[["groep", "team", "position"]].merge(
+            official[["groep", "team", "position"]],
+            on=["groep", "team"],
+            how="inner",
+            suffixes=("_pred", "_official"),
+        )
+
+        if compare.empty:
+            correct_positions = 0
+        else:
+            correct_positions = int(
+                (
+                    compare["position_pred"].astype(str)
+                    == compare["position_official"].astype(str)
+                ).sum()
+            )
+
+        rows.append({
+            "user_id": str(user_id),
+            "juiste_pouleposities": correct_positions,
+            "punten_poulepositie": correct_positions * POINTS_GROUP_POSITION,
+        })
+
+    return pd.DataFrame(rows)
+
+
+def build_scoreboard(users_df, predictions_df, results_df, matches_df, official_standings_df):
+    users_df = ensure_columns(
+        users_df,
+        ["user_id", "naam", "team_name"],
     )
 
-    merged["punten"] = merged["punten_resultaat"] + merged["punten_exact"]
+    users_df["user_id"] = users_df["user_id"].astype(str).str.strip()
 
-    summary = merged.groupby("user_id", as_index=False).agg(
-        gespeeld=("match_id", "count"),
-        juiste_resultaten=("punten_resultaat", lambda s: int((s > 0).sum())),
-        exacte_scores=("punten_exact", lambda s: int((s > 0).sum())),
-        punten=("punten", "sum"),
+    match_points = build_match_points(
+        predictions_df=predictions_df,
+        results_df=results_df,
+    )
+
+    position_points = build_group_position_points(
+        users_df=users_df,
+        predictions_df=predictions_df,
+        matches_df=matches_df,
+        official_standings_df=official_standings_df,
+    )
+
+    summary = users_df[["user_id", "naam", "team_name"]].copy()
+
+    summary = summary.merge(
+        match_points,
+        on="user_id",
+        how="left",
     )
 
     summary = summary.merge(
-        users_df[["user_id", "naam", "team_name"]],
+        position_points,
         on="user_id",
         how="left",
+    )
+
+    for col in [
+        "gespeeld",
+        "juiste_resultaten",
+        "punten_resultaat",
+        "juiste_pouleposities",
+        "punten_poulepositie",
+    ]:
+        if col not in summary.columns:
+            summary[col] = 0
+
+        summary[col] = summary[col].fillna(0).astype(int)
+
+    summary["punten"] = (
+        summary["punten_resultaat"]
+        + summary["punten_poulepositie"]
     )
 
     summary["naam"] = summary["naam"].fillna(summary["user_id"])
     summary["team_name"] = summary["team_name"].fillna("")
 
     summary = summary.sort_values(
-        ["punten", "juiste_resultaten", "exacte_scores", "naam"],
-        ascending=[False, False, False, True],
+        [
+            "punten",
+            "punten_resultaat",
+            "punten_poulepositie",
+            "juiste_resultaten",
+            "juiste_pouleposities",
+            "naam",
+        ],
+        ascending=[False, False, False, False, False, True],
         kind="stable",
     ).reset_index(drop=True)
 
@@ -136,28 +354,32 @@ def build_scoreboard(users_df, predictions_df, results_df):
             "team_name",
             "gespeeld",
             "juiste_resultaten",
-            "exacte_scores",
+            "punten_resultaat",
+            "juiste_pouleposities",
+            "punten_poulepositie",
             "punten",
         ]
     ]
 
 
-def show_scoreboard(users_df, predictions_df, results_df):
-    st.subheader("📊 Algemene standen")
+def show_scoreboard(users_df, predictions_df, results_df, matches_df, official_standings_df):
+    st.subheader("🏆 Scoreboard")
 
     st.caption(
-        f"Puntentelling: {POINTS_RESULT} punt voor juiste 1/X/2, "
-        f"+ {POINTS_EXACT_SCORE} punten voor exacte score."
+        f"Puntentelling: {POINTS_RESULT} punten voor juiste 1/X/2, "
+        f"+ {POINTS_GROUP_POSITION} punten als de juiste ploeg op de juiste plaats staat na de poulefase."
     )
 
     scoreboard_df = build_scoreboard(
         users_df=users_df,
         predictions_df=predictions_df,
         results_df=results_df,
+        matches_df=matches_df,
+        official_standings_df=official_standings_df,
     )
 
     if scoreboard_df.empty:
-        st.info("Nog geen algemene stand beschikbaar. Vul eerst officiële uitslagen in.")
+        st.info("Nog geen scoreboard beschikbaar.")
         return
 
     display_df = scoreboard_df.rename(
@@ -166,14 +388,12 @@ def show_scoreboard(users_df, predictions_df, results_df):
             "naam": "Naam",
             "team_name": "Ploeg",
             "gespeeld": "Wedstr.",
-            "juiste_resultaten": "Juist",
-            "exacte_scores": "Exact",
-            "punten": "Punten",
+            "juiste_resultaten": "Juist 1/X/2",
+            "punten_resultaat": "Ptn 1/X/2",
+            "juiste_pouleposities": "Juiste pos.",
+            "punten_poulepositie": "Ptn pos.",
+            "punten": "Totaal",
         }
     )
 
-    st.dataframe(
-        display_df,
-        use_container_width=True,
-        hide_index=True,
-    )
+    st.table(display_df)
