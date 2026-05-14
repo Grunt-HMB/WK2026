@@ -1,7 +1,5 @@
 import streamlit as st
 import pandas as pd
-import textwrap
-import html
 
 from modules.database import (
     load_matches,
@@ -18,6 +16,10 @@ st.set_page_config(
 
 USER_ID = "Tom"
 
+
+# =========================================================
+# CSS
+# =========================================================
 
 st.markdown("""
 <style>
@@ -98,35 +100,13 @@ section[data-testid="stSidebar"] {
     margin-bottom: 0.55rem;
 }
 
-.match-row {
-    display: grid;
-    grid-template-columns: 54px 1fr;
-    gap: 0.5rem;
-    align-items: center;
-}
-
-.match-date {
-    font-size: 0.72rem;
-    color: #cbd5e1;
-    line-height: 1.18;
-}
-
-.match-teams {
-    min-width: 0;
-    font-size: 0.82rem;
-    font-weight: 800;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.match-status {
-    color: #22c55e;
-    font-weight: 900;
+[class*="st-key-match_card_"] p {
+    margin-bottom: 0 !important;
+    line-height: 1.25 !important;
 }
 
 [class*="st-key-match_card_"] div[data-testid="stSegmentedControl"] {
-    margin-top: 0.45rem !important;
+    margin-top: 0.5rem !important;
 }
 
 [class*="st-key-match_card_"] div[data-testid="stSegmentedControl"] button {
@@ -144,42 +124,13 @@ footer {
     visibility: hidden;
 }
 
-@media (max-width: 430px) {
-    .top-spacer {
-        height: 170px;
-    }
-
-    .block-container {
-        padding-left: 0.3rem !important;
-        padding-right: 0.3rem !important;
-    }
-
-    [class*="st-key-match_card_"] {
-        padding: 0.5rem 0.55rem 0.55rem 0.55rem;
-    }
-
-    .match-row {
-        grid-template-columns: 50px 1fr;
-        gap: 0.45rem;
-    }
-
-    .match-date {
-        font-size: 0.68rem;
-    }
-
-    .match-teams {
-        font-size: 0.78rem;
-    }
-
-    [class*="st-key-match_card_"] div[data-testid="stSegmentedControl"] button {
-        min-width: 48px !important;
-        height: 32px !important;
-    }
-}
-
 </style>
 """, unsafe_allow_html=True)
 
+
+# =========================================================
+# HELPERS
+# =========================================================
 
 def country_flag(code):
     code = str(code or "").strip().upper()
@@ -236,31 +187,9 @@ def prediction_changed(match_id):
     }
 
 
-def render_match_info(datum, tijd, team1, team2, team1_code, team2_code):
-    team1_safe = html.escape(str(team1))
-    team2_safe = html.escape(str(team2))
-
-    html_block = f"""
-<div class="match-row">
-    <div class="match-date">
-        <b>{datum}</b><br>
-        {tijd}<br>
-        <span class="match-status">●</span>
-    </div>
-
-    <div class="match-teams">
-        {country_flag(team1_code)} {team1_safe}
-        <span style="color:#9ca3af;font-weight:600;">vs</span>
-        {country_flag(team2_code)} {team2_safe}
-    </div>
-</div>
-"""
-
-    st.markdown(
-        textwrap.dedent(html_block).strip(),
-        unsafe_allow_html=True,
-    )
-
+# =========================================================
+# SESSION STATE
+# =========================================================
 
 if "menu_keuze" not in st.session_state:
     st.session_state.menu_keuze = "⚽ Wedstr."
@@ -271,6 +200,10 @@ if "local_predictions" not in st.session_state:
 if "loaded_predictions" not in st.session_state:
     st.session_state.loaded_predictions = False
 
+
+# =========================================================
+# DATA
+# =========================================================
 
 @st.cache_data(ttl=60)
 def get_matches_cached():
@@ -286,6 +219,10 @@ matches_df = get_matches_cached()
 predictions_df = get_predictions_cached(USER_ID)
 
 
+# =========================================================
+# LOAD BESTAANDE VOORSPELLINGEN
+# =========================================================
+
 if not st.session_state.loaded_predictions:
 
     if not predictions_df.empty:
@@ -295,6 +232,7 @@ if not st.session_state.loaded_predictions:
             match_id = str(row.get("match_id", "")).strip()
 
             if match_id:
+
                 st.session_state.local_predictions[match_id] = {
                     "prediction": str(row.get("prediction", "")).upper().strip(),
                     "score1": row.get("score1", ""),
@@ -304,11 +242,22 @@ if not st.session_state.loaded_predictions:
     st.session_state.loaded_predictions = True
 
 
+# =========================================================
+# TOP BAR
+# =========================================================
+
 with st.container(key="top_bar"):
 
-    st.info("Lokaal bewaard. Druk OPSLAAN.", icon="💾")
+    st.info(
+        "Lokaal bewaard. Druk OPSLAAN.",
+        icon="💾",
+    )
 
-    if st.button("OPSLAAN", use_container_width=True, type="primary"):
+    if st.button(
+        "OPSLAAN",
+        use_container_width=True,
+        type="primary",
+    ):
 
         saved = batch_save_predictions(
             user_id=USER_ID,
@@ -329,28 +278,51 @@ with st.container(key="top_bar"):
     )
 
 
-st.markdown('<div class="top-spacer"></div>', unsafe_allow_html=True)
+st.markdown(
+    '<div class="top-spacer"></div>',
+    unsafe_allow_html=True,
+)
 
+
+# =========================================================
+# WEDSTRIJDEN
+# =========================================================
 
 if st.session_state.menu_keuze == "⚽ Wedstr.":
 
     wedstrijden = matches_df.copy()
 
     if wedstrijden.empty:
+
         st.warning("Geen wedstrijden gevonden.")
 
     else:
-        wedstrijden["match_id"] = wedstrijden["match_id"].astype(str).str.strip()
+
+        wedstrijden["match_id"] = (
+            wedstrijden["match_id"]
+            .astype(str)
+            .str.strip()
+        )
 
         if "ronde" in wedstrijden.columns:
+
             wedstrijden = wedstrijden[
-                wedstrijden["ronde"].astype(str).str.lower().str.contains("groep", na=False)
+                wedstrijden["ronde"]
+                .astype(str)
+                .str.lower()
+                .str.contains("groep", na=False)
             ].copy()
 
-        sort_cols = [c for c in ["datum", "tijd", "match_id"] if c in wedstrijden.columns]
+        sort_cols = [
+            c for c in ["datum", "tijd", "match_id"]
+            if c in wedstrijden.columns
+        ]
 
         if sort_cols:
-            wedstrijden = wedstrijden.sort_values(sort_cols, kind="stable")
+            wedstrijden = wedstrijden.sort_values(
+                sort_cols,
+                kind="stable",
+            )
 
         for _, match in wedstrijden.iterrows():
 
@@ -368,6 +340,9 @@ if st.session_state.menu_keuze == "⚽ Wedstr.":
             team1_code = str(match.get("team1_code", "")).strip()
             team2_code = str(match.get("team2_code", "")).strip()
 
+            team1_text = f"{country_flag(team1_code)} {team1}"
+            team2_text = f"{country_flag(team2_code)} {team2}"
+
             key = f"pred_{match_id}"
 
             if key not in st.session_state:
@@ -375,14 +350,26 @@ if st.session_state.menu_keuze == "⚽ Wedstr.":
 
             with st.container(key=f"match_card_{match_id}"):
 
-                render_match_info(
-                    datum,
-                    tijd,
-                    team1,
-                    team2,
-                    team1_code,
-                    team2_code,
+                col_date, col_match = st.columns(
+                    [0.6, 2.6],
+                    vertical_alignment="center",
                 )
+
+                with col_date:
+                    st.markdown(
+                        f"""
+**{datum}**  
+{tijd}  
+🟢
+                        """
+                    )
+
+                with col_match:
+                    st.markdown(
+                        f"""
+**{team1_text} vs {team2_text}**
+                        """
+                    )
 
                 st.segmented_control(
                     "Pronostiek",
@@ -394,17 +381,29 @@ if st.session_state.menu_keuze == "⚽ Wedstr.":
                 )
 
 
+# =========================================================
+# STANDEN
+# =========================================================
+
 elif st.session_state.menu_keuze == "📊 Stand":
 
     st.subheader("📊 Standen")
     st.write("Hier komen de groepsstanden.")
 
 
+# =========================================================
+# KO
+# =========================================================
+
 elif st.session_state.menu_keuze == "🏆 KO":
 
     st.subheader("🏆 Knockout")
     st.write("Hier komt het knockoutschema.")
 
+
+# =========================================================
+# MIJN
+# =========================================================
 
 elif st.session_state.menu_keuze == "👤 Mijn":
 
@@ -425,8 +424,11 @@ elif st.session_state.menu_keuze == "👤 Mijn":
         })
 
     if not mijn_rows:
+
         st.info("Nog geen pronostieken gekozen.")
+
     else:
+
         st.dataframe(
             pd.DataFrame(mijn_rows),
             use_container_width=True,
