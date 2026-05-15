@@ -2,82 +2,59 @@ import streamlit as st
 import pandas as pd
 
 def show_pronostiek_scores(user_id):
-    # 1. DATA LADEN (Oplossing voor NameError)
-    from modules.data_loader import get_matches, get_predictions, update_prediction
+    from modules.data_loader import get_matches, get_predictions, save_predictions
     
+    st.title("⚽ Jouw Voorspellingen")
+    st.subheader("Vul je scores in en klik onderaan op opslaan")
+
+    # Data ophalen
     matches_df = get_matches()
     predictions_df = get_predictions(user_id)
-    
-    # Maak een map van bestaande voorspellingen
+
+    # Voorspellingen in een map zetten voor snel opzoeken
     preds_map = {}
     for _, row in predictions_df.iterrows():
         m_id = str(row.get('match_id', ''))
         if m_id:
             preds_map[m_id] = row
 
-    # 2. CSS LAYOUT (Geen wijzigingen nodig, maar hier voor de volledigheid)
-    st.markdown("""
-        <style>
-        [data-testid="column"] { min-width: 0px !important; flex-basis: 0 !important; flex-grow: 1 !important; }
-        .stHorizontalBlock { display: flex !important; flex-direction: row !important; flex-wrap: nowrap !important; align-items: center !important; gap: 0.5rem !important; }
-        div.stButton > button { width: 45px !important; height: 45px !important; padding: 0 !important; font-size: 1.5rem !important; border-radius: 8px !important; }
-        .score-value { background-color: #1e293b; border: 1px solid #3b82f6; border-radius: 8px; color: #60a5fa; font-size: 22px; font-weight: bold; text-align: center; line-height: 45px; height: 45px; width: 100%; }
-        </style>
-    """, unsafe_allow_html=True)
+    # Formulier starten
+    with st.form(key=f"form_{user_id}"):
+        temp_results = {}
 
-    st.title("⚽ Jouw Voorspellingen")
-
-    # 3. MATCHES LOOP
-    for _, match in matches_df.iterrows():
-        m_id = str(match['match_id'])
-        p = preds_map.get(m_id, {})
-
-        # Veilige conversie van score (Oplossing voor ValueError / int('') crash)
-        def safe_int(val):
-            try:
-                if val is None or str(val).strip() == "":
-                    return 0
-                return int(float(val))
-            except (ValueError, TypeError):
-                return 0
-
-        # Initialiseer session state als het leeg is
-        if f"s1_{m_id}" not in st.session_state:
-            st.session_state[f"s1_{m_id}"] = safe_int(p.get('score1', 0))
-        if f"s2_{m_id}" not in st.session_state:
-            st.session_state[f"s2_{m_id}"] = safe_int(p.get('score2', 0))
-
-        st.write(f"**{match['team1']} — {match['team2']}**")
-        
-        # Gebruik kolommen (Oplossing voor UI verspringen op mobiel)
-        cols = st.columns([1, 1.5, 1, 0.3, 1, 1.5, 1])
-        
-        # Team 1 Controls
-        if cols[0].button("−", key=f"min1_{m_id}"):
-            if st.session_state[f"s1_{m_id}"] > 0:
-                st.session_state[f"s1_{m_id}"] -= 1
-                update_prediction(user_id, m_id, st.session_state[f"s1_{m_id}"], st.session_state[f"s2_{m_id}"])
-                st.rerun()
-
-        cols[1].markdown(f"<div class='score-value'>{st.session_state[f's1_{m_id}']}</div>", unsafe_allow_html=True)
-
-        if cols[2].button("+", key=f"plus1_{m_id}"):
-            st.session_state[f"s1_{m_id}"] += 1
-            update_prediction(user_id, m_id, st.session_state[f"s1_{m_id}"], st.session_state[f"s2_{m_id}"])
-            st.rerun()
-
-        # Team 2 Controls
-        if cols[4].button("−", key=f"min2_{m_id}"):
-            if st.session_state[f"s2_{m_id}"] > 0:
-                st.session_state[f"s2_{m_id}"] -= 1
-                update_prediction(user_id, m_id, st.session_state[f"s1_{m_id}"], st.session_state[f"s2_{m_id}"])
-                st.rerun()
-
-        cols[5].markdown(f"<div class='score-value'>{st.session_state[f's2_{m_id}']}</div>", unsafe_allow_html=True)
-
-        if cols[6].button("+", key=f"plus2_{m_id}"):
-            st.session_state[f"s2_{m_id}"] += 1
-            update_prediction(user_id, m_id, st.session_state[f"s1_{m_id}"], st.session_state[f"s2_{m_id}"])
-            st.rerun()
+        for _, match in matches_df.iterrows():
+            m_id = str(match['match_id'])
             
-        st.divider()
+            # Bestaande waarden ophalen (of 0 als er niets is)
+            p = preds_map.get(m_id, {})
+            
+            def safe_int(val):
+                try:
+                    return int(float(val)) if val and str(val).strip() != "" else 0
+                except: return 0
+
+            default_s1 = safe_int(p.get('score1', 0))
+            default_s2 = safe_int(p.get('score2', 0))
+
+            st.write(f"**{match['team1']} — {match['team2']}**")
+            
+            # Gebruik number_input in plaats van buttons om binnen het formulier te blijven
+            col1, col2 = st.columns(2)
+            with col1:
+                s1 = st.number_input(f"Score {match['team1']}", min_value=0, max_value=20, value=default_s1, key=f"s1_{m_id}")
+            with col2:
+                s2 = st.number_input(f"Score {match['team2']}", min_value=0, max_value=20, value=default_s2, key=f"s2_{m_id}")
+            
+            temp_results[m_id] = {'score1': s1, 'score2': s2}
+            st.divider()
+
+        # De verzendknop
+        submit_button = st.form_submit_button(label="💾 Voorspellingen Opslaan", use_container_width=True)
+
+        if submit_button:
+            success = save_predictions(user_id, temp_results)
+            if success:
+                st.success("✅ Je voorspellingen zijn succesvol opgeslagen!")
+                st.rerun()
+            else:
+                st.error("❌ Er ging iets mis bij het opslaan. Probeer het opnieuw.")
