@@ -5,16 +5,55 @@ def show_pronostiek_scores(user_id=None):
 
     st.title("Pronostiek Scores")
 
-    col1, mid, col2 = st.columns([5, 1, 5])
+    st.markdown(
+        """
+        <div style="
+            display:flex;
+            flex-direction:row;
+            align-items:center;
+            justify-content:center;
+            gap:6px;
+            width:100%;
+            flex-wrap:nowrap;
+        ">
+            <div style="
+                background:#1f77b4;
+                color:white;
+                padding:10px 8px;
+                border-radius:8px;
+                width:42%;
+                text-align:center;
+                font-weight:700;
+                font-size:14px;
+                white-space:nowrap;
+            ">
+                Label 1
+            </div>
 
-    with col1:
-        st.info("Label 1")
+            <div style="
+                width:10%;
+                text-align:center;
+                font-size:18px;
+                font-weight:700;
+                white-space:nowrap;
+            ">
+                -*-
+            </div>
 
-    with mid:
-        st.markdown(
-            "<h2 style='text-align:center;'>-*-</h2>",
-            unsafe_allow_html=True
-        )
-
-    with col2:
-        st.success("Label 2")
+            <div style="
+                background:#2ca02c;
+                color:white;
+                padding:10px 8px;
+                border-radius:8px;
+                width:42%;
+                text-align:center;
+                font-weight:700;
+                font-size:14px;
+                white-space:nowrap;
+            ">
+                Label 2
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
