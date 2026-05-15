@@ -4,68 +4,75 @@ from modules.pronostiek_matches import HARDCODED_MATCHES
 
 def show_pronostiek_scores(user_id="Tom"):
 
-    # --- CALLBACK (Houdt de snelheid erin) ---
+    # --- CALLBACK (Directe verwerking) ---
     def change_score(m_id, team, delta):
         m_id = str(m_id)
         f = f"score{team}"
         st.session_state.score_predictions[m_id][f] = max(0, st.session_state.score_predictions[m_id][f] + delta)
         
-        # Bereken direct resultaat
         s1 = st.session_state.score_predictions[m_id]["score1"]
         s2 = st.session_state.score_predictions[m_id]["score2"]
         st.session_state.score_predictions[m_id]["prediction"] = "1" if s1 > s2 else ("2" if s2 > s1 else "X")
 
-    # --- CSS VOOR EXTREEM COMPACTE LAYOUT ---
+    # --- CSS VOOR ONWRIGBARE HORIZONTALE LAYOUT ---
     st.markdown("""
     <style>
     .block-container { padding: 1rem 0.5rem !important; }
     
-    /* Vaste Top Bar */
     .st-key-score_top_bar {
         position: fixed; top: 0; left: 0; right: 0; z-index: 999;
         background: #0e1117; padding: 10px; border-bottom: 1px solid #30363d;
     }
     .top-spacer { height: 70px; }
 
-    /* Wedstrijd Rij */
-    .match-row {
+    /* De Container voor de hele match */
+    .match-box {
         background: #1a202c;
-        border-radius: 8px;
+        border-radius: 10px;
         padding: 8px;
-        margin-bottom: 5px;
+        margin-bottom: 12px;
         border: 1px solid #2d3748;
     }
-    
-    .team-label { font-size: 0.85rem; font-weight: 600; color: white; }
-    .match-meta { font-size: 0.65rem; color: #718096; margin-bottom: 2px; }
 
-    /* Forceer knoppen horizontaal op 1 regel */
-    div[data-testid="column"] {
+    .match-header {
+        font-size: 0.85rem;
+        font-weight: bold;
+        color: white;
+        text-align: center;
+        margin-bottom: 8px;
+    }
+
+    /* Dwing alles op één regel met Flexbox */
+    .flex-row {
         display: flex !important;
         flex-direction: row !important;
+        flex-wrap: nowrap !important;
         align-items: center !important;
-        justify-content: center !important;
+        justify-content: space-evenly !important;
         width: 100% !important;
-        gap: 4px !important;
     }
 
-    /* Maak de knoppen HEEL klein */
-    button[kind="secondary"] {
-        min-width: 30px !important;
-        width: 30px !important;
-        height: 30px !important;
+    /* Maak Streamlit knoppen extreem klein en forceer breedte */
+    div.stButton > button {
+        width: 35px !important;
+        height: 35px !important;
+        min-width: 35px !important;
         padding: 0 !important;
-        margin: 0 !important;
-        line-height: 1 !important;
+        font-size: 18px !important;
+        border-radius: 5px !important;
     }
-    
-    /* Score display tekst */
-    .score-num {
-        font-size: 1.2rem;
-        font-weight: bold;
-        min-width: 20px;
-        text-align: center;
+
+    .score-val {
+        font-size: 1.3rem;
+        font-weight: 900;
         color: #63b3ed;
+        margin: 0 5px;
+    }
+
+    .vs-text {
+        font-size: 0.7rem;
+        color: #718096;
+        font-weight: bold;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -98,8 +105,7 @@ def show_pronostiek_scores(user_id="Tom"):
 
     st.markdown('<div class="top-spacer"></div>', unsafe_allow_html=True)
 
-    # Speeldag selectie heel compact
-    sd = st.radio("Speeldag", ["1", "2", "3"], horizontal=True, label_visibility="collapsed")
+    sd = st.select_slider("Selecteer Speeldag", options=["1", "2", "3"], value="1")
     
     matches = [m for m in HARDCODED_MATCHES if str(m["speeldag"]) == sd]
 
@@ -110,31 +116,40 @@ def show_pronostiek_scores(user_id="Tom"):
         
         d = st.session_state.score_predictions[m_id]
 
-        # De volledige wedstrijd-unit
-        with st.container():
-            st.markdown(f"""
-            <div class="match-row">
-                <div class="match-meta">{m['datum']} • {m['tijd']}</div>
-                <div class="team-label">{m['team1']} - {m['team2']}</div>
-            </div>
-            """, unsafe_allow_html=True)
+        # MATCH KAARTJE
+        st.markdown(f"""
+        <div class="match-box">
+            <div class="match-header">{country_flag(m['team1_code'])} {m['team1']} - {m['team2']} {country_flag(m['team2_code'])}</div>
+        </div>
+        """, unsafe_allow_html=True)
 
-            # Eén enkele rij voor ALLE knoppen (geen losse kolommen meer per team)
-            # Dit dwingt alles op 1 regel op mobiel
-            ctrl = st.columns(1)[0]
-            with ctrl:
-                st.button("−", key=f"m1_{m_id}", on_click=change_score, args=(m_id, 1, -1))
-                st.markdown(f"<span class='score-num'>{d['score1']}</span>", unsafe_allow_html=True)
-                st.button("+", key=f"p1_{m_id}", on_click=change_score, args=(m_id, 1, 1))
-                
-                st.markdown("<span style='margin: 0 10px; font-weight: bold;'>vs</span>", unsafe_allow_html=True)
-                
-                st.button("−", key=f"m2_{m_id}", on_click=change_score, args=(m_id, 2, -1))
-                st.markdown(f"<span class='score-num'>{d['score2']}</span>", unsafe_allow_html=True)
-                st.button("+", key=f"p2_{m_id}", on_click=change_score, args=(m_id, 2, 1))
-                
-                # De voorspelling (1, X of 2) tonen we heel klein aan het einde
-                res_color = "#48bb78" if d['prediction'] != "X" else "#ecc94b"
-                st.markdown(f"<span style='color:{res_color}; font-weight:bold; margin-left:10px;'>{d['prediction']}</span>", unsafe_allow_html=True)
+        # DE REGELEENHEID (We gebruiken één kolom die we via CSS dwingen horizontaal te zijn)
+        # GEEN aparte st.columns meer per element!
+        with st.container():
+            st.markdown('<div class="flex-row">', unsafe_allow_html=True)
+            
+            # Team 1 Controls
+            col1, col2, col3, col_vs, col4, col5, col6 = st.columns([1,1,1,0.5,1,1,1])
+            
+            with col1: st.button("−", key=f"m1_{m_id}", on_click=change_score, args=(m_id, 1, -1))
+            with col2: st.markdown(f"<div class='score-val'>{d['score1']}</div>", unsafe_allow_html=True)
+            with col3: st.button("+", key=f"p1_{m_id}", on_click=change_score, args=(m_id, 1, 1))
+            
+            with col_vs: st.markdown("<div class='vs-text'>VS</div>", unsafe_allow_html=True)
+            
+            with col4: st.button("−", key=f"m2_{m_id}", on_click=change_score, args=(m_id, 2, -1))
+            with col5: st.markdown(f"<div class='score-val'>{d['score2']}</div>", unsafe_allow_html=True)
+            with col6: st.button("+", key=f"p2_{m_id}", on_click=change_score, args=(m_id, 2, 1))
+
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        res_color = "#48bb78" if d['prediction'] != "X" else "#ecc94b"
+        st.markdown(f"<div style='text-align:center; font-size:0.8rem; font-weight:bold; color:{res_color}; margin-bottom:15px;'>Voorspelling: {d['prediction']}</div>", unsafe_allow_html=True)
+        st.divider()
 
     st.markdown("<br><br>", unsafe_allow_html=True)
+
+def country_flag(code):
+    code = str(code or "").strip().upper()
+    if len(code) != 2: return "⚽"
+    return chr(ord(code[0]) + 127397) + chr(ord(code[1]) + 127397)
