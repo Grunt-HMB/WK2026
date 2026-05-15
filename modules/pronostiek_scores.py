@@ -3,93 +3,113 @@ import pandas as pd
 from modules.database import load_matches, load_predictions, batch_save_predictions
 
 def show_pronostiek_scores(user_id="Tom"):
-    # 1. Pagina instellingen voor maximale breedte
-    st.set_page_config(layout="wide")
-
+    # 1. CSS voor mobiele knoppen naast elkaar (Touch-vriendelijk)
     st.markdown("""
-        <style>
-        .block-container { padding-top: 1rem !important; }
-        footer { visibility: hidden; }
-        /* Maak de editor groter voor mobiel gebruik */
-        [data-testid="stDataEditor"] { width: 100% !important; }
-        </style>
+    <style>
+    [data-testid="column"] { flex: 1 1 0% !important; min-width: 0px !important; }
+    .score-label {
+        background: #1e293b; color: #60a5fa; font-size: 1.3rem; font-weight: bold;
+        text-align: center; border: 1px solid #3b82f6; border-radius: 6px;
+        line-height: 40px; height: 40px; margin: 2px 0;
+    }
+    .match-header { font-weight: bold; font-size: 1rem; margin-top: 15px; color: white; }
+    hr { margin: 10px 0 !important; border-top: 1px solid #334155 !important; }
+    </style>
     """, unsafe_allow_html=True)
 
-    # 2. Data laden
+    # Helper om veilig getallen te verwerken
+    def safe_int(val):
+        try:
+            if val is None or val == "": return 0
+            return int(float(val))
+        except: return 0
+
+    # 2. Data laden (Precies zoals in je werkende versie)
     @st.cache_data(ttl=60)
-    def get_ui_data(uid):
+    def get_raw_data(uid):
         m = load_matches()
         p = load_predictions(uid)
-        # Alleen groepsfase
+        # Filter op groepsfase (als kolom bestaat)
         if "ronde" in m.columns:
             m = m[m["ronde"].astype(str).str.lower().str.contains("groep", na=False)]
         return m, p
 
-    matches_df, predictions_df = get_ui_data(user_id)
+    matches_df, predictions_df = get_raw_data(user_id)
 
-    # 3. Data voorbereiden voor de editor
-    # We voegen de huidige voorspellingen samen met de wedstrijden
-    df_editor = matches_df[['match_id', 'datum', 'tijd', 'team1', 'team2']].copy()
-    
-    # Scores toevoegen (koppelen op match_id)
-    preds_map = predictions_df.set_index('match_id')[['score1', 'score2']].to_dict('index')
-    df_editor['Huis'] = df_editor['match_id'].apply(lambda x: int(preds_map.get(x, {}).get('score1', 0)))
-    df_editor['Uit'] = df_editor['match_id'].apply(lambda x: int(preds_map.get(x, {}).get('score2', 0)))
-    
-    # Mooie weergave voor de teams
-    df_editor['Wedstrijd'] = df_editor['team1'] + " vs " + df_editor['team2']
-    
-    # Alleen de kolommen die we willen tonen
-    display_df = df_editor[['datum', 'tijd', 'Wedstrijd', 'Huis', 'Uit', 'match_id']]
-
-    st.title("🏆 Je Pronostiek")
-    st.info("Klik op de scores om ze aan te passen. Klik daarna onderaan op 'Opslaan'.")
-
-    # 4. De Data Editor (De "Magie")
-    edited_df = st.data_editor(
-        display_df,
-        column_config={
-            "match_id": None, # Verberg ID
-            "datum": st.column_config.TextColumn("Datum", disabled=True),
-            "tijd": st.column_config.TextColumn("Tijd", disabled=True),
-            "Wedstrijd": st.column_config.TextColumn("Wedstrijd", disabled=True),
-            "Huis": st.column_config.NumberColumn("Huis", min_value=0, max_value=50, step=1),
-            "Uit": st.column_config.NumberColumn("Uit", min_value=0, max_value=50, step=1),
-        },
-        hide_index=True,
-        use_container_width=True,
-        num_rows="fixed"
-    )
-
-    # 5. Opslaan knop
-    if st.button("💾 ALLES OPSLAAN", type="primary", use_container_width=True):
-        # Omzetten naar het formaat dat jouw database verwacht
-        final_predictions = {}
-        for _, row in edited_df.iterrows():
-            m_id = str(row['match_id'])
-            s1 = int(row['Huis'])
-            s2 = int(row['Uit'])
-            
-            # Bepaal resultaat (1, X, 2)
-            res = "X"
-            if s1 > s2: res = "1"
-            elif s1 < s2: res = "2"
-            
-            final_predictions[m_id] = {
-                "score1": s1,
-                "score2": s2,
-                "prediction": res
-            }
+    # 3. Initialiseer Session State als deze nog niet bestaat
+    if "score_predictions" not in st.session_state:
+        st.session_state.score_predictions = {}
         
-        saved = batch_save_predictions(
-            user_id=user_id,
-            local_predictions=final_predictions,
-            status="concept"
-        )
-        st.success(f"✅ {saved} uitslagen succesvol opgeslagen!")
-        st.cache_data.clear()
-        st.rerun()
+        # Maak een map van bestaande voorspellingen
+        preds_map = predictions_df.set_index('match_id').to_dict('index') if not predictions_df.empty else {}
 
-    if st.button("☰ Terug naar Menu"):
-        st.session_state.main_page = "🏠 Hoofdmenu"
-        st.rerun()
+        for _, row in matches_df.iterrows():
+            m_id = str(row['match_id'])
+            p = preds_map.get(m_id if m_id in preds_map else int(m_id) if m_id.isdigit() else m_id, {})
+            
+            st.session_state.score_predictions[m_id] = {
+                "t1": row['team1'],
+                "t2": row['team2'],
+                "s1": safe_int(p.get('score1', 0)),
+                "s2": safe_int(p.get('score2', 0))
+            }
+
+    # 4. Navigatie & Opslaan
+    st.title("🏆 Je Pronostiek")
+    
+    c_nav1, c_nav2 = st.columns(2)
+    with c_nav1:
+        if st.button("🏠 Menu", use_container_width=True):
+            st.session_state.main_page = "🏠 Hoofdmenu"
+            st.rerun()
+    with c_nav2:
+        if st.button("💾 ALLES OPSLAAN", type="primary", use_container_width=True):
+            final_data = {}
+            for mid, d in st.session_state.score_predictions.items():
+                s1, s2 = d['s1'], d['s2']
+                res = "1" if s1 > s2 else "2" if s1 < s2 else "X"
+                final_data[mid] = {"score1": s1, "score2": s2, "prediction": res}
+            
+            saved = batch_save_predictions(user_id, final_data, status="concept")
+            st.success(f"✅ {saved} uitslagen opgeslagen!")
+            st.cache_data.clear()
+
+    st.divider()
+
+    # 5. De wedstrijd rijen (met st.fragment voor snelheid)
+    @st.fragment
+    def render_match(mid):
+        # We halen de data direct uit de session_state
+        d = st.session_state.score_predictions[mid]
+        
+        st.markdown(f"<div class='match-header'>{d['t1']} vs {d['t2']}</div>", unsafe_allow_html=True)
+        
+        # 6 kolommen: [-] [score] [+]   [-] [score] [+]
+        c1, c2, c3, c4, c5, c6 = st.columns(6)
+        
+        # Team 1 (Huis)
+        if c1.button("−", key=f"m1_{mid}"):
+            st.session_state.score_predictions[mid]['s1'] = max(0, d['s1'] - 1)
+            st.rerun(scope="fragment")
+        c2.markdown(f"<div class='score-label'>{d['s1']}</div>", unsafe_allow_html=True)
+        if c3.button("+", key=f"p1_{mid}"):
+            st.session_state.score_predictions[mid]['s1'] += 1
+            st.rerun(scope="fragment")
+
+        # Team 2 (Uit)
+        if c4.button("−", key=f"m2_{mid}"):
+            st.session_state.score_predictions[mid]['s2'] = max(0, d['s2'] - 1)
+            st.rerun(scope="fragment")
+        c5.markdown(f"<div class='score-label'>{d['s2']}</div>", unsafe_allow_html=True)
+        if c6.button("+", key=f"p2_{mid}"):
+            st.session_state.score_predictions[mid]['s2'] += 1
+            st.rerun(scope="fragment")
+        
+        st.markdown("<hr>", unsafe_allow_html=True)
+
+    # Toon alle wedstrijden uit de session state
+    if not st.session_state.score_predictions:
+        st.warning("Geen wedstrijden gevonden. Druk op Menu en kom terug.")
+    else:
+        for m_id in st.session_state.score_predictions.keys():
+            render_match(m_id)
