@@ -10,58 +10,63 @@ def show_pronostiek_scores(user_id="Tom"):
         if len(code) != 2: return "⚽"
         return chr(ord(code[0]) + 127397) + chr(ord(code[1]) + 127397)
 
-    # --- CSS VOOR DWINGENDE HORIZONTALE LAYOUT ---
+    # --- CSS VOOR ONVERBIDDELIJKE HORIZONTALE LAYOUT ---
     st.markdown("""
     <style>
     .block-container { padding: 1rem 0.5rem !important; }
     
+    /* Top Bar */
     .st-key-score_top_bar {
         position: fixed; top: 0; left: 0; right: 0; z-index: 999;
         background: #0e1117; padding: 10px; border-bottom: 1px solid #30363d;
     }
     .top-spacer { height: 75px; }
 
+    /* Match Container */
     .match-box {
         background: #1a202c;
-        border-radius: 12px;
+        border-radius: 10px;
         padding: 10px;
-        margin-bottom: 15px;
+        margin-bottom: 10px;
         border: 1px solid #2d3748;
     }
 
-    /* FORCEER KOLOMMEN NAAST ELKAAR */
+    /* FORCEER NAAST ELKAAR OP MOBIEL */
+    /* We targeten de specifieke div die Streamlit kolommen bevat */
+    [data-testid="column"] {
+        flex: 1 1 0% !important;
+        min-width: 0 !important;
+    }
+    
     [data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: nowrap !important;
+        align-items: center !important;
+        justify-content: space-between !important;
         gap: 10px !important;
     }
-    
-    [data-testid="column"] {
-        width: 50% !important;
-        flex: 1 1 50% !important;
-        min-width: 120px !important;
-    }
 
-    /* Maak sliders compacter voor mobiel */
-    .stSlider {
-        padding-bottom: 0 !important;
-    }
-    
-    .team-label-mini {
-        font-size: 0.8rem;
+    /* Team labels compact */
+    .team-label-fixed {
+        font-size: 0.75rem;
         font-weight: bold;
         color: white;
-        text-overflow: ellipsis;
+        text-align: center;
         white-space: nowrap;
         overflow: hidden;
-        text-align: center;
-        margin-bottom: -15px;
+        text-overflow: ellipsis;
+        margin-bottom: -10px;
+    }
+
+    /* Verberg labels van de sliders */
+    div[data-testid="stWidgetLabel"] {
+        display: none !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
-    # --- INITIALISATIE ---
+    # --- DATA INITIALISATIE ---
     if "score_predictions" not in st.session_state:
         st.session_state.score_predictions = {}
     
@@ -93,6 +98,7 @@ def show_pronostiek_scores(user_id="Tom"):
 
     st.markdown('<div class="top-spacer"></div>', unsafe_allow_html=True)
 
+    # Speeldag Slider
     sd = st.select_slider("Speeldag", options=["1", "2", "3"], value="1")
     
     matches = [m for m in HARDCODED_MATCHES if str(m["speeldag"]) == sd]
@@ -107,25 +113,20 @@ def show_pronostiek_scores(user_id="Tom"):
 
         with st.container():
             st.markdown(f'<div class="match-box">', unsafe_allow_html=True)
-            st.markdown(f"<div style='font-size:0.65rem; color:#718096; text-align:center; margin-bottom:5px;'>{m['datum']} • {m['tijd']}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='font-size:0.6rem; color:#718096; text-align:center;'>{m['datum']} • {m['tijd']}</div>", unsafe_allow_html=True)
             
-            col_a, col_b = st.columns(2)
+            # De kolommen die we horizontaal dwingen
+            col1, col2 = st.columns(2)
             
-            with col_a:
-                st.markdown(f'<div class="team-label-mini">{country_flag(m["team1_code"])} {m["team1"]}</div>', unsafe_allow_html=True)
-                s1 = st.select_slider(
-                    "s1", options=score_range, value=data['score1'], 
-                    key=f"sl1_{m_id}", label_visibility="hidden"
-                )
+            with col1:
+                st.markdown(f'<div class="team-label-fixed">{country_flag(m["team1_code"])} {m["team1"]}</div>', unsafe_allow_html=True)
+                s1 = st.select_slider("s1", options=score_range, value=data['score1'], key=f"sl1_{m_id}")
 
-            with col_b:
-                st.markdown(f'<div class="team-label-mini">{country_flag(m["team2_code"])} {m["team2"]}</div>', unsafe_allow_html=True)
-                s2 = st.select_slider(
-                    "s2", options=score_range, value=data['score2'], 
-                    key=f"sl2_{m_id}", label_visibility="hidden"
-                )
+            with col2:
+                st.markdown(f'<div class="team-label-fixed">{country_flag(m["team2_code"])} {m["team2"]}</div>', unsafe_allow_html=True)
+                s2 = st.select_slider("s2", options=score_range, value=data['score2'], key=f"sl2_{m_id}")
 
-            # Berekening
+            # Berekening resultaat
             if s1 > s2: res = "1"
             elif s1 < s2: res = "2"
             else: res = "X"
@@ -133,7 +134,7 @@ def show_pronostiek_scores(user_id="Tom"):
             st.session_state.score_predictions[m_id] = {"prediction": res, "score1": s1, "score2": s2}
             
             color = "#48bb78" if res != "X" else "#ecc94b"
-            st.markdown(f"<div style='text-align:center; font-weight:bold; color:{color}; font-size:0.9rem;'>{s1} - {s2} (Gok: {res})</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='text-align:center; font-weight:bold; color:{color}; font-size:0.85rem; margin-top:5px;'>{s1} - {s2} (Gok: {res})</div>", unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown("<br><br>", unsafe_allow_html=True)
