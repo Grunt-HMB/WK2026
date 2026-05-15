@@ -1,6 +1,11 @@
 import streamlit as st
 
+def show_pronostiek_score(user_id=None):
 
+    st.title("TEST 123")
+
+    st.success("ALS JE DIT ZIET IS DIT HET JUISTE BESTAND")
+    
 def show_pronostiek_scores(user_id=None):
 
     st.title("Pronostiek Scores")
