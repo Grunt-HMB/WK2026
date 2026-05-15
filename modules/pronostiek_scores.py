@@ -9,125 +9,81 @@ def show_pronostiek_scores(user_id="Tom"):
         if len(code) != 2: return "⚽"
         return chr(ord(code[0]) + 127397) + chr(ord(code[1]) + 127397)
 
-    # --- CSS VOOR ONWRIGBARE HORIZONTALE RIJEN ---
+    # --- CSS VOOR EXTREEM MINIMALISTISCHE GRID ---
     st.markdown("""
     <style>
-    .block-container { padding: 1rem 0.5rem !important; }
-    
-    .st-key-score_top_bar {
-        position: fixed; top: 0; left: 0; right: 0; z-index: 999;
-        background: #0e1117; padding: 10px; border-bottom: 1px solid #30363d;
-    }
-    .top-spacer { height: 75px; }
+    /* Verwijder alle standaard Streamlit witruimte bovenin */
+    .block-container { padding: 0rem !important; }
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
 
-    .match-box {
-        background: #1a202c;
-        border-radius: 12px;
-        padding: 8px;
-        margin-bottom: 10px;
-        border: 1px solid #2d3748;
-    }
-
-    /* Dwing de kolommen om NAAST elkaar te blijven op mobiel */
-    [data-testid="stHorizontalBlock"] {
-        display: flex !important;
-        flex-direction: row !important;
-        flex-wrap: nowrap !important;
-        align-items: center !important;
-        gap: 5px !important;
+    /* Forceer een grid van 3 kolommen die NOOIT breekt */
+    .row-container {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+        align-items: center;
+        gap: 10px;
+        width: 100%;
+        padding: 20px 10px;
     }
 
-    [data-testid="column"] {
-        flex: 1 !important;
-        min-width: 0 !important; /* Cruciaal: laat kolommen krimpen */
+    .team-cell {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
     }
 
-    /* Stijl voor de teamnaam en vlag */
-    .team-info-mini {
-        font-size: 0.75rem;
+    .vs-cell {
+        font-weight: bold;
+        color: #718096;
+        margin-top: 20px; /* Uitlijning met sliders */
+    }
+
+    .name-label {
+        font-size: 0.9rem;
         font-weight: bold;
         color: white;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        margin-bottom: -5px;
+        margin-bottom: -10px;
     }
 
-    /* Verberg standaard labels van sliders */
+    /* Verberg labels en maak sliders smal */
     div[data-testid="stWidgetLabel"] { display: none !important; }
-
-    /* Maak de slider-widget compacter */
-    .stSlider { margin-top: -10px !important; }
-    
-    .score-summary {
-        text-align: center;
-        font-size: 1rem;
-        font-weight: 900;
-        margin-top: 5px;
-        color: #63b3ed;
-    }
+    .stSlider { width: 100% !important; }
     </style>
     """, unsafe_allow_html=True)
 
-    # --- DATA INITIALISATIE ---
+    # --- DATA ---
     if "score_predictions" not in st.session_state:
         st.session_state.score_predictions = {}
     
-    load_flag = f"loaded_scores_{user_id}"
-    if load_flag not in st.session_state:
-        try:
-            db_preds = load_predictions(user_id)
-            for _, row in db_preds.iterrows():
-                st.session_state.score_predictions[str(row['match_id'])] = {
-                    "prediction": row['prediction'], "score1": int(row['score1']), "score2": int(row['score2'])
-                }
-            st.session_state[load_flag] = True
-        except: pass
+    # We pakken alleen de allereerste wedstrijd uit de lijst
+    m = HARDCODED_MATCHES[0]
+    m_id = str(m["match_id"])
+    
+    if m_id not in st.session_state.score_predictions:
+        st.session_state.score_predictions[m_id] = {"score1": 0, "score2": 0}
+    
+    data = st.session_state.score_predictions[m_id]
 
-    # --- TOP BAR ---
-    with st.container(key="score_top_bar"):
-        c1, c2 = st.columns(2)
-        with c1:
-            if st.button("🏠 Menu", use_container_width=True):
-                st.session_state.main_page = "🏠 Hoofdmenu"
-                st.rerun()
-        with c2:
-            if st.button("💾 OPSLAAN", type="primary", use_container_width=True):
-                batch_save_predictions(user_id, st.session_state.score_predictions, "concept")
-                st.toast("✅ Pronostiek opgeslagen!")
+    # --- DE LAYOUT ---
+    # We gebruiken Streamlit columns maar dwingen ze met de CSS hierboven
+    col1, col_vs, col2 = st.columns([1, 0.2, 1])
 
-    st.markdown('<div class="top-spacer"></div>', unsafe_allow_html=True)
+    with col1:
+        st.markdown(f'<div class="team-cell"><div class="name-label">{country_flag(m["team1_code"])} {m["team1"]}</div></div>', unsafe_allow_html=True)
+        s1 = st.select_slider("s1", options=list(range(11)), value=data['score1'], key="s1")
 
-    sd = st.select_slider("Speeldag", options=["1", "2", "3"], value="1")
-    matches = [m for m in HARDCODED_MATCHES if str(m["speeldag"]) == sd]
+    with col_vs:
+        st.markdown('<div class="vs-cell">VS</div>', unsafe_allow_html=True)
 
-    for m in matches:
-        m_id = str(m["match_id"])
-        if m_id not in st.session_state.score_predictions:
-            st.session_state.score_predictions[m_id] = {"prediction": "X", "score1": 0, "score2": 0}
-        
-        d = st.session_state.score_predictions[m_id]
+    with col2:
+        st.markdown(f'<div class="team-cell"><div class="name-label">{country_flag(m["team2_code"])} {m["team2"]}</div></div>', unsafe_allow_html=True)
+        s2 = st.select_slider("s2", options=list(range(11)), value=data['score2'], key="s2")
 
-        with st.container():
-            st.markdown('<div class="match-box">', unsafe_allow_html=True)
-            
-            # De Rij met twee kolommen die we via CSS dwingen
-            col_left, col_right = st.columns(2)
-            
-            with col_left:
-                st.markdown(f'<div class="team-info-mini">{country_flag(m["team1_code"])} {m["team1"]}</div>', unsafe_allow_html=True)
-                s1 = st.select_slider(f"sl1_{m_id}", options=list(range(11)), value=d['score1'], key=f"s1_{m_id}")
+    # Update state
+    st.session_state.score_predictions[m_id]["score1"] = s1
+    st.session_state.score_predictions[m_id]["score2"] = s2
 
-            with col_right:
-                st.markdown(f'<div class="team-info-mini">{country_flag(m["team2_code"])} {m["team2"]}</div>', unsafe_allow_html=True)
-                s2 = st.select_slider(f"sl2_{m_id}", options=list(range(11)), value=d['score2'], key=f"s2_{m_id}")
-
-            # Resultaat bepaling
-            res = "1" if s1 > s2 else ("2" if s2 > s1 else "X")
-            st.session_state.score_predictions[m_id] = {"prediction": res, "score1": s1, "score2": s2}
-            
-            res_color = "#48bb78" if res != "X" else "#ecc94b"
-            st.markdown(f'<div class="score-summary">{s1} - {s2} <span style="font-size:0.7rem; color:{res_color};">({res})</span></div>', unsafe_allow_html=True)
-            st.markdown('</div>', unsafe_allow_html=True)
-
-    st.markdown("<br><br>", unsafe_allow_html=True)
+    # Grote uitslag weergave onderaan
+    st.markdown(f"<h1 style='text-align: center; color: white;'>{s1} — {s2}</h1>", unsafe_allow_html=True)
