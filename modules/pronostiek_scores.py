@@ -8,7 +8,7 @@ def show_pronostiek_scores(user_id=None):
 
     st.divider()
 
-    col1, col2 = st.columns(3)
+    col1, col2, col3 = st.columns(3)
 
     with col1:
         st.info("Label 1")
