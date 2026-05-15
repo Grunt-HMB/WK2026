@@ -7,97 +7,55 @@ from modules.database import (
 
 def show_pronostiek_scores(user_id="Tom"):
 
+    # --- Helper Functies ---
     def country_flag(code):
         code = str(code or "").strip().upper()
-        if len(code) != 2:
-            return "⚽"
+        if len(code) != 2: return "⚽"
         return chr(ord(code[0]) + 127397) + chr(ord(code[1]) + 127397)
-
-    def format_date(value):
-        txt = str(value or "").strip()
-        parts = txt.split("-")
-        if len(parts) >= 2:
-            return f"{parts[0]}/{parts[1]}"
-        return txt
-
-    def format_time(value):
-        txt = str(value or "").strip()
-        if txt.count(":") >= 2:
-            return ":".join(txt.split(":")[:2])
-        return txt
 
     def result_from_score(score1, score2):
         try:
             s1, s2 = int(score1), int(score2)
-        except:
-            return ""
-        if s1 > s2: return "1"
-        if s1 < s2: return "2"
-        return "X"
+            if s1 > s2: return "1"
+            if s1 < s2: return "2"
+            return "X"
+        except: return ""
 
     def default_score_for_prediction(prediction):
-        prediction = str(prediction or "").upper().strip()
-        if prediction == "1": return 1, 0
-        if prediction == "X": return 0, 0
-        if prediction == "2": return 0, 1
+        p = str(prediction or "").upper().strip()
+        if p == "1": return 1, 0
+        if p == "X": return 0, 0
+        if p == "2": return 0, 1
         return 0, 0
 
     def ensure_match_prediction(match_id):
-        match_id = str(match_id)
-        if match_id not in st.session_state.score_predictions:
-            st.session_state.score_predictions[match_id] = {
-                "prediction": "", "score1": "", "score2": "",
+        if str(match_id) not in st.session_state.score_predictions:
+            st.session_state.score_predictions[str(match_id)] = {
+                "prediction": "", "score1": "", "score2": ""
             }
-
-    def get_prediction_data(match_id):
-        ensure_match_prediction(match_id)
-        return st.session_state.score_predictions[str(match_id)]
-
-    def get_score_values(match_id):
-        data = get_prediction_data(match_id)
-        try:
-            s1 = int(float(data.get("score1", 0)))
-            s2 = int(float(data.get("score2", 0)))
-        except:
-            s1, s2 = 0, 0
-        return s1, s2
 
     def set_score(match_id, score1, score2):
         match_id = str(match_id)
-        score1, score2 = max(0, min(int(score1), 50)), max(0, min(int(score2), 50))
-        prediction = result_from_score(score1, score2)
+        s1, s2 = max(0, min(int(score1), 50)), max(0, min(int(score2), 50))
+        pred = result_from_score(s1, s2)
         st.session_state.score_predictions[match_id] = {
-            "prediction": prediction, "score1": score1, "score2": score2,
+            "prediction": pred, "score1": s1, "score2": s2
         }
-        st.session_state[f"score_pred_{match_id}"] = prediction
+        st.session_state[f"score_pred_{match_id}"] = pred
 
     def prediction_changed(match_id):
         key = f"score_pred_{match_id}"
         chosen = st.session_state.get(key)
         if chosen not in ["1", "X", "2"]: return
         
-        data = get_prediction_data(match_id)
-        s1_existing = str(data.get("score1", "")).strip()
-        s2_existing = str(data.get("score2", "")).strip()
-
-        if s1_existing == "" or s2_existing == "":
+        data = st.session_state.score_predictions.get(str(match_id), {})
+        s1_curr = str(data.get("score1", "")).strip()
+        
+        if s1_curr == "" or result_from_score(data.get("score1", 0), data.get("score2", 0)) != chosen:
             s1, s2 = default_score_for_prediction(chosen)
-        else:
-            s1, s2 = get_score_values(match_id)
-            if result_from_score(s1, s2) != chosen:
-                s1, s2 = default_score_for_prediction(chosen)
-        set_score(match_id, s1, s2)
+            set_score(match_id, s1, s2)
 
-    def save_all_predictions():
-        saved = batch_save_predictions(
-            user_id=user_id,
-            local_predictions=st.session_state.score_predictions,
-            status="concept",
-        )
-        st.cache_data.clear()
-        return saved
-
-    # --- Session State Init ---
+    # --- Session State & Data ---
     if "score_predictions" not in st.session_state:
         st.session_state.score_predictions = {}
     
@@ -105,153 +63,157 @@ def show_pronostiek_scores(user_id="Tom"):
     if loaded_key not in st.session_state:
         st.session_state[loaded_key] = False
 
-    # --- CSS VOOR MOBIEL ---
+    # --- CSS VOOR ECHTE MOBIELE WEERGAVE ---
     st.markdown("""
     <style>
-    .block-container { max-width: 820px; padding-top: 0 !important; padding-left: 0.35rem !important; padding-right: 0.35rem !important; }
+    .block-container { max-width: 820px; padding-top: 0 !important; padding-left: 0.2rem !important; padding-right: 0.2rem !important; }
     section[data-testid="stSidebar"] { display: none; }
 
-    /* Fix voor mobiele kolommen: voorkom dat ze stapelen of te breed worden */
-    [data-testid="column"] {
-        min-width: 0 !important;
-        flex: 1 1 auto !important;
-    }
-    
+    /* FORCEER KOLOMMEN NAAST ELKAAR OP MOBIEL (GEEN STACKING) */
     [data-testid="stHorizontalBlock"] {
-        gap: 0.15rem !important;
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
         align-items: center !important;
+        gap: 0.15rem !important;
+    }
+
+    [data-testid="column"] {
+        width: auto !important;
+        min-width: 0px !important;
+        flex-grow: 1 !important;
+    }
+
+    /* Kaart Styling */
+    [class*="st-key-score_match_card_"] {
+        background: #111827;
+        border: 1px solid rgba(255,255,255,0.13);
+        border-radius: 12px;
+        padding: 0.6rem !important;
+        margin-bottom: 0.5rem;
+    }
+
+    .match-teams-onecell {
+        font-size: 0.88rem;
+        font-weight: 800;
+        margin-bottom: 8px;
+        color: white;
+    }
+
+    /* Knoppen en Display compacter */
+    .stButton button {
+        height: 32px !important;
+        min-height: 32px !important;
+        padding: 0px !important;
+        font-weight: 900 !important;
+    }
+
+    .score-display {
+        background: #0b1220;
+        border: 1px solid rgba(255,255,255,0.2);
+        border-radius: 6px;
+        text-align: center;
+        font-weight: 900;
+        height: 32px;
+        line-height: 32px;
+        font-size: 0.95rem;
+        color: white;
+    }
+
+    /* Segmented Control (1 X 2) */
+    div[data-testid="stSegmentedControl"] { min-width: 95px !important; }
+    div[data-testid="stSegmentedControl"] button {
+        height: 32px !important;
+        padding: 0px !important;
+        font-size: 0.75rem !important;
     }
 
     .st-key-score_top_bar {
-        position: fixed !important; top: 0; left: 0; right: 0; z-index: 999999;
-        background: #0e1117; padding: 0.25rem 0.4rem; border-bottom: 1px solid rgba(255,255,255,0.12);
+        position: fixed !important; top: 0; left: 0; right: 0; z-index: 9999;
+        background: #0e1117; padding: 0.4rem; border-bottom: 1px solid rgba(255,255,255,0.1);
     }
-    .top-spacer { height: 60px; }
-
-    /* Kaart styling */
-    [class*="st-key-score_match_card_"] {
-        background: #111827; border: 1px solid rgba(255,255,255,0.13);
-        border-radius: 12px; padding: 0.5rem !important; margin-bottom: 0.4rem;
-    }
-
-    .match-teams-onecell { font-size: 0.85rem; font-weight: 800; margin-bottom: 0.4rem; }
-    
-    /* Score display box */
-    .score-display {
-        width: 100%; height: 28px; line-height: 28px; text-align: center;
-        font-weight: 900; background: #0b1220; border: 1px solid rgba(255,255,255,0.2);
-        border-radius: 6px; font-size: 0.9rem;
-    }
-    .score-sep { text-align: center; font-weight: 900; color: #94a3b8; }
-
-    /* Button styling binnen de kaart */
-    [class*="st-key-score_match_card_"] button {
-        height: 28px !important; min-height: 28px !important;
-        padding: 0 !important; border-radius: 6px !important; line-height: 1 !important;
-    }
-    
-    /* Segmented control compacter */
-    div[data-testid="stSegmentedControl"] button {
-        height: 28px !important; min-width: 32px !important; font-size: 0.75rem !important;
-    }
-
+    .top-spacer { height: 70px; }
     footer { visibility: hidden; }
     </style>
     """, unsafe_allow_html=True)
 
-    # --- Data Laden ---
+    # --- Data laden ---
     @st.cache_data(ttl=60)
-    def get_data(active_user_id):
-        return load_matches(), load_predictions(active_user_id)
+    def get_data(uid): return load_matches(), load_predictions(uid)
 
     matches_df, predictions_df = get_data(user_id)
 
     if not st.session_state[loaded_key]:
         if not predictions_df.empty:
             for _, row in predictions_df.iterrows():
-                m_id = str(row.get("match_id", "")).strip()
-                if m_id:
-                    st.session_state.score_predictions[m_id] = {
-                        "prediction": str(row.get("prediction", "")).upper().strip(),
-                        "score1": row.get("score1", ""),
-                        "score2": row.get("score2", ""),
+                mid = str(row.get("match_id", "")).strip()
+                if mid:
+                    st.session_state.score_predictions[mid] = {
+                        "prediction": str(row.get("prediction", "")).upper(),
+                        "score1": row.get("score1", 0),
+                        "score2": row.get("score2", 0)
                     }
         st.session_state[loaded_key] = True
 
-    # --- Top Bar ---
+    # --- UI Elements ---
     with st.container(key="score_top_bar"):
         c1, c2 = st.columns([1, 1])
         with c1:
-            if st.button("☰ Menu", key="score_back_to_main_menu", use_container_width=True):
-                st.session_state.main_page = "🏠 Hoofdmenu"
-                st.rerun()
+            if st.button("☰ Menu", key="back_btn", use_container_width=True):
+                st.session_state.main_page = "🏠 Hoofdmenu"; st.rerun()
         with c2:
-            if st.button("💾 OPSLAAN", key="score_save_button", use_container_width=True, type="primary"):
-                saved = save_all_predictions()
-                st.toast(f"✅ Opgeslagen: {saved} wedstrijden")
+            if st.button("💾 OPSLAAN", key="save_btn", use_container_width=True, type="primary"):
+                saved = batch_save_predictions(user_id, st.session_state.score_predictions, "concept")
+                st.toast(f"✅ {saved} opgeslagen"); st.cache_data.clear()
 
     st.markdown('<div class="top-spacer"></div>', unsafe_allow_html=True)
 
-    # --- Match Lijst ---
-    wedstrijden = matches_df.copy()
-    if wedstrijden.empty:
-        st.warning("Geen wedstrijden gevonden.")
-        return
-
-    wedstrijden["match_id"] = wedstrijden["match_id"].astype(str).str.strip()
-    if "ronde" in wedstrijden.columns:
-        wedstrijden = wedstrijden[wedstrijden["ronde"].astype(str).str.lower().str.contains("groep", na=False)].copy()
-
-    sort_cols = [c for c in ["datum", "tijd", "match_id"] if c in wedstrijden.columns]
-    if sort_cols:
-        wedstrijden = wedstrijden.sort_values(sort_cols, kind="stable")
-
-    for _, match in wedstrijden.iterrows():
-        m_id = match["match_id"]
-        ensure_match_prediction(m_id)
+    # --- Wedstrijdlijst ---
+    for _, match in matches_df.iterrows():
+        mid = str(match["match_id"]).strip()
+        ensure_match_prediction(mid)
         
-        team1, team2 = str(match.get("team1", "")), str(match.get("team2", ""))
-        t1_c, t2_c = match.get("team1_code", ""), match.get("team2_code", "")
-        
-        pred_key = f"score_pred_{m_id}"
+        # State synchronisatie
+        pred_key = f"score_pred_{mid}"
         if pred_key not in st.session_state:
-            st.session_state[pred_key] = get_prediction_data(m_id).get("prediction")
+            st.session_state[pred_key] = st.session_state.score_predictions[mid]["prediction"]
 
-        s1, s2 = get_score_values(m_id)
+        s1 = st.session_state.score_predictions[mid]["score1"]
+        s2 = st.session_state.score_predictions[mid]["score2"]
 
-        with st.container(key=f"score_match_card_{m_id}"):
-            st.markdown(f"""
-                <div class="match-teams-onecell">
-                    {country_flag(t1_c)} {team1} <span style="color:#64748b;">vs</span> {country_flag(t2_c)} {team2}
-                </div>""", unsafe_allow_html=True)
+        with st.container(key=f"score_match_card_{mid}"):
+            st.markdown(f"""<div class="match-teams-onecell">
+                {country_flag(match.get('team1_code'))} {match['team1']} 
+                <span style="color:#64748b;">vs</span> 
+                {country_flag(match.get('team2_code'))} {match['team2']}
+            </div>""", unsafe_allow_html=True)
 
-            # Aangepaste kolom-verhouding voor mobiel:
-            # 1/X/2 krijgt wat meer ruimte, de score-knoppen staan strak naast elkaar
-            col_p, col_m1, col_s1, col_p1, col_x, col_m2, col_s2, col_p2 = st.columns(
-                [2.2, 0.6, 0.6, 0.6, 0.2, 0.6, 0.6, 0.6]
-            )
-
-            with col_p:
-                st.segmented_control("P", ["1", "X", "2"], key=pred_key, 
-                                     label_visibility="collapsed", on_change=prediction_changed, args=(m_id,))
+            # De cruciale kolom verdeling
+            cols = st.columns([2.6, 0.7, 0.7, 0.7, 0.2, 0.7, 0.7, 0.7])
             
-            with col_m1:
-                if st.button("−", key=f"m1_{m_id}", use_container_width=True):
-                    set_score(m_id, max(s1 - 1, 0), s2); st.rerun()
-            with col_s1:
+            with cols[0]:
+                st.segmented_control("P", ["1", "X", "2"], key=pred_key, 
+                                     label_visibility="collapsed", on_change=prediction_changed, args=(mid,))
+            
+            # Team 1 scores
+            with cols[1]:
+                if st.button("−", key=f"m1_{mid}", use_container_width=True):
+                    set_score(mid, s1-1, s2); st.rerun()
+            with cols[2]:
                 st.markdown(f'<div class="score-display">{s1}</div>', unsafe_allow_html=True)
-            with col_p1:
-                if st.button("+", key=f"p1_{m_id}", use_container_width=True):
-                    set_score(m_id, s1 + 1, s2); st.rerun()
+            with cols[3]:
+                if st.button("+", key=f"p1_{mid}", use_container_width=True):
+                    set_score(mid, s1+1, s2); st.rerun()
 
-            with col_x:
-                st.markdown('<div class="score-sep">-</div>', unsafe_allow_html=True)
+            with cols[4]:
+                st.markdown('<div style="text-align:center; color:#475569;">-</div>', unsafe_allow_html=True)
 
-            with col_m2:
-                if st.button("−", key=f"m2_{m_id}", use_container_width=True):
-                    set_score(m_id, s1, max(s2 - 1, 0)); st.rerun()
-            with col_s2:
+            # Team 2 scores
+            with cols[5]:
+                if st.button("−", key=f"m2_{mid}", use_container_width=True):
+                    set_score(mid, s1, s2-1); st.rerun()
+            with cols[6]:
                 st.markdown(f'<div class="score-display">{s2}</div>', unsafe_allow_html=True)
-            with col_p2:
-                if st.button("+", key=f"p2_{m_id}", use_container_width=True):
-                    set_score(m_id, s1, s2 + 1); st.rerun()
+            with cols[7]:
+                if st.button("+", key=f"p2_{mid}", use_container_width=True):
+                    set_score(mid, s1, s2+1); st.rerun()
