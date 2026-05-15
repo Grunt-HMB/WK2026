@@ -10,7 +10,7 @@ def show_pronostiek_scores(user_id="Tom"):
         if len(code) != 2: return "⚽"
         return chr(ord(code[0]) + 127397) + chr(ord(code[1]) + 127397)
 
-    # --- CSS VOOR PROPERE SLIDERS ---
+    # --- CSS VOOR DWINGENDE HORIZONTALE LAYOUT ---
     st.markdown("""
     <style>
     .block-container { padding: 1rem 0.5rem !important; }
@@ -24,22 +24,39 @@ def show_pronostiek_scores(user_id="Tom"):
     .match-box {
         background: #1a202c;
         border-radius: 12px;
-        padding: 15px;
-        margin-bottom: 20px;
+        padding: 10px;
+        margin-bottom: 15px;
         border: 1px solid #2d3748;
     }
 
-    .team-label {
-        font-size: 1rem;
-        font-weight: bold;
-        color: white;
-        margin-top: 10px;
+    /* FORCEER KOLOMMEN NAAST ELKAAR */
+    [data-testid="stHorizontalBlock"] {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 10px !important;
+    }
+    
+    [data-testid="column"] {
+        width: 50% !important;
+        flex: 1 1 50% !important;
+        min-width: 120px !important;
     }
 
-    /* Maak de slider labels iets subtieler */
-    div[data-testid="stWidgetLabel"] p {
-        font-size: 0.8rem !important;
-        color: #a0aec0 !important;
+    /* Maak sliders compacter voor mobiel */
+    .stSlider {
+        padding-bottom: 0 !important;
+    }
+    
+    .team-label-mini {
+        font-size: 0.8rem;
+        font-weight: bold;
+        color: white;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        overflow: hidden;
+        text-align: center;
+        margin-bottom: -15px;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -76,11 +93,10 @@ def show_pronostiek_scores(user_id="Tom"):
 
     st.markdown('<div class="top-spacer"></div>', unsafe_allow_html=True)
 
-    # Speeldag selectie
-    sd = st.select_slider("Kies Speeldag", options=["1", "2", "3"], value="1")
+    sd = st.select_slider("Speeldag", options=["1", "2", "3"], value="1")
     
     matches = [m for m in HARDCODED_MATCHES if str(m["speeldag"]) == sd]
-    score_range = list(range(11)) # 0 t/m 10
+    score_range = list(range(11))
 
     for m in matches:
         m_id = str(m["match_id"])
@@ -91,25 +107,25 @@ def show_pronostiek_scores(user_id="Tom"):
 
         with st.container():
             st.markdown(f'<div class="match-box">', unsafe_allow_html=True)
-            st.markdown(f"<div style='font-size:0.7rem; color:#718096; text-align:center;'>{m['datum']} • {m['tijd']}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='font-size:0.65rem; color:#718096; text-align:center; margin-bottom:5px;'>{m['datum']} • {m['tijd']}</div>", unsafe_allow_html=True)
             
-            # Slider Team 1
-            s1 = st.select_slider(
-                f"{country_flag(m['team1_code'])} {m['team1']}",
-                options=score_range,
-                value=data['score1'],
-                key=f"sl1_{m_id}"
-            )
+            col_a, col_b = st.columns(2)
+            
+            with col_a:
+                st.markdown(f'<div class="team-label-mini">{country_flag(m["team1_code"])} {m["team1"]}</div>', unsafe_allow_html=True)
+                s1 = st.select_slider(
+                    "s1", options=score_range, value=data['score1'], 
+                    key=f"sl1_{m_id}", label_visibility="hidden"
+                )
 
-            # Slider Team 2
-            s2 = st.select_slider(
-                f"{country_flag(m['team2_code'])} {m['team2']}",
-                options=score_range,
-                value=data['score2'],
-                key=f"sl2_{m_id}"
-            )
+            with col_b:
+                st.markdown(f'<div class="team-label-mini">{country_flag(m["team2_code"])} {m["team2"]}</div>', unsafe_allow_html=True)
+                s2 = st.select_slider(
+                    "s2", options=score_range, value=data['score2'], 
+                    key=f"sl2_{m_id}", label_visibility="hidden"
+                )
 
-            # Berekening resultaat
+            # Berekening
             if s1 > s2: res = "1"
             elif s1 < s2: res = "2"
             else: res = "X"
@@ -117,7 +133,7 @@ def show_pronostiek_scores(user_id="Tom"):
             st.session_state.score_predictions[m_id] = {"prediction": res, "score1": s1, "score2": s2}
             
             color = "#48bb78" if res != "X" else "#ecc94b"
-            st.markdown(f"<div style='text-align:center; font-weight:bold; color:{color}; padding-top:10px;'>Gok: {res} ({s1} - {s2})</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='text-align:center; font-weight:bold; color:{color}; font-size:0.9rem;'>{s1} - {s2} (Gok: {res})</div>", unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown("<br><br>", unsafe_allow_html=True)
