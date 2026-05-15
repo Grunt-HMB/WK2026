@@ -1,10 +1,12 @@
 import streamlit as st
 
-def show_pronostiek_scores(label1="Label 1", label2="Label 2", score="-*-"):
-    st.title("Pronostiek Scores")
+def show_pronostiek_scores(user_id="Gast", team1="Team A", team2="Team B", score="-*-"):
+    """
+    Toont de pronostiek scores in een nette layout.
+    """
+    st.title(f"Pronostiek Scores van {user_id}")
 
-    # 1. Definieer de styling apart (CSS)
-    # Dit houdt je HTML structuur schoon en overzichtelijk
+    # CSS voor een strakke weergave
     css = """
     <style>
         .score-container {
@@ -12,13 +14,15 @@ def show_pronostiek_scores(label1="Label 1", label2="Label 2", score="-*-"):
             flex-direction: row;
             align-items: center;
             justify-content: center;
-            gap: 10px;
+            gap: 12px;
             width: 100%;
+            margin: 20px 0;
         }
-        .team-label {
+        .team-box {
             color: white;
-            padding: 8px 16px;
+            padding: 10px 15px;
             border-radius: 8px;
+            min-width: 100px;
             text-align: center;
             font-weight: 700;
             font-size: 14px;
@@ -26,26 +30,43 @@ def show_pronostiek_scores(label1="Label 1", label2="Label 2", score="-*-"):
         }
         .blue { background: #1f77b4; }
         .green { background: #2ca02c; }
-        .score-divider {
-            font-size: 18px;
-            font-weight: 700;
-            white-space: nowrap;
+        .divider {
+            font-size: 20px;
+            font-weight: 800;
             color: #333;
         }
     </style>
     """
 
-    # 2. De HTML structuur (nu heel kort en leesbaar)
+    # HTML structuur
     html = f"""
     {css}
     <div class="score-container">
-        <div class="team-label blue">{label1}</div>
-        <div class="score-divider">{score}</div>
-        <div class="team-label green">{label2}</div>
+        <div class="team-box blue">{team1}</div>
+        <div class="divider">{score}</div>
+        <div class="team-box green">{team2}</div>
     </div>
     """
 
     st.markdown(html, unsafe_allow_html=True)
 
-# Test de functie
-show_pronostiek_scores("België", "Frankrijk", "2 - 1")
+# --- LOGICA OM DE APP VEILIG UIT TE VOEREN ---
+
+# Stel dat 'user' uit je login-systeem komt
+# We initialiseren 'user' hier even als voorbeeld (haal dit weg als het al elders staat)
+if 'user' not in locals():
+    user = None 
+
+# VEILIGHEIDSCHECK: Alleen uitvoeren als 'user' bestaat en de 'naam' bevat
+if user is not None and isinstance(user, dict) and "naam" in user:
+    show_pronostiek_scores(
+        user_id=user["naam"], 
+        team1="België", 
+        team2="Nederland", 
+        score="2 - 1"
+    )
+else:
+    # Als er niemand is ingelogd, tonen we een algemene versie of een melding
+    st.warning("Meld je aan om je persoonlijke scores te zien.")
+    # Optioneel toch de layout tonen met standaardwaarden:
+    show_pronostiek_scores(user_id="Bezoeker")
