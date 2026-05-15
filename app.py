@@ -1,4 +1,5 @@
 import inspect
+import time
 import streamlit as st
 
 from modules.database import (
@@ -30,6 +31,47 @@ st.set_page_config(
 )
 
 
+# =========================================================
+# SPLASHSCREEN
+# =========================================================
+
+if "splash_done" not in st.session_state:
+    st.session_state.splash_done = False
+
+if not st.session_state.splash_done:
+    splash = st.empty()
+
+    with splash.container():
+        st.markdown("""
+        <div style="
+            height: 75vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        ">
+            <div style="font-size: 4rem;">⚽</div>
+            <div style="font-size: 2rem; font-weight: 900;">
+                WK 2026 Pronostiek
+            </div>
+            <div style="margin-top: 0.6rem; color: #94a3b8;">
+                Laden...
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    time.sleep(1.5)
+
+    st.session_state.splash_done = True
+    splash.empty()
+    st.rerun()
+
+
+# =========================================================
+# DATA
+# =========================================================
+
 @st.cache_data(ttl=60)
 def get_users():
     return load_users()
@@ -57,6 +99,11 @@ def show_scoreboard_safe():
 users_df = get_users()
 cookies = restore_login_from_cookie(users_df)
 
+
+# =========================================================
+# SESSION STATE
+# =========================================================
+
 if "main_page" not in st.session_state:
     st.session_state.main_page = "🏠 Hoofdmenu"
 
@@ -65,6 +112,10 @@ def go_to(page):
     st.session_state.main_page = page
     st.rerun()
 
+
+# =========================================================
+# CSS
+# =========================================================
 
 st.markdown("""
 <style>
@@ -122,10 +173,18 @@ footer {
 """, unsafe_allow_html=True)
 
 
+# =========================================================
+# TOP HOME BUTTON
+# =========================================================
+
 if st.session_state.main_page != "🏠 Hoofdmenu":
     if st.button("☰ Hoofdmenu", use_container_width=True):
         go_to("🏠 Hoofdmenu")
 
+
+# =========================================================
+# HOOFDMENU
+# =========================================================
 
 if st.session_state.main_page == "🏠 Hoofdmenu":
 
@@ -198,13 +257,25 @@ if st.session_state.main_page == "🏠 Hoofdmenu":
             go_to("🏆 Scoreboard")
 
 
+# =========================================================
+# LOGIN
+# =========================================================
+
 elif st.session_state.main_page == "🔐 Inloggen":
     show_login_page(users_df)
 
 
+# =========================================================
+# REGISTER
+# =========================================================
+
 elif st.session_state.main_page == "📝 Registreren":
     show_register_page(users_df)
 
+
+# =========================================================
+# PRONOSTIEK ZONDER SCORES
+# =========================================================
 
 elif st.session_state.main_page == "⚽ Pronostiek":
     user = require_login()
@@ -216,6 +287,10 @@ elif st.session_state.main_page == "⚽ Pronostiek":
         )
 
 
+# =========================================================
+# PRONOSTIEK MET SCORES
+# =========================================================
+
 elif st.session_state.main_page == "🎯 Pronostiek scores":
     user = require_login()
 
@@ -224,6 +299,10 @@ elif st.session_state.main_page == "🎯 Pronostiek scores":
             user_id=user["naam"],
         )
 
+
+# =========================================================
+# POULESTANDEN
+# =========================================================
 
 elif st.session_state.main_page == "📊 Poulestanden":
     user = require_login()
@@ -236,9 +315,17 @@ elif st.session_state.main_page == "📊 Poulestanden":
         )
 
 
+# =========================================================
+# SCOREBOARD
+# =========================================================
+
 elif st.session_state.main_page == "🏆 Scoreboard":
     show_scoreboard_safe()
 
+
+# =========================================================
+# ADMIN UITSLAGEN
+# =========================================================
 
 elif st.session_state.main_page == "🏆 Admin uitslagen":
     user = require_login()
@@ -252,6 +339,10 @@ elif st.session_state.main_page == "🏆 Admin uitslagen":
         else:
             st.error("Geen adminrechten.")
 
+
+# =========================================================
+# PDF
+# =========================================================
 
 elif st.session_state.main_page == "🖨️ Stand uitprinten":
     user = require_login()
