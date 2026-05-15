@@ -1,17 +1,54 @@
-import tkinter as tk
+import streamlit as st
 
-# Venster maken
-root = tk.Tk()
-root.title("Test labels")
-root.geometry("300x150")
 
-# Eerste label
-label1 = tk.Label(root, text="Dit is label 1")
-label1.pack(pady=10)
+def show_pronostiek_scores():
 
-# Tweede label
-label2 = tk.Label(root, text="Dit is label 2")
-label2.pack(pady=10)
+    st.title("Pronostiek Scores")
 
-# Programma starten
-root.mainloop()
+    st.divider()
+
+    st.subheader("Label voorbeeld")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.info("Dit is label 1")
+
+    with col2:
+        st.success("Dit is label 2")
+
+    st.divider()
+
+    st.subheader("Andere voorbeelden")
+
+    st.text("Gewone tekst label")
+    st.write("Label via st.write()")
+
+    st.markdown(
+        """
+        <div style="
+            padding:12px;
+            border-radius:10px;
+            background-color:#1f2937;
+            color:white;
+            margin-bottom:10px;
+        ">
+            Custom label 1
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    st.markdown(
+        """
+        <div style="
+            padding:12px;
+            border-radius:10px;
+            background-color:#065f46;
+            color:white;
+        ">
+            Custom label 2
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
