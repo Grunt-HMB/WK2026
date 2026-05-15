@@ -6,97 +6,114 @@ from modules.database import (
 )
 
 def show_pronostiek_scores(user_id="Tom"):
-    # 1. Schone CSS (alleen voor de score-vakjes en spacing)
+    # 1. Minimale CSS - Alleen voor de score-look, GEEN knop-hacks
     st.markdown("""
     <style>
-    .block-container { padding: 1rem 0.5rem !important; }
-    .stButton button { width: 100%; padding: 0px !important; height: 40px !important; font-weight: bold !important; }
-    .score-label {
-        background: #000; color: #60a5fa; font-size: 1.2rem; font-weight: 900;
-        text-align: center; border-radius: 5px; border: 1px solid #1d4ed8;
-        line-height: 40px; height: 40px;
+    .score-display {
+        background-color: #0e1117;
+        border: 2px solid #3b82f6;
+        border-radius: 8px;
+        color: white;
+        font-size: 22px;
+        font-weight: bold;
+        text-align: center;
+        padding: 5px 0;
+        margin: 2px 0;
     }
-    .match-header { font-size: 0.85rem; font-weight: 700; margin-top: 10px; }
-    hr { margin: 10px 0 !important; opacity: 0.2; }
+    .match-title {
+        font-weight: bold;
+        font-size: 1.1rem;
+        margin-top: 15px;
+        color: #f8fafc;
+    }
+    /* Zorg dat kolommen NOOIT onder elkaar klappen op mobiel */
+    [data-testid="column"] {
+        min-width: 0px !important;
+        flex: 1 1 0% !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-    # 2. Data laden met foutcontrole
+    # 2. Data ophalen (met extra checks voor kolomnamen)
     matches_df, predictions_df = load_matches(), load_predictions(user_id)
 
     if matches_df.empty:
-        st.error("Geen data gevonden in de database. Controleer de tabel 'matches'.")
+        st.error("Geen wedstrijden gevonden in de database.")
         return
 
-    # 3. Session State Initialisatie
+    # 3. Session State vullen
     if "score_predictions" not in st.session_state:
         st.session_state.score_predictions = {}
         
-        # Maak lookup van bestaande voorspellingen
-        preds_map = {str(p['match_id']): p for _, p in predictions_df.iterrows()} if not predictions_df.empty else {}
+        # Maak een simpele dictionary van bestaande voorspellingen
+        preds_dict = {}
+        if not predictions_df.empty:
+            for _, p in predictions_df.iterrows():
+                preds_dict[str(p['match_id'])] = p
 
         for _, m in matches_df.iterrows():
             m_id = str(m['match_id'])
-            # We laden ELKE wedstrijd (we filteren later wel in de UI indien nodig)
-            p_data = preds_map.get(m_id, {})
+            p = preds_dict.get(m_id, {})
             st.session_state.score_predictions[m_id] = {
-                "team1": m['team1'], "team2": m['team2'],
-                "s1": int(p_data.get('score1', 0)),
-                "s2": int(p_data.get('score2', 0))
+                "team1": m.get('team1', 'Onbekend'),
+                "team2": m.get('team2', 'Onbekend'),
+                "s1": int(p.get('score1', 0)) if p.get('score1') else 0,
+                "s2": int(p.get('score2', 0)) if p.get('score2') else 0,
             }
 
-    # 4. TOP NAVIGATIE
-    c_nav1, c_nav2 = st.columns([1, 1])
-    with c_nav1:
-        if st.button("☰ Hoofdmenu"):
+    # 4. Navigatie bovenaan
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("☰ Menu", use_container_width=True):
             st.session_state.main_page = "🏠 Hoofdmenu"
             st.rerun()
-    with c_nav2:
-        if st.button("💾 OPSLAAN", type="primary"):
-            to_save = {mid: {"score1": d['s1'], "score2": d['s2'], 
-                       "prediction": ("1" if d['s1'] > d['s2'] else "2" if d['s1'] < d['s2'] else "X")} 
-                       for mid, d in st.session_state.score_predictions.items()}
-            saved = batch_save_predictions(user_id, to_save, status="concept")
-            st.success(f"✅ {saved} opgeslagen!")
-            st.cache_data.clear()
+    with c2:
+        if st.button("💾 OPSLAAN", type="primary", use_container_width=True):
+            formatted_data = {}
+            for mid, d in st.session_state.score_predictions.items():
+                res = "X"
+                if d['s1'] > d['s2']: res = "1"
+                elif d['s1'] < d['s2']: res = "2"
+                formatted_data[mid] = {"score1": d['s1'], "score2": d['s2'], "prediction": res}
+            
+            saved = batch_save_predictions(user_id, formatted_data, status="concept")
+            st.success(f"Gelukt! {saved} wedstrijden opgeslagen.")
 
     st.divider()
 
-    # 5. DE WEDSTRIJDEN (met st.fragment voor snelheid)
+    # 5. De Wedstrijden (Gebruik st.fragment voor snelheid)
     @st.fragment
-    def render_match(m_id):
+    def match_item(m_id):
         d = st.session_state.score_predictions[m_id]
         
-        # Toon teams boven de knoppen
-        st.markdown(f"<div class='match-header'>{d['team1']} vs {d['team2']}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='match-title'>{d['team1']} - {d['team2']}</div>", unsafe_allow_html=True)
         
-        # Knoppen en score op één regel
-        # We gebruiken 7 smalle kolommen die Streamlit op mobiel meestal nog net naast elkaar houdt
-        col1, col2, col3, col_gap, col4, col5, col6 = st.columns([1, 1.5, 1, 0.2, 1, 1.5, 1])
+        # We gebruiken 6 kolommen: [Minus, Score, Plus] [Minus, Score, Plus]
+        # Door onze CSS blijven deze 6 kolommen ALTIJD op één regel.
+        cols = st.columns(6)
         
-        with col1:
-            if st.button("−", key=f"m1_{m_id}"):
-                st.session_state.score_predictions[m_id]['s1'] = max(0, d['s1'] - 1)
-                st.rerun(scope="fragment")
-        with col2:
-            st.markdown(f"<div class='score-label'>{d['s1']}</div>", unsafe_allow_html=True)
-        with col3:
-            if st.button("+", key=f"p1_{m_id}"):
-                st.session_state.score_predictions[m_id]['s1'] += 1
-                st.rerun(scope="fragment")
+        # Team 1
+        if cols[0].button("−", key=f"m1_{m_id}"):
+            st.session_state.score_predictions[m_id]['s1'] = max(0, d['s1'] - 1)
+            st.rerun(scope="fragment")
+        
+        cols[1].markdown(f"<div class='score-display'>{d['s1']}</div>", unsafe_allow_html=True)
+        
+        if cols[2].button("+", key=f"p1_{m_id}"):
+            st.session_state.score_predictions[m_id]['s1'] += 1
+            st.rerun(scope="fragment")
+            
+        # Team 2
+        if cols[3].button("−", key=f"m2_{m_id}"):
+            st.session_state.score_predictions[m_id]['s2'] = max(0, d['s2'] - 1)
+            st.rerun(scope="fragment")
+            
+        cols[4].markdown(f"<div class='score-display'>{d['s2']}</div>", unsafe_allow_html=True)
+        
+        if cols[5].button("+", key=f"p2_{m_id}"):
+            st.session_state.score_predictions[m_id]['s2'] += 1
+            st.rerun(scope="fragment")
 
-        with col4:
-            if st.button("−", key=f"m2_{m_id}"):
-                st.session_state.score_predictions[m_id]['s2'] = max(0, d['s2'] - 1)
-                st.rerun(scope="fragment")
-        with col5:
-            st.markdown(f"<div class='score-label'>{d['s2']}</div>", unsafe_allow_html=True)
-        with col6:
-            if st.button("+", key=f"p2_{m_id}"):
-                st.session_state.score_predictions[m_id]['s2'] += 1
-                st.rerun(scope="fragment")
-        st.markdown("<hr>", unsafe_allow_html=True)
-
-    # Render alle matchen
+    # Toon alle wedstrijden
     for m_id in st.session_state.score_predictions.keys():
-        render_match(m_id)
+        match_item(m_id)
