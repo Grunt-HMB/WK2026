@@ -149,8 +149,8 @@ def show_pronostiek_scores(user_id="Tom"):
     .block-container {
         max-width: 820px;
         padding-top: 0 !important;
-        padding-left: 0.4rem !important;
-        padding-right: 0.4rem !important;
+        padding-left: 0.35rem !important;
+        padding-right: 0.35rem !important;
         padding-bottom: 5rem !important;
     }
 
@@ -165,7 +165,7 @@ def show_pronostiek_scores(user_id="Tom"):
         right: 0 !important;
         z-index: 999999 !important;
         background: #0e1117 !important;
-        padding: 0.28rem 0.45rem 0.35rem 0.45rem !important;
+        padding: 0.25rem 0.4rem 0.3rem 0.4rem !important;
         border-bottom: 1px solid rgba(255,255,255,0.12);
     }
 
@@ -176,15 +176,15 @@ def show_pronostiek_scores(user_id="Tom"):
     }
 
     .top-spacer {
-        height: 68px;
+        height: 64px;
     }
 
     .st-key-score_save_button button,
     .st-key-score_back_to_main_menu button {
-        min-height: 32px !important;
-        height: 32px !important;
+        min-height: 31px !important;
+        height: 31px !important;
         border-radius: 10px !important;
-        font-size: 0.82rem !important;
+        font-size: 0.8rem !important;
         font-weight: 900 !important;
         padding: 0 !important;
     }
@@ -193,52 +193,64 @@ def show_pronostiek_scores(user_id="Tom"):
         background: #111827;
         border: 1px solid rgba(255,255,255,0.13);
         border-radius: 14px;
-        padding: 0.45rem !important;
-        margin-bottom: 0.42rem;
+        padding: 0.42rem !important;
+        margin-bottom: 0.38rem;
     }
 
     [class*="st-key-score_match_card_"] p {
         margin-bottom: 0 !important;
-        line-height: 1.12 !important;
+        line-height: 1.08 !important;
     }
 
     .match-date-small {
-        font-size: 0.76rem;
+        font-size: 0.74rem;
         color: #cbd5e1;
         line-height: 1.05;
     }
 
     .match-teams-onecell {
-        font-size: 0.9rem;
+        font-size: 0.88rem;
         font-weight: 900;
-        line-height: 1.12;
+        line-height: 1.1;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        margin-bottom: 0.25rem;
+    }
+
+    .score-row {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 0.18rem;
+        margin-top: 0.18rem;
     }
 
     .score-display {
-        text-align:center;
-        font-weight:900;
-        font-size:0.95rem;
-        background:#0b1220;
-        border:1px solid rgba(255,255,255,0.18);
-        border-radius:8px;
-        padding:0.13rem 0;
-        min-height:28px;
+        width: 24px;
+        min-width: 24px;
+        height: 27px;
+        line-height: 27px;
+        text-align: center;
+        font-weight: 900;
+        font-size: 0.9rem;
+        background: #0b1220;
+        border: 1px solid rgba(255,255,255,0.18);
+        border-radius: 7px;
     }
 
     .score-sep {
-        text-align:center;
-        font-weight:900;
-        font-size:1rem;
-        padding-top:0.22rem;
-        color:#cbd5e1;
+        width: 10px;
+        min-width: 10px;
+        text-align: center;
+        font-weight: 900;
+        font-size: 0.9rem;
+        color: #cbd5e1;
     }
 
     [class*="st-key-score_match_card_"] div[data-testid="stHorizontalBlock"] {
         flex-wrap: nowrap !important;
-        gap: 0.18rem !important;
+        gap: 0.12rem !important;
         align-items: center !important;
     }
 
@@ -247,12 +259,15 @@ def show_pronostiek_scores(user_id="Tom"):
     }
 
     [class*="st-key-score_match_card_"] button {
-        min-height: 28px !important;
-        height: 28px !important;
+        min-height: 27px !important;
+        height: 27px !important;
+        min-width: 24px !important;
+        width: 24px !important;
+        max-width: 24px !important;
         padding: 0 !important;
         font-weight: 900 !important;
-        border-radius: 8px !important;
-        font-size: 0.82rem !important;
+        border-radius: 7px !important;
+        font-size: 0.78rem !important;
     }
 
     [class*="st-key-score_match_card_"] div[data-testid="stSegmentedControl"] {
@@ -260,11 +275,12 @@ def show_pronostiek_scores(user_id="Tom"):
     }
 
     [class*="st-key-score_match_card_"] div[data-testid="stSegmentedControl"] button {
-        min-width: 34px !important;
-        width: 34px !important;
-        height: 28px !important;
+        min-width: 30px !important;
+        width: 30px !important;
+        max-width: 30px !important;
+        height: 27px !important;
         padding: 0 !important;
-        font-size: 0.78rem !important;
+        font-size: 0.76rem !important;
         font-weight: 900 !important;
     }
 
@@ -387,7 +403,7 @@ def show_pronostiek_scores(user_id="Tom"):
             )
 
             c_pred, c_m1, c_s1, c_p1, c_sep, c_m2, c_s2, c_p2 = st.columns(
-                [1.25, 0.45, 0.45, 0.45, 0.18, 0.45, 0.45, 0.45],
+                [1.35, 0.28, 0.28, 0.28, 0.12, 0.28, 0.28, 0.28],
                 gap="small",
             )
 
@@ -402,7 +418,7 @@ def show_pronostiek_scores(user_id="Tom"):
                 )
 
             with c_m1:
-                if st.button("−", key=f"minus1_{match_id}", use_container_width=True):
+                if st.button("−", key=f"minus1_{match_id}"):
                     set_score(match_id, max(score1 - 1, 0), score2)
                     st.rerun()
 
@@ -413,7 +429,7 @@ def show_pronostiek_scores(user_id="Tom"):
                 )
 
             with c_p1:
-                if st.button("+", key=f"plus1_{match_id}", use_container_width=True):
+                if st.button("+", key=f"plus1_{match_id}"):
                     set_score(match_id, score1 + 1, score2)
                     st.rerun()
 
@@ -421,7 +437,7 @@ def show_pronostiek_scores(user_id="Tom"):
                 st.markdown('<div class="score-sep">-</div>', unsafe_allow_html=True)
 
             with c_m2:
-                if st.button("−", key=f"minus2_{match_id}", use_container_width=True):
+                if st.button("−", key=f"minus2_{match_id}"):
                     set_score(match_id, score1, max(score2 - 1, 0))
                     st.rerun()
 
@@ -432,6 +448,6 @@ def show_pronostiek_scores(user_id="Tom"):
                 )
 
             with c_p2:
-                if st.button("+", key=f"plus2_{match_id}", use_container_width=True):
+                if st.button("+", key=f"plus2_{match_id}"):
                     set_score(match_id, score1, score2 + 1)
                     st.rerun()
