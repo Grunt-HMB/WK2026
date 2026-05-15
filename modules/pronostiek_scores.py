@@ -29,84 +29,72 @@ def show_pronostiek_scores(user_id="Tom"):
     if loaded_key not in st.session_state:
         st.session_state[loaded_key] = False
 
-    # --- CSS VOOR OPTIMALE MOBIELE LAYOUT ---
+    # --- CSS VOOR EXTREME COMPACTHEID ---
     st.markdown("""
     <style>
-    /* Pagina marges minimaliseren */
-    .block-container { 
-        padding-top: 1rem !important; 
-        padding-left: 0.4rem !important; 
-        padding-right: 0.4rem !important; 
-    }
-
-    /* Kaart styling */
-    .match-card {
-        background: #1e293b;
-        border-radius: 12px;
-        padding: 10px;
-        margin-bottom: 10px;
-        border: 1px solid rgba(255,255,255,0.1);
-    }
-
-    /* Team namen groter op eigen regel */
-    .team-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 10px;
-        font-size: 1rem;
-        font-weight: 800;
-        color: white;
-    }
-
-    /* Forceer de knoppenrij op één lijn */
+    .block-container { padding: 0.5rem !important; }
+    
+    /* Forceer kolommen om NOOIT te groeien of te wrappen */
     [data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: nowrap !important;
-        gap: 4px !important;
-        align-items: center !important;
+        gap: 2px !important;
+        justify-content: flex-start !important;
     }
 
     [data-testid="column"] {
         min-width: 0px !important;
-        flex: 1 1 auto !important;
+        flex-shrink: 1 !important;
     }
 
-    /* Knoppen compacter voor duim-bediening */
+    /* Maak de knoppen exact zo breed als nodig */
     .stButton button {
-        height: 36px !important;
-        min-height: 36px !important;
         padding: 0 !important;
+        min-width: 32px !important;
+        width: 32px !important;
+        height: 32px !important;
         font-size: 1rem !important;
         font-weight: 900 !important;
-        background-color: #334155 !important;
     }
 
-    /* Score getal display */
+    /* De score display box */
     .score-display {
         background: #0f172a;
         border: 1px solid #475569;
-        border-radius: 6px;
+        border-radius: 4px;
         text-align: center;
-        height: 36px;
-        line-height: 36px;
+        width: 32px;
+        height: 32px;
+        line-height: 32px;
         font-weight: 900;
-        font-size: 1.1rem;
-        color: #38bdf8;
+        font-size: 1rem;
+        color: white;
     }
 
-    /* 1-X-2 Segmented control styling */
+    /* Segmented control (1-X-2) smal houden */
+    div[data-testid="stSegmentedControl"] { width: 100px !important; }
     div[data-testid="stSegmentedControl"] button {
-        height: 36px !important;
-        min-width: 35px !important;
+        min-width: 32px !important;
+        width: 32px !important;
+        height: 32px !important;
+        padding: 0 !important;
     }
 
-    .top-bar {
-        position: fixed; top: 0; left: 0; right: 0; z-index: 999;
-        background: #0f172a; padding: 10px; border-bottom: 2px solid #334155;
+    .match-card {
+        background: #1e293b;
+        border-radius: 8px;
+        padding: 8px;
+        margin-bottom: 8px;
     }
-    .spacer { height: 70px; }
+
+    .team-label {
+        font-size: 0.85rem;
+        font-weight: 700;
+        margin-bottom: 4px;
+        white-space: nowrap;
+    }
+    
     footer { visibility: hidden; }
     </style>
     """, unsafe_allow_html=True)
@@ -120,8 +108,7 @@ def show_pronostiek_scores(user_id="Tom"):
             }
         st.session_state[loaded_key] = True
 
-    # --- Top Bar ---
-    st.markdown('<div class="top-bar">', unsafe_allow_html=True)
+    # --- Header ---
     c_menu, c_save = st.columns([1, 1])
     with c_menu:
         if st.button("☰ Menu", use_container_width=True):
@@ -130,9 +117,8 @@ def show_pronostiek_scores(user_id="Tom"):
         if st.button("💾 OPSLAAN", type="primary", use_container_width=True):
             batch_save_predictions(user_id, st.session_state.score_predictions, "concept")
             st.toast("Opgeslagen!")
-    st.markdown('</div><div class="spacer"></div>', unsafe_allow_html=True)
 
-    # --- Wedstrijden ---
+    # --- Wedstrijdlijst ---
     for _, match in m_df.iterrows():
         mid = str(match["match_id"])
         if mid not in st.session_state.score_predictions:
@@ -140,39 +126,32 @@ def show_pronostiek_scores(user_id="Tom"):
         
         s1 = st.session_state.score_predictions[mid]["score1"]
         s2 = st.session_state.score_predictions[mid]["score2"]
-        pred_key = f"score_pred_{mid}"
-
-        # De kaart container
-        st.markdown(f"""
-            <div class="match-card">
-                <div class="team-header">
-                    <span>{country_flag(match.get('team1_code'))} {match['team1']}</span>
-                    <span style="color:#94a3b8; font-size:0.8rem;">VS</span>
-                    <span>{match['team2']} {country_flag(match.get('team2_code'))}</span>
-                </div>
-            """, unsafe_allow_html=True)
-
-        # De knoppenrij (onder de namen, dus volle breedte beschikbaar)
-        cols = st.columns([2.5, 0.8, 0.8, 0.8, 0.2, 0.8, 0.8, 0.8])
         
-        with cols[0]:
-            st.segmented_control("P", ["1", "X", "2"], key=pred_key, label_visibility="collapsed")
-        
-        with cols[1]:
-            if st.button("−", key=f"m1_{mid}", use_container_width=True): set_score(mid, s1-1, s2); st.rerun()
-        with cols[2]:
-            st.markdown(f'<div class="score-display">{s1}</div>', unsafe_allow_html=True)
-        with cols[3]:
-            if st.button("+", key=f"p1_{mid}", use_container_width=True): set_score(mid, s1+1, s2); st.rerun()
+        with st.container():
+            st.markdown(f'<div class="match-card">', unsafe_allow_html=True)
+            st.markdown(f'<div class="team-label">{country_flag(match.get("team1_code"))} {match["team1"]} vs {match["team2"]} {country_flag(match.get("team2_code"))}</div>', unsafe_allow_html=True)
 
-        with cols[4]:
-            st.markdown('<div style="text-align:center; padding-top:4px;">-</div>', unsafe_allow_html=True)
-
-        with cols[5]:
-            if st.button("−", key=f"m2_{mid}", use_container_width=True): set_score(mid, s1, s2-1); st.rerun()
-        with cols[6]:
-            st.markdown(f'<div class="score-display">{s2}</div>', unsafe_allow_html=True)
-        with cols[7]:
-            if st.button("+", key=f"p2_{mid}", use_container_width=True): set_score(mid, s1, s2+1); st.rerun()
+            # We gebruiken nu exact 7 kolommen die we dwingen heel smal te zijn
+            # [1|X|2] [-] [0] [+] [-] [0] [+]
+            cols = st.columns([3, 1, 1, 1, 1, 1, 1])
             
-        st.markdown('</div>', unsafe_allow_html=True)
+            with cols[0]:
+                st.segmented_control("P", ["1", "X", "2"], key=f"score_pred_{mid}", label_visibility="collapsed")
+            
+            # Team 1 scores
+            with cols[1]:
+                if st.button("−", key=f"m1_{mid}"): set_score(mid, s1-1, s2); st.rerun()
+            with cols[2]:
+                st.markdown(f'<div class="score-display">{s1}</div>', unsafe_allow_html=True)
+            with cols[3]:
+                if st.button("+", key=f"p1_{mid}"): set_score(mid, s1+1, s2); st.rerun()
+
+            # Team 2 scores
+            with cols[4]:
+                if st.button("−", key=f"m2_{mid}"): set_score(mid, s1, s2-1); st.rerun()
+            with cols[5]:
+                if st.markdown(f'<div class="score-display">{s2}</div>', unsafe_allow_html=True): pass
+            with cols[6]:
+                if st.button("+", key=f"p2_{mid}"): set_score(mid, s1, s2+1); st.rerun()
+                
+            st.markdown('</div>', unsafe_allow_html=True)
