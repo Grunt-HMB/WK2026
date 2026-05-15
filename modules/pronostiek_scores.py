@@ -85,15 +85,7 @@ HARDCODED_MATCHES = [
 
 def show_pronostiek_scores(user_id="Tom"):
 
-    # =========================================================
-    # HELPERS & CALLBACKS
-    # =========================================================
-
-    def country_flag(code):
-        code = str(code or "").strip().upper()
-        if len(code) != 2: return "⚽"
-        return chr(ord(code[0]) + 127397) + chr(ord(code[1]) + 127397)
-
+    # CALLBACK FUNCTIE
     def update_score_callback(match_id, team_num, delta):
         m_id = str(match_id)
         if m_id not in st.session_state.score_predictions:
@@ -101,10 +93,9 @@ def show_pronostiek_scores(user_id="Tom"):
         
         field = f"score{team_num}"
         curr_val = st.session_state.score_predictions[m_id][field]
-        new_val = max(0, min(int(curr_val) + delta, 50))
-        st.session_state.score_predictions[m_id][field] = new_val
+        st.session_state.score_predictions[m_id][field] = max(0, int(curr_val) + delta)
         
-        # Bereken direct 1-X-2 op basis van scores
+        # Bereken 1-X-2
         s1 = st.session_state.score_predictions[m_id]["score1"]
         s2 = st.session_state.score_predictions[m_id]["score2"]
         if s1 > s2: res = "1"
@@ -112,78 +103,53 @@ def show_pronostiek_scores(user_id="Tom"):
         else: res = "X"
         st.session_state.score_predictions[m_id]["prediction"] = res
 
-    # =========================================================
-    # CSS (MOBIEL FIX)
-    # =========================================================
+    def country_flag(code):
+        code = str(code or "").strip().upper()
+        if len(code) != 2: return "⚽"
+        return chr(ord(code[0]) + 127397) + chr(ord(code[1]) + 127397)
+
+    # CSS VOOR STABIELE MOBIELE LAYOUT
     st.markdown("""
     <style>
-    .block-container { max-width: 820px; padding: 0 0.4rem 5rem 0.4rem !important; }
+    .block-container { padding: 0 0.5rem 5rem 0.5rem !important; }
     
-    /* Forceer horizontale layout voor knoppen op mobiel */
-    [data-testid="stHorizontalBlock"] {
+    /* Forceer horizontale knoppen in de popover */
+    [data-testid="stPopoverBody"] [data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: nowrap !important;
-        align-items: center !important;
         gap: 2px !important;
     }
-    [data-testid="column"] { min-width: 0 !important; flex: 1 1 auto !important; }
-
+    
     .st-key-score_top_bar {
-        position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
-        background: #0e1117; padding: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.1);
+        position: fixed; top: 0; left: 0; right: 0; z-index: 999;
+        background: #0e1117; padding: 0.5rem; border-bottom: 1px solid #30363d;
     }
-    .top-spacer { height: 80px; }
+    .top-spacer { height: 70px; }
 
-    .match-card {
-        background: #111827; border: 1px solid rgba(255,255,255,0.13);
-        border-radius: 12px; padding: 8px 12px; margin-bottom: 8px;
-    }
-    .match-meta { font-size: 0.7rem; color: #94a3b8; }
-    .match-line { font-size: 0.95rem; font-weight: 800; margin-top: 2px; }
+    /* Stijl voor de wedstrijdrijen */
+    .match-info { font-size: 0.75rem; color: #8b949e; margin-bottom: -5px; }
     
-    .score-value {
-        background: #0b1220; border: 1px solid rgba(255,255,255,0.2);
-        border-radius: 6px; text-align: center; font-weight: 900;
-        height: 34px; line-height: 34px; font-size: 1.1rem;
-    }
-    
-    .result-badge {
-        background: rgba(37,99,235,0.2); border: 1px solid #60a5fa;
-        padding: 1px 6px; border-radius: 6px; font-size: 0.7rem; color: #bfdbfe;
-        float: right; margin-top: 4px;
-    }
-
-    button { height: 34px !important; min-height: 34px !important; font-weight: 900 !important; }
+    /* Verberg standaard Streamlit padding */
+    [data-testid="stExpander"] { border: none !important; }
     </style>
     """, unsafe_allow_html=True)
 
-    # =========================================================
-    # DATA INITIALISATIE
-    # =========================================================
+    # INITIALISATIE
     if "score_predictions" not in st.session_state:
         st.session_state.score_predictions = {}
     
-    loaded_key = f"loaded_scores_{user_id}"
-    if loaded_key not in st.session_state:
-        try:
-            db_preds = load_predictions(user_id)
-            for _, row in db_preds.iterrows():
-                m_id = str(row['match_id'])
-                st.session_state.score_predictions[m_id] = {
-                    "prediction": row['prediction'],
-                    "score1": int(row['score1']),
-                    "score2": int(row['score2'])
-                }
-        except:
-            pass
-        st.session_state[loaded_key] = True
+    if f"loaded_{user_id}" not in st.session_state:
+        db_preds = load_predictions(user_id)
+        for _, row in db_preds.iterrows():
+            st.session_state.score_predictions[str(row['match_id'])] = {
+                "prediction": row['prediction'], "score1": int(row['score1']), "score2": int(row['score2'])
+            }
+        st.session_state[f"loaded_{user_id}"] = True
 
-    # =========================================================
-    # TOP BAR (Opslaan & Menu)
-    # =========================================================
+    # TOP BAR
     with st.container(key="score_top_bar"):
-        c1, c2 = st.columns([1, 1])
+        c1, c2 = st.columns(2)
         with c1:
             if st.button("🏠 Menu", use_container_width=True):
                 st.session_state.main_page = "🏠 Hoofdmenu"
@@ -191,60 +157,42 @@ def show_pronostiek_scores(user_id="Tom"):
         with c2:
             if st.button("💾 OPSLAAN", type="primary", use_container_width=True):
                 batch_save_predictions(user_id, st.session_state.score_predictions, "concept")
-                st.success("Opgeslagen!", icon="✅")
+                st.toast("✅ Opgeslagen!")
 
     st.markdown('<div class="top-spacer"></div>', unsafe_allow_html=True)
 
-    # =========================================================
-    # HOOFDPROGRAMMA: LUS DOOR MATCHEN
-    # =========================================================
+    # SPEELDAG SELECTIE
+    sd = st.radio("Speeldag", ["1", "2", "3"], horizontal=True, label_visibility="collapsed")
     
-    # Filter eventueel op speeldag als het er teveel zijn voor één scherm
-    current_speeldag = st.radio("Speeldag", ["1", "2", "3"], horizontal=True, label_visibility="collapsed")
-    
-    filtered_matches = [m for m in HARDCODED_MATCHES if m["speeldag"] == current_speeldag]
-
-    for m in filtered_matches:
+    # WEERGAVE MATCHEN
+    for m in [x for x in HARDCODED_MATCHES if x["speeldag"] == sd]:
         m_id = m["match_id"]
-        
-        # Zorg voor default waarden in session state
         if m_id not in st.session_state.score_predictions:
             st.session_state.score_predictions[m_id] = {"prediction": "X", "score1": 0, "score2": 0}
-            
+        
         data = st.session_state.score_predictions[m_id]
-
-        # Match Header Kaart
-        st.markdown(f"""
-        <div class="match-card">
-            <span class="result-badge">Gok: {data['prediction']}</span>
-            <div class="match-meta">{m['datum']} | {m['tijd']} | Groep {m['groep']}</div>
-            <div class="match-line">
-                {country_flag(m['team1_code'])} {m['team1']} - {m['team2']} {country_flag(m['team2_code'])}
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        # Input sectie (De knoppen en score)
-        cols = st.columns([1, 1.2, 1, 0.3, 1, 1.2, 1])
         
-        # Team 1 Controls
-        with cols[0]:
-            st.button("−", key=f"btn_m1_{m_id}", on_click=update_score_callback, args=(m_id, 1, -1), use_container_width=True)
-        with cols[1]:
-            st.markdown(f'<div class="score-value">{data["score1"]}</div>', unsafe_allow_html=True)
-        with cols[2]:
-            st.button("+", key=f"btn_p1_{m_id}", on_click=update_score_callback, args=(m_id, 1, 1), use_container_width=True)
+        # Informatie boven de knop
+        st.markdown(f"<div class='match-info'>{m['datum']} - {m['tijd']} - Groep {m['groep']}</div>", unsafe_allow_html=True)
         
-        # Scheider
-        with cols[3]:
-            st.markdown('<div style="text-align:center; padding-top:5px; color:#475569;">:</div>', unsafe_allow_html=True)
+        # De Popover is de "Knop" om de uitslag in te geven
+        btn_label = f"{country_flag(m['team1_code'])} {data['score1']} - {data['score2']} {country_flag(m['team2_code'])}"
+        with st.popover(btn_label, use_container_width=True):
+            st.subheader(f"{m['team1']} vs {m['team2']}")
             
-        # Team 2 Controls
-        with cols[4]:
-            st.button("−", key=f"btn_m2_{m_id}", on_click=update_score_callback, args=(m_id, 2, -1), use_container_width=True)
-        with cols[5]:
-            st.markdown(f'<div class="score-value">{data["score2"]}</div>', unsafe_allow_html=True)
-        with cols[6]:
-            st.button("+", key=f"btn_p2_{m_id}", on_click=update_score_callback, args=(m_id, 2, 1), use_container_width=True)
-        
-        st.markdown('<div style="margin-bottom:12px; border-bottom:1px solid rgba(255,255,255,0.05);"></div>', unsafe_allow_html=True)
+            # De + en - controls binnen de popover
+            col1, col2, col3, col_sep, col4, col5, col6 = st.columns([1,1,1,0.2,1,1,1])
+            with col1: st.button("−", key=f"m1_{m_id}", on_click=update_score_callback, args=(m_id, 1, -1))
+            with col2: st.title(f"{data['score1']}")
+            with col3: st.button("+", key=f"p1_{m_id}", on_click=update_score_callback, args=(m_id, 1, 1))
+            
+            with col_sep: st.write("")
+            
+            with col4: st.button("−", key=f"m2_{m_id}", on_click=update_score_callback, args=(m_id, 2, -1))
+            with col5: st.title(f"{data['score2']}")
+            with col6: st.button("+", key=f"p2_{m_id}", on_click=update_score_callback, args=(m_id, 2, 1))
+            
+            st.write(f"Resultaat: **{data['prediction']}**")
+
+    st.markdown("---")
+    st.caption("Klik op een wedstrijd om de score aan te passen.")
