@@ -1,9 +1,5 @@
 import streamlit as st
-from modules.database import (
-    load_matches,
-    load_predictions,
-    batch_save_predictions,
-)
+from modules.database import load_matches, load_predictions, batch_save_predictions
 
 def show_pronostiek_scores(user_id="Tom"):
 
@@ -17,89 +13,80 @@ def show_pronostiek_scores(user_id="Tom"):
         s1, s2 = max(0, min(int(s1), 50)), max(0, min(int(s2), 50))
         diff = s1 - s2
         pred = "1" if diff > 0 else ("2" if diff < 0 else "X")
-        st.session_state.score_predictions[match_id] = {
-            "prediction": pred, "score1": s1, "score2": s2
-        }
+        st.session_state.score_predictions[match_id] = {"prediction": pred, "score1": s1, "score2": s2}
         st.session_state[f"score_pred_{match_id}"] = pred
 
-    if "score_predictions" not in st.session_state:
-        st.session_state.score_predictions = {}
-    
+    if "score_predictions" not in st.session_state: st.session_state.score_predictions = {}
     loaded_key = f"loaded_score_predictions_{user_id}"
-    if loaded_key not in st.session_state:
-        st.session_state[loaded_key] = False
+    if loaded_key not in st.session_state: st.session_state[loaded_key] = False
 
-    # --- CSS VOOR EXTREME COMPACTHEID ---
+    # --- DE COMPACT FIX CSS ---
     st.markdown("""
     <style>
-    .block-container { padding: 0.5rem !important; }
-    
-    /* Forceer kolommen om NOOIT te groeien of te wrappen */
+    /* Hoofdpagina marges weg */
+    .block-container { padding: 0.5rem !important; max-width: 100% !important; }
+
+    /* FORCEER KOLOMMEN NAAST ELKAAR EN LINKS UITGELIJND */
     [data-testid="stHorizontalBlock"] {
         display: flex !important;
         flex-direction: row !important;
         flex-wrap: nowrap !important;
+        justify-content: flex-start !important; /* Zet alles tegen elkaar aan de linkerkant */
         gap: 2px !important;
-        justify-content: flex-start !important;
     }
 
+    /* Maak elke kolom exact zo breed als zijn inhoud */
     [data-testid="column"] {
-        min-width: 0px !important;
-        flex-shrink: 1 !important;
+        width: auto !important;
+        min-width: unset !important;
+        flex: 0 1 auto !important;
     }
 
-    /* Maak de knoppen exact zo breed als nodig */
+    /* Specifieke breedtes voor de elementen (ongeveer 1 karakter breed) */
     .stButton button {
+        min-width: 34px !important;
+        width: 34px !important;
+        height: 34px !important;
         padding: 0 !important;
-        min-width: 32px !important;
-        width: 32px !important;
-        height: 32px !important;
-        font-size: 1rem !important;
         font-weight: 900 !important;
     }
 
-    /* De score display box */
     .score-display {
         background: #0f172a;
-        border: 1px solid #475569;
+        border: 1px solid #334155;
         border-radius: 4px;
         text-align: center;
-        width: 32px;
-        height: 32px;
-        line-height: 32px;
+        width: 34px;
+        height: 34px;
+        line-height: 34px;
         font-weight: 900;
-        font-size: 1rem;
         color: white;
     }
 
-    /* Segmented control (1-X-2) smal houden */
-    div[data-testid="stSegmentedControl"] { width: 100px !important; }
+    /* 1-X-2 knoppen compact */
+    div[data-testid="stSegmentedControl"] { width: auto !important; }
     div[data-testid="stSegmentedControl"] button {
         min-width: 32px !important;
         width: 32px !important;
-        height: 32px !important;
         padding: 0 !important;
     }
 
     .match-card {
-        background: #1e293b;
+        background: #111827;
+        border: 1px solid #1f2937;
         border-radius: 8px;
         padding: 8px;
         margin-bottom: 8px;
     }
 
-    .team-label {
-        font-size: 0.85rem;
-        font-weight: 700;
-        margin-bottom: 4px;
-        white-space: nowrap;
-    }
+    .team-text { font-size: 0.85rem; font-weight: 700; margin-bottom: 6px; }
     
-    footer { visibility: hidden; }
+    /* Top Menu Fix */
+    .top-btns [data-testid="stHorizontalBlock"] { justify-content: space-between !important; }
     </style>
     """, unsafe_allow_html=True)
 
-    # --- Data laden ---
+    # --- Data ---
     m_df, p_df = load_matches(), load_predictions(user_id)
     if not st.session_state[loaded_key]:
         for _, r in p_df.iterrows():
@@ -108,37 +95,32 @@ def show_pronostiek_scores(user_id="Tom"):
             }
         st.session_state[loaded_key] = True
 
-    # --- Header ---
-    c_menu, c_save = st.columns([1, 1])
-    with c_menu:
-        if st.button("☰ Menu", use_container_width=True):
-            st.session_state.main_page = "🏠 Hoofdmenu"; st.rerun()
-    with c_save:
-        if st.button("💾 OPSLAAN", type="primary", use_container_width=True):
+    # --- Menu ---
+    with st.container(key="top-btns"):
+        c1, c2 = st.columns(2)
+        c1.button("☰ Menu", use_container_width=True, on_click=lambda: st.session_state.update({"main_page": "🏠 Hoofdmenu"}))
+        if c2.button("💾 OPSLAAN", type="primary", use_container_width=True):
             batch_save_predictions(user_id, st.session_state.score_predictions, "concept")
             st.toast("Opgeslagen!")
 
-    # --- Wedstrijdlijst ---
+    # --- Wedstrijden ---
     for _, match in m_df.iterrows():
         mid = str(match["match_id"])
-        if mid not in st.session_state.score_predictions:
-            st.session_state.score_predictions[mid] = {"prediction": "X", "score1": 0, "score2": 0}
+        ensure_data = st.session_state.score_predictions.setdefault(mid, {"prediction": "X", "score1": 0, "score2": 0})
         
-        s1 = st.session_state.score_predictions[mid]["score1"]
-        s2 = st.session_state.score_predictions[mid]["score2"]
-        
+        s1, s2 = ensure_data["score1"], ensure_data["score2"]
+
         with st.container():
             st.markdown(f'<div class="match-card">', unsafe_allow_html=True)
-            st.markdown(f'<div class="team-label">{country_flag(match.get("team1_code"))} {match["team1"]} vs {match["team2"]} {country_flag(match.get("team2_code"))}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="team-text">{country_flag(match.get("team1_code"))} {match["team1"]} vs {match["team2"]}</div>', unsafe_allow_html=True)
 
-            # We gebruiken nu exact 7 kolommen die we dwingen heel smal te zijn
-            # [1|X|2] [-] [0] [+] [-] [0] [+]
-            cols = st.columns([3, 1, 1, 1, 1, 1, 1])
+            # 7 kolommen, allemaal 'auto' breedte
+            cols = st.columns([1, 1, 1, 1, 1, 1, 1])
             
             with cols[0]:
-                st.segmented_control("P", ["1", "X", "2"], key=f"score_pred_{mid}", label_visibility="collapsed")
+                st.segmented_control("P", ["1", "X", "2"], key=f"p_{mid}", label_visibility="collapsed")
             
-            # Team 1 scores
+            # Team 1
             with cols[1]:
                 if st.button("−", key=f"m1_{mid}"): set_score(mid, s1-1, s2); st.rerun()
             with cols[2]:
@@ -146,11 +128,11 @@ def show_pronostiek_scores(user_id="Tom"):
             with cols[3]:
                 if st.button("+", key=f"p1_{mid}"): set_score(mid, s1+1, s2); st.rerun()
 
-            # Team 2 scores
+            # Team 2
             with cols[4]:
                 if st.button("−", key=f"m2_{mid}"): set_score(mid, s1, s2-1); st.rerun()
             with cols[5]:
-                if st.markdown(f'<div class="score-display">{s2}</div>', unsafe_allow_html=True): pass
+                st.markdown(f'<div class="score-display">{s2}</div>', unsafe_allow_html=True)
             with cols[6]:
                 if st.button("+", key=f"p2_{mid}"): set_score(mid, s1, s2+1); st.rerun()
                 
