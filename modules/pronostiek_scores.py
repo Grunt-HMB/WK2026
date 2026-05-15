@@ -278,12 +278,10 @@ def show_pronostiek_scores(user_id="Tom"):
                     continue
 
                 prediction = str(row.get("prediction", "")).upper().strip()
-
                 score1 = row.get("score1", "")
                 score2 = row.get("score2", "")
 
                 if prediction in ["1", "X", "2"]:
-
                     st.session_state.score_predictions[match_id] = {
                         "prediction": prediction,
                         "score1": score1,
@@ -297,35 +295,36 @@ def show_pronostiek_scores(user_id="Tom"):
     # =========================================================
 
     @st.dialog("🎯 Score invullen")
-def score_dialog(match):
-    match_id = str(match.get("match_id", "")).strip()
+    def score_dialog(match):
+        match_id = str(match.get("match_id", "")).strip()
 
-    team1 = str(match.get("team1", "")).strip()
-    team2 = str(match.get("team2", "")).strip()
+        team1 = str(match.get("team1", "")).strip()
+        team2 = str(match.get("team2", "")).strip()
 
-    chosen = str(st.session_state.get("pending_score_choice", "")).upper().strip()
+        chosen = str(st.session_state.get("pending_score_choice", "")).upper().strip()
 
-    existing = get_prediction_data(match_id)
+        existing = get_prediction_data(match_id)
 
-    existing_score1 = existing.get("score1", "") if isinstance(existing, dict) else ""
-    existing_score2 = existing.get("score2", "") if isinstance(existing, dict) else ""
+        existing_score1 = existing.get("score1", "") if isinstance(existing, dict) else ""
+        existing_score2 = existing.get("score2", "") if isinstance(existing, dict) else ""
 
-    score1_key = f"dialog_score1_value_{match_id}"
-    score2_key = f"dialog_score2_value_{match_id}"
+        score1_key = f"dialog_score1_value_{match_id}"
+        score2_key = f"dialog_score2_value_{match_id}"
 
-    if score1_key not in st.session_state or score2_key not in st.session_state:
-        if str(existing_score1).strip() != "" and str(existing_score2).strip() != "":
-            st.session_state[score1_key] = int(float(existing_score1))
-            st.session_state[score2_key] = int(float(existing_score2))
-        else:
-            default_score1, default_score2 = default_score_for_prediction(chosen)
-            st.session_state[score1_key] = default_score1
-            st.session_state[score2_key] = default_score2
+        if score1_key not in st.session_state or score2_key not in st.session_state:
+            if str(existing_score1).strip() != "" and str(existing_score2).strip() != "":
+                st.session_state[score1_key] = int(float(existing_score1))
+                st.session_state[score2_key] = int(float(existing_score2))
+            else:
+                default_score1, default_score2 = default_score_for_prediction(chosen)
+                st.session_state[score1_key] = default_score1
+                st.session_state[score2_key] = default_score2
 
-    def keypad(score_key, title):
-        st.markdown(f"#### {title}")
-        st.markdown(
-            f"""
+        def keypad(score_key, title):
+            st.markdown(f"#### {title}")
+
+            st.markdown(
+                f"""
 <div style="
     text-align:center;
     font-size:2rem;
@@ -338,120 +337,119 @@ def score_dialog(match):
 ">
 {st.session_state[score_key]}
 </div>
-            """,
-            unsafe_allow_html=True,
-        )
+                """,
+                unsafe_allow_html=True,
+            )
 
-        rows = [
-            ["1", "2", "3"],
-            ["4", "5", "6"],
-            ["7", "8", "9"],
-            ["C", "0", "←"],
-            ["-", "+", ""],
-        ]
+            rows = [
+                ["1", "2", "3"],
+                ["4", "5", "6"],
+                ["7", "8", "9"],
+                ["C", "0", "←"],
+                ["-", "+", ""],
+            ]
 
-        for r, row in enumerate(rows):
-            cols = st.columns(3, gap="small")
+            for r, row in enumerate(rows):
+                cols = st.columns(3, gap="small")
 
-            for c, label in enumerate(row):
-                with cols[c]:
-                    if label == "":
-                        st.write("")
-                        continue
+                for c, label in enumerate(row):
+                    with cols[c]:
+                        if label == "":
+                            st.write("")
+                            continue
 
-                    if st.button(
-                        label,
-                        key=f"keypad_{score_key}_{r}_{c}_{label}",
-                        use_container_width=True,
-                    ):
-                        current = int(st.session_state.get(score_key, 0))
+                        if st.button(
+                            label,
+                            key=f"keypad_{score_key}_{r}_{c}_{label}",
+                            use_container_width=True,
+                        ):
+                            current = int(st.session_state.get(score_key, 0))
 
-                        if label == "C":
-                            st.session_state[score_key] = 0
-
-                        elif label == "←":
-                            txt = str(current)
-
-                            if len(txt) <= 1:
+                            if label == "C":
                                 st.session_state[score_key] = 0
+
+                            elif label == "←":
+                                txt = str(current)
+
+                                if len(txt) <= 1:
+                                    st.session_state[score_key] = 0
+                                else:
+                                    st.session_state[score_key] = int(txt[:-1])
+
+                            elif label == "+":
+                                st.session_state[score_key] = min(current + 1, 50)
+
+                            elif label == "-":
+                                st.session_state[score_key] = max(current - 1, 0)
+
                             else:
-                                st.session_state[score_key] = int(txt[:-1])
+                                digit = label
 
-                        elif label == "+":
-                            st.session_state[score_key] = min(current + 1, 50)
+                                if current == 0:
+                                    new_value = int(digit)
+                                else:
+                                    new_value = int(str(current) + digit)
 
-                        elif label == "-":
-                            st.session_state[score_key] = max(current - 1, 0)
+                                st.session_state[score_key] = min(new_value, 50)
 
-                        else:
-                            digit = label
+                            st.rerun()
 
-                            if current == 0:
-                                new_value = int(digit)
-                            else:
-                                new_value = int(str(current) + digit)
-
-                            st.session_state[score_key] = min(new_value, 50)
-
-                        st.rerun()
-
-    st.markdown(
-        f"""
+        st.markdown(
+            f"""
 ### {country_flag(match.get("team1_code", ""))} {team1}
 ### {country_flag(match.get("team2_code", ""))} {team2}
-        """
-    )
+            """
+        )
 
-    col1, col2 = st.columns(2, gap="medium")
+        col1, col2 = st.columns(2, gap="medium")
 
-    with col1:
-        keypad(score1_key, team1)
+        with col1:
+            keypad(score1_key, team1)
 
-    with col2:
-        keypad(score2_key, team2)
+        with col2:
+            keypad(score2_key, team2)
 
-    score1 = int(st.session_state.get(score1_key, 0))
-    score2 = int(st.session_state.get(score2_key, 0))
+        score1 = int(st.session_state.get(score1_key, 0))
+        score2 = int(st.session_state.get(score2_key, 0))
 
-    final_prediction = result_from_score(score1, score2)
+        final_prediction = result_from_score(score1, score2)
 
-    st.info(f"Deze score telt als pronostiek: **{final_prediction}**")
+        st.info(f"Deze score telt als pronostiek: **{final_prediction}**")
 
-    b1, b2 = st.columns(2, gap="small")
+        b1, b2 = st.columns(2, gap="small")
 
-    with b1:
-        if st.button("✅ Opslaan", use_container_width=True, type="primary"):
-            st.session_state.score_predictions[match_id] = {
-                "prediction": final_prediction,
-                "score1": score1,
-                "score2": score2,
-            }
+        with b1:
+            if st.button("✅ Opslaan", use_container_width=True, type="primary"):
+                st.session_state.score_predictions[match_id] = {
+                    "prediction": final_prediction,
+                    "score1": score1,
+                    "score2": score2,
+                }
 
-            st.session_state[f"score_pred_{match_id}"] = final_prediction
+                st.session_state[f"score_pred_{match_id}"] = final_prediction
+                st.session_state.pending_score_match_id = ""
+                st.session_state.pending_score_choice = ""
 
-            st.session_state.pending_score_match_id = ""
-            st.session_state.pending_score_choice = ""
+                if score1_key in st.session_state:
+                    del st.session_state[score1_key]
 
-            if score1_key in st.session_state:
-                del st.session_state[score1_key]
+                if score2_key in st.session_state:
+                    del st.session_state[score2_key]
 
-            if score2_key in st.session_state:
-                del st.session_state[score2_key]
+                st.rerun()
 
-            st.rerun()
+        with b2:
+            if st.button("❌ Annuleren", use_container_width=True):
+                st.session_state.pending_score_match_id = ""
+                st.session_state.pending_score_choice = ""
 
-    with b2:
-        if st.button("❌ Annuleren", use_container_width=True):
-            st.session_state.pending_score_match_id = ""
-            st.session_state.pending_score_choice = ""
+                if score1_key in st.session_state:
+                    del st.session_state[score1_key]
 
-            if score1_key in st.session_state:
-                del st.session_state[score1_key]
+                if score2_key in st.session_state:
+                    del st.session_state[score2_key]
 
-            if score2_key in st.session_state:
-                del st.session_state[score2_key]
-
-            st.rerun()
+                st.rerun()
 
     # =========================================================
     # TOP BAR
