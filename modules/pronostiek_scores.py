@@ -1,67 +1,48 @@
 import streamlit as st
-from modules.database import (
-    load_matches,
-    load_predictions,
-    batch_save_predictions,
-)
+import pandas as pd
+from modules.database import load_matches, load_predictions, batch_save_predictions
 
 def show_pronostiek_scores(user_id="Tom"):
-    # 1. Minimale CSS - Alleen voor de score-look, GEEN knop-hacks
+    # 1. CSS voor mobiele breedte en score-vakjes
     st.markdown("""
     <style>
-    .score-display {
-        background-color: #0e1117;
-        border: 2px solid #3b82f6;
-        border-radius: 8px;
-        color: white;
-        font-size: 22px;
-        font-weight: bold;
-        text-align: center;
-        padding: 5px 0;
-        margin: 2px 0;
+    [data-testid="column"] { flex: 1 1 0% !important; min-width: 0px !important; }
+    .score-label {
+        background: #0e1117; color: #3b82f6; font-size: 1.2rem; font-weight: bold;
+        text-align: center; border: 2px solid #3b82f6; border-radius: 8px;
+        line-height: 40px; height: 40px; margin: 2px 0;
     }
-    .match-title {
-        font-weight: bold;
-        font-size: 1.1rem;
-        margin-top: 15px;
-        color: #f8fafc;
-    }
-    /* Zorg dat kolommen NOOIT onder elkaar klappen op mobiel */
-    [data-testid="column"] {
-        min-width: 0px !important;
-        flex: 1 1 0% !important;
-    }
+    .match-row { margin-top: 15px; border-top: 1px solid #334155; padding-top: 10px; }
     </style>
     """, unsafe_allow_html=True)
 
-    # 2. Data ophalen (met extra checks voor kolomnamen)
-    matches_df, predictions_df = load_matches(), load_predictions(user_id)
+    # 2. Data laden
+    m_df, p_df = load_matches(), load_predictions(user_id)
 
-    if matches_df.empty:
-        st.error("Geen wedstrijden gevonden in de database.")
+    # --- DEBUG SECTIE (Haal dit weg als het werkt) ---
+    if m_df.empty:
+        st.error("❌ De database gaf geen wedstrijden terug. Check je 'matches' tabel.")
         return
+    # ------------------------------------------------
 
     # 3. Session State vullen
     if "score_predictions" not in st.session_state:
         st.session_state.score_predictions = {}
         
-        # Maak een simpele dictionary van bestaande voorspellingen
-        preds_dict = {}
-        if not predictions_df.empty:
-            for _, p in predictions_df.iterrows():
-                preds_dict[str(p['match_id'])] = p
+        # Maak lookup van bestaande voorspellingen
+        preds = {str(row['match_id']): row for _, row in p_df.iterrows()} if not p_df.empty else {}
 
-        for _, m in matches_df.iterrows():
+        for _, m in m_df.iterrows():
             m_id = str(m['match_id'])
-            p = preds_dict.get(m_id, {})
+            p_match = preds.get(m_id, {})
             st.session_state.score_predictions[m_id] = {
-                "team1": m.get('team1', 'Onbekend'),
-                "team2": m.get('team2', 'Onbekend'),
-                "s1": int(p.get('score1', 0)) if p.get('score1') else 0,
-                "s2": int(p.get('score2', 0)) if p.get('score2') else 0,
+                "t1": m.get('team1', 'Team A'),
+                "t2": m.get('team2', 'Team B'),
+                "s1": int(p_match.get('score1', 0)),
+                "s2": int(p_match.get('score2', 0))
             }
 
-    # 4. Navigatie bovenaan
+    # 4. Navigatie
     c1, c2 = st.columns(2)
     with c1:
         if st.button("☰ Menu", use_container_width=True):
@@ -69,51 +50,44 @@ def show_pronostiek_scores(user_id="Tom"):
             st.rerun()
     with c2:
         if st.button("💾 OPSLAAN", type="primary", use_container_width=True):
-            formatted_data = {}
-            for mid, d in st.session_state.score_predictions.items():
-                res = "X"
-                if d['s1'] > d['s2']: res = "1"
-                elif d['s1'] < d['s2']: res = "2"
-                formatted_data[mid] = {"score1": d['s1'], "score2": d['s2'], "prediction": res}
-            
-            saved = batch_save_predictions(user_id, formatted_data, status="concept")
-            st.success(f"Gelukt! {saved} wedstrijden opgeslagen.")
+            data = {mid: {"score1": d['s1'], "score2": d['s2'], 
+                    "prediction": ("1" if d['s1'] > d['s2'] else "2" if d['s1'] < d['s2'] else "X")} 
+                    for mid, d in st.session_state.score_predictions.items()}
+            saved = batch_save_predictions(user_id, data, status="concept")
+            st.success(f"✅ {saved} uitslagen opgeslagen!")
 
-    st.divider()
+    st.write(f"Aantal wedstrijden geladen: {len(st.session_state.score_predictions)}")
 
-    # 5. De Wedstrijden (Gebruik st.fragment voor snelheid)
-    @st.fragment
-    def match_item(m_id):
-        d = st.session_state.score_predictions[m_id]
+    # 5. Wedstrijden tonen met fragmenten voor snelheid
+    def render_row(mid):
+        # We maken een lokale referentie naar de data
+        d = st.session_state.score_predictions[mid]
         
-        st.markdown(f"<div class='match-title'>{d['team1']} - {d['team2']}</div>", unsafe_allow_html=True)
+        st.markdown(f"**{d['t1']} vs {d['t2']}**")
         
-        # We gebruiken 6 kolommen: [Minus, Score, Plus] [Minus, Score, Plus]
-        # Door onze CSS blijven deze 6 kolommen ALTIJD op één regel.
+        # 6 kolommen: [-][Score][+]  [-][Score][+]
         cols = st.columns(6)
         
         # Team 1
-        if cols[0].button("−", key=f"m1_{m_id}"):
-            st.session_state.score_predictions[m_id]['s1'] = max(0, d['s1'] - 1)
+        if cols[0].button("−", key=f"m1_{mid}"):
+            st.session_state.score_predictions[mid]['s1'] = max(0, d['s1'] - 1)
             st.rerun(scope="fragment")
-        
-        cols[1].markdown(f"<div class='score-display'>{d['s1']}</div>", unsafe_allow_html=True)
-        
-        if cols[2].button("+", key=f"p1_{m_id}"):
-            st.session_state.score_predictions[m_id]['s1'] += 1
-            st.rerun(scope="fragment")
-            
-        # Team 2
-        if cols[3].button("−", key=f"m2_{m_id}"):
-            st.session_state.score_predictions[m_id]['s2'] = max(0, d['s2'] - 1)
-            st.rerun(scope="fragment")
-            
-        cols[4].markdown(f"<div class='score-display'>{d['s2']}</div>", unsafe_allow_html=True)
-        
-        if cols[5].button("+", key=f"p2_{m_id}"):
-            st.session_state.score_predictions[m_id]['s2'] += 1
+        cols[1].markdown(f"<div class='score-label'>{d['s1']}</div>", unsafe_allow_html=True)
+        if cols[2].button("+", key=f"p1_{mid}"):
+            st.session_state.score_predictions[mid]['s1'] += 1
             st.rerun(scope="fragment")
 
-    # Toon alle wedstrijden
-    for m_id in st.session_state.score_predictions.keys():
-        match_item(m_id)
+        # Team 2
+        if cols[3].button("−", key=f"m2_{mid}"):
+            st.session_state.score_predictions[mid]['s2'] = max(0, d['s2'] - 1)
+            st.rerun(scope="fragment")
+        cols[4].markdown(f"<div class='score-label'>{d['s2']}</div>", unsafe_allow_html=True)
+        if cols[5].button("+", key=f"p2_{mid}"):
+            st.session_state.score_predictions[mid]['s2'] += 1
+            st.rerun(scope="fragment")
+
+    # Maak per wedstrijd een fragment aan
+    for mid in st.session_state.score_predictions.keys():
+        with st.container():
+            # Gebruik st.fragment om te zorgen dat alleen dit deel ververst
+            st.fragment(render_row)(mid)
