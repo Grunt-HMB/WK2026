@@ -1,59 +1,51 @@
 import streamlit as st
+import pandas as pd
+from modules.data_loader import get_matches
 
-def show_pronostiek_invoer():
-    st.title("Pronostiek Invoer")
-
-    # CSS om kolommen NAAST elkaar te dwingen, ook op mobiel
-    st.markdown("""
-        <style>
-        /* Forceer kolommen om niet te stapelen op mobiel */
-        [data-testid="column"] {
-            width: calc(25% - 1rem) !important;
-            flex: 1 1 calc(25% - 1rem) !important;
-            min-width: 50px !important;
-        }
-
-        /* Styling voor de labels */
-        .label-box {
-            color: white;
-            padding: 8px 2px;
-            border-radius: 8px;
-            text-align: center;
-            font-weight: 700;
-            font-size: 14px;
-            white-space: nowrap;
-            width: 100%;
-            display: block;
-        }
-        .blue { background-color: #1f77b4; }
-        .gray { background-color: #6c757d; }
-        .green { background-color: #2ca02c; }
-        
-        /* Verberg het label boven het invoerveld */
-        .stTextInput label { display: none; }
-        </style>
-    """, unsafe_allow_html=True)
-
-    # Gebruik 4 kolommen
-    col1, col2, col3, col4 = st.columns(4)
-
-    with col1:
-        st.markdown('<div class="label-box blue">Label 1</div>', unsafe_allow_html=True)
+def show_pronostiek_scores(user_id):
+    st.title("🏆 WK 2026")
     
-    with col2:
-        st.markdown('<div class="label-box gray">Label 2</div>', unsafe_allow_html=True)
+    # Haal de 72 matches op
+    matches_df = get_matches()
+
+    # Gebruik een selectbox voor de speeldag of groep om de lijst kort te houden
+    st.sidebar.header("Filters")
+    speeldag = st.sidebar.selectbox("Selecteer Speeldag", sorted(matches_df['speeldag'].unique()))
+    
+    # Filter de data
+    filtered_df = matches_df[matches_df['speeldag'] == speeldag]
+
+    st.subheader(f"Speeldag {speeldag}")
+
+    # Loop door de gefilterde wedstrijden
+    for _, match in filtered_df.iterrows():
+        draw_match_card(match)
+
+def draw_match_card(match):
+    """Tekent een compacte kaart die op mobiel goed schaalt."""
+    with st.container(border=True):
+        # Header: Tijd en Groep
+        st.caption(f"📅 {match['datum']} - {match['tijd']} | Groep {match['groep']}")
         
-    with col3:
-        st.markdown('<div class="label-box green">Label 3</div>', unsafe_allow_html=True)
+        # We gebruiken hier maar 3 kolommen: Team 1 | Input | Team 2
+        # Dit blijft op mobiel redelijk stabiel
+        c1, c2, c3 = st.columns([3, 2, 3])
+        
+        with c1:
+            st.markdown(f"**{match['team1']}**")
+            st.caption(match['team1_code'])
+        
+        with c2:
+            # Compacte input velden naast elkaar
+            i1, i2 = st.columns(2)
+            with i1:
+                st.text_input("1", label_visibility="collapsed", key=f"t1_{match['match_id']}", value="0")
+            with i2:
+                st.text_input("2", label_visibility="collapsed", key=f"t2_{match['match_id']}", value="0")
+        
+        with c3:
+            # Rechts uitlijnen voor team 2
+            st.markdown(f"<div style='text-align: right;'><b>{match['team2']}</b></div>", unsafe_content_allowed=True)
+            st.markdown(f"<div style='text-align: right; color: gray;'>{match['team2_code']}</div>", unsafe_content_allowed=True)
 
-    with col4:
-        # Hier wordt de score opgeslagen in Python
-        score_input = st.text_input("Score", key="score_field", placeholder="0-0")
-
-    # Toon resultaat ter bevestiging
-    if score_input:
-        st.success(f"Opgeslagen score: {score_input}")
-
-# Voer de functie uit
-if __name__ == "__main__":
-    show_pronostiek_invoer()
+        # Optioneel: een kleine 'Opslaan' knop per wedstrijd of één grote onderaan
