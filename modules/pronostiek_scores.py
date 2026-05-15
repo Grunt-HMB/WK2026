@@ -6,7 +6,6 @@ from modules.database import (
     batch_save_predictions,
 )
 
-
 def show_pronostiek_scores(user_id="Tom"):
 
     # =========================================================
@@ -34,20 +33,14 @@ def show_pronostiek_scores(user_id="Tom"):
 
     def result_from_score(score1, score2):
         try:
-            s1 = int(score1)
-            s2 = int(score2)
-        except Exception:
-            return ""
-
-        if s1 > s2:
-            return "1"
-        if s1 < s2:
-            return "2"
-        return "X"
+            s1, s2 = int(score1), int(score2)
+            if s1 > s2: return "1"
+            if s1 < s2: return "2"
+            return "X"
+        except: return ""
 
     def ensure_match_prediction(match_id):
         match_id = str(match_id)
-
         if match_id not in st.session_state.score_predictions:
             st.session_state.score_predictions[match_id] = {
                 "prediction": "",
@@ -55,198 +48,65 @@ def show_pronostiek_scores(user_id="Tom"):
                 "score2": 0,
             }
 
-    def get_prediction_data(match_id):
-        ensure_match_prediction(match_id)
-        return st.session_state.score_predictions[str(match_id)]
-
-    def get_score_values(match_id):
-        data = get_prediction_data(match_id)
-
-        try:
-            score1 = int(float(data.get("score1", 0)))
-        except Exception:
-            score1 = 0
-
-        try:
-            score2 = int(float(data.get("score2", 0)))
-        except Exception:
-            score2 = 0
-
-        return score1, score2
-
-    def set_score(match_id, score1, score2):
-        match_id = str(match_id)
-
-        score1 = max(0, min(int(score1), 50))
-        score2 = max(0, min(int(score2), 50))
-
-        prediction = result_from_score(score1, score2)
-
-        st.session_state.score_predictions[match_id] = {
-            "prediction": prediction,
-            "score1": score1,
-            "score2": score2,
+    # CALLBACKS (Zorgen voor snelheid zonder volledige rerun)
+    def update_score_callback(match_id, s1, s2):
+        s1 = max(0, min(int(s1), 50))
+        s2 = max(0, min(int(s2), 50))
+        st.session_state.score_predictions[str(match_id)] = {
+            "prediction": result_from_score(s1, s2),
+            "score1": s1,
+            "score2": s2,
         }
 
-    def save_all_predictions():
-        saved = batch_save_predictions(
-            user_id=user_id,
-            local_predictions=st.session_state.score_predictions,
-            status="concept",
-        )
-        st.cache_data.clear()
-        return saved
-
     # =========================================================
-    # SESSION STATE
+    # SESSION STATE & CSS
     # =========================================================
 
     if "score_predictions" not in st.session_state:
         st.session_state.score_predictions = {}
 
     loaded_key = f"loaded_score_predictions_{user_id}"
-
     if loaded_key not in st.session_state:
         st.session_state[loaded_key] = False
 
-    # =========================================================
-    # CSS
-    # =========================================================
-
     st.markdown("""
     <style>
-    .block-container {
-        max-width: 820px;
-        padding-top: 0 !important;
-        padding-left: 0.4rem !important;
-        padding-right: 0.4rem !important;
-        padding-bottom: 5rem !important;
-    }
-
-    section[data-testid="stSidebar"] {
-        display: none;
-    }
-
+    .block-container { max-width: 820px; padding: 0 0.4rem 5rem 0.4rem !important; }
+    section[data-testid="stSidebar"] { display: none; }
+    
     .st-key-score_top_bar {
-        position: fixed !important;
-        top: 0 !important;
-        left: 0 !important;
-        right: 0 !important;
-        z-index: 999999 !important;
-        background: #0e1117 !important;
-        padding: 0.28rem 0.45rem 0.35rem 0.45rem !important;
-        border-bottom: 1px solid rgba(255,255,255,0.12);
+        position: fixed !important; top: 0; left: 0; right: 0; z-index: 999;
+        background: #0e1117; padding: 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.12);
     }
-
-    .st-key-score_top_bar > div {
-        max-width: 820px;
-        margin-left: auto;
-        margin-right: auto;
-    }
-
-    .top-spacer {
-        height: 66px;
-    }
-
-    .st-key-score_save_button button,
-    .st-key-score_back_to_main_menu button {
-        min-height: 32px !important;
-        height: 32px !important;
-        border-radius: 10px !important;
-        font-size: 0.82rem !important;
-        font-weight: 900 !important;
-        padding: 0 !important;
-    }
+    .top-spacer { height: 70px; }
 
     [class*="st-key-score_match_card_"] {
-        background: #111827;
-        border: 1px solid rgba(255,255,255,0.13);
-        border-radius: 14px;
-        padding: 0.5rem !important;
-        margin-bottom: 0.45rem;
-        overflow: hidden !important;
+        background: #111827; border: 1px solid rgba(255,255,255,0.13);
+        border-radius: 14px; padding: 0.6rem !important; margin-bottom: 0.5rem;
     }
-
-    .match-meta {
-        font-size: 0.75rem;
-        color: #cbd5e1;
-        line-height: 1.05;
-        margin-bottom: 0.12rem;
-    }
-
-    .match-line {
-        font-size: 0.92rem;
-        font-weight: 900;
-        line-height: 1.15;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        margin-bottom: 0.35rem;
-    }
-
+    .match-meta { font-size: 0.75rem; color: #cbd5e1; margin-bottom: 0.2rem; }
+    .match-line { font-size: 0.95rem; font-weight: 900; margin-bottom: 0.5rem; }
     .result-badge {
-        display: inline-block;
-        margin-left: 0.3rem;
-        background: rgba(37,99,235,0.20);
-        border: 1px solid rgba(96,165,250,0.55);
-        border-radius: 999px;
-        padding: 0.02rem 0.45rem;
-        font-size: 0.78rem;
-        font-weight: 900;
-        color: #bfdbfe;
-        vertical-align: middle;
+        display: inline-block; margin-left: 0.4rem; background: rgba(37,99,235,0.2);
+        border: 1px solid rgba(96,165,250,0.55); border-radius: 12px;
+        padding: 0.1rem 0.5rem; font-size: 0.8rem; color: #bfdbfe;
     }
-
     .score-value {
-        height: 32px;
-        line-height: 32px;
-        text-align: center;
-        font-weight: 900;
-        font-size: 1.05rem;
-        background: #0b1220;
-        border: 1px solid rgba(255,255,255,0.18);
-        border-radius: 9px;
+        height: 34px; line-height: 34px; text-align: center; font-weight: 900;
+        background: #0b1220; border: 1px solid rgba(255,255,255,0.2); border-radius: 8px;
     }
-
-    .score-gap {
-        height: 32px;
-        line-height: 32px;
-        text-align: center;
-        color: #64748b;
-        font-weight: 900;
+    .score-gap { line-height: 34px; text-align: center; color: #64748b; font-weight: 900; }
+    
+    /* Maak knoppen minder breed */
+    [class*="st-key-minus"], [class*="st-key-plus"] button {
+        max-width: 50px !important; margin: 0 auto !important;
     }
-
-    [class*="st-key-score_match_card_"] div[data-testid="stHorizontalBlock"] {
-        display: flex !important;
-        flex-direction: row !important;
-        flex-wrap: nowrap !important;
-        gap: 0.16rem !important;
-        align-items: center !important;
-    }
-
-    [class*="st-key-score_match_card_"] div[data-testid="column"] {
-        min-width: 0 !important;
-        padding-left: 0 !important;
-        padding-right: 0 !important;
-    }
-
-    [class*="st-key-score_match_card_"] button {
-        min-height: 32px !important;
-        height: 32px !important;
-        padding: 0 !important;
-        font-weight: 900 !important;
-        border-radius: 9px !important;
-        font-size: 1rem !important;
-    }
-
-    footer {
-        visibility: hidden;
-    }
+    footer { visibility: hidden; }
     </style>
     """, unsafe_allow_html=True)
 
     # =========================================================
-    # DATA
+    # DATA LADEN
     # =========================================================
 
     @st.cache_data(ttl=60)
@@ -255,170 +115,87 @@ def show_pronostiek_scores(user_id="Tom"):
 
     matches_df, predictions_df = get_data(user_id)
 
-    # =========================================================
-    # LOAD SAVED PREDICTIONS
-    # =========================================================
-
     if not st.session_state[loaded_key]:
         if not predictions_df.empty:
             for _, row in predictions_df.iterrows():
-                match_id = str(row.get("match_id", "")).strip()
-
-                if not match_id:
-                    continue
-
-                prediction = str(row.get("prediction", "")).upper().strip()
-                score1 = row.get("score1", "")
-                score2 = row.get("score2", "")
-
-                if prediction in ["1", "X", "2"]:
-                    try:
-                        score1 = int(float(score1))
-                    except Exception:
-                        score1 = 0
-
-                    try:
-                        score2 = int(float(score2))
-                    except Exception:
-                        score2 = 0
-
-                    st.session_state.score_predictions[match_id] = {
-                        "prediction": result_from_score(score1, score2),
-                        "score1": score1,
-                        "score2": score2,
+                m_id = str(row.get("match_id", "")).strip()
+                if m_id:
+                    s1, s2 = row.get("score1", 0), row.get("score2", 0)
+                    st.session_state.score_predictions[m_id] = {
+                        "prediction": result_from_score(s1, s2),
+                        "score1": int(float(s1 or 0)),
+                        "score2": int(float(s2 or 0)),
                     }
-
         st.session_state[loaded_key] = True
 
     # =========================================================
-    # TOP BAR
+    # UI: FORMULIER (Tegen traagheid)
     # =========================================================
 
-    with st.container(key="score_top_bar"):
-        col_home, col_save = st.columns([1, 1.4], gap="small")
+    # We gebruiken een formulier zodat we alle 72 wedstrijden in één keer kunnen 'submitten'
+    with st.form("pronostiek_form", border=False):
+        
+        # TOP BAR (binnen het formulier voor de submit knop)
+        with st.container(key="score_top_bar"):
+            c_h, c_s = st.columns([1, 1.4])
+            with c_h:
+                if st.form_submit_button("☰ Menu", use_container_width=True):
+                    st.session_state.main_page = "🏠 Hoofdmenu"
+                    st.rerun()
+            with c_s:
+                save_trigger = st.form_submit_button("💾 ALLES OPSLAAN", type="primary", use_container_width=True)
 
-        with col_home:
-            if st.button(
-                "☰ Hoofdmenu",
-                key="score_back_to_main_menu",
-                use_container_width=True,
-            ):
-                st.session_state.main_page = "🏠 Hoofdmenu"
-                st.rerun()
+        st.markdown('<div class="top-spacer"></div>', unsafe_allow_html=True)
 
-        with col_save:
-            if st.button(
-                "💾 OPSLAAN",
-                key="score_save_button",
-                use_container_width=True,
-                type="primary",
-            ):
-                saved = save_all_predictions()
-                st.success(f"Opgeslagen: {saved} wedstrijden")
+        wedstrijden = matches_df.copy()
+        if "ronde" in wedstrijden.columns:
+            wedstrijden = wedstrijden[wedstrijden["ronde"].astype(str).str.lower().str.contains("groep", na=False)]
+        
+        wedstrijden = wedstrijden.sort_values(["datum", "tijd"], kind="stable")
 
-    st.markdown('<div class="top-spacer"></div>', unsafe_allow_html=True)
+        for _, match in wedstrijden.iterrows():
+            m_id = str(match.get("match_id", "")).strip()
+            ensure_match_prediction(m_id)
+            
+            data = st.session_state.score_predictions[m_id]
+            s1, s2 = data["score1"], data["score2"]
 
-    # =========================================================
-    # WEDSTRIJDEN
-    # =========================================================
+            with st.container(key=f"score_match_card_{m_id}"):
+                st.markdown(f"""
+                    <div class="match-meta"><b>{format_date(match.get('datum'))}</b> &nbsp; {format_time(match.get('tijd'))}</div>
+                    <div class="match-line">
+                        {country_flag(match.get('team1_code'))} {match.get('team1')} 
+                        <span style="color:#6b7280;">vs</span> 
+                        {match.get('team2')} {country_flag(match.get('team2_code'))}
+                        <span class="result-badge">{data['prediction']}</span>
+                    </div>
+                """, unsafe_allow_html=True)
 
-    wedstrijden = matches_df.copy()
+                # Bediening
+                cols = st.columns([1, 1, 1, 0.4, 1, 1, 1])
+                
+                # Team 1
+                if cols[0].button("−", key=f"minus1_{m_id}"):
+                    update_score_callback(m_id, s1-1, s2)
+                cols[1].markdown(f"<div class='score-value'>{s1}</div>", unsafe_allow_html=True)
+                if cols[2].button("+", key=f"plus1_{m_id}"):
+                    update_score_callback(m_id, s1+1, s2)
 
-    if wedstrijden.empty:
-        st.warning("Geen wedstrijden gevonden.")
-        return
+                cols[3].markdown("<div class='score-gap'>-</div>", unsafe_allow_html=True)
 
-    wedstrijden["match_id"] = wedstrijden["match_id"].astype(str).str.strip()
+                # Team 2
+                if cols[4].button("−", key=f"minus2_{m_id}"):
+                    update_score_callback(m_id, s1, s2-1)
+                cols[5].markdown(f"<div class='score-value'>{s2}</div>", unsafe_allow_html=True)
+                if cols[6].button("+", key=f"plus2_{m_id}"):
+                    update_score_callback(m_id, s1, s2+1)
 
-    if "ronde" in wedstrijden.columns:
-        wedstrijden = wedstrijden[
-            wedstrijden["ronde"]
-            .astype(str)
-            .str.lower()
-            .str.contains("groep", na=False)
-        ].copy()
-
-    sort_cols = [c for c in ["datum", "tijd", "match_id"] if c in wedstrijden.columns]
-
-    if sort_cols:
-        wedstrijden = wedstrijden.sort_values(sort_cols, kind="stable")
-
-    for _, match in wedstrijden.iterrows():
-        match_id = str(match.get("match_id", "")).strip()
-
-        if not match_id:
-            continue
-
-        ensure_match_prediction(match_id)
-
-        datum = format_date(match.get("datum", ""))
-        tijd = format_time(match.get("tijd", ""))
-
-        team1 = str(match.get("team1", "")).strip()
-        team2 = str(match.get("team2", "")).strip()
-
-        team1_code = match.get("team1_code", "")
-        team2_code = match.get("team2_code", "")
-
-        score1, score2 = get_score_values(match_id)
-        prediction = result_from_score(score1, score2)
-
-        with st.container(key=f"score_match_card_{match_id}"):
-
-            st.markdown(
-                f"""
-<div class="match-meta">
-<b>{datum}</b> &nbsp; {tijd} &nbsp; 🟢
-</div>
-<div class="match-line">
-{country_flag(team1_code)} {team1}
-<span style="color:#9ca3af;">vs</span>
-{country_flag(team2_code)} {team2}
-<span class="result-badge">{prediction}</span>
-</div>
-                """,
-                unsafe_allow_html=True,
+        if save_trigger:
+            saved = batch_save_predictions(
+                user_id=user_id,
+                local_predictions=st.session_state.score_predictions,
+                status="concept"
             )
-
-            c_m1, c_v1, c_p1, c_gap, c_m2, c_v2, c_p2 = st.columns(
-                [1, 1, 1, 0.35, 1, 1, 1],
-                gap="small",
-            )
-
-            with c_m1:
-                if st.button("−", key=f"minus1_{match_id}", use_container_width=True):
-                    set_score(match_id, max(score1 - 1, 0), score2)
-                    st.rerun()
-
-            with c_v1:
-                st.markdown(
-                    f"<div class='score-value'>{score1}</div>",
-                    unsafe_allow_html=True,
-                )
-
-            with c_p1:
-                if st.button("+", key=f"plus1_{match_id}", use_container_width=True):
-                    set_score(match_id, score1 + 1, score2)
-                    st.rerun()
-
-            with c_gap:
-                st.markdown(
-                    "<div class='score-gap'>-</div>",
-                    unsafe_allow_html=True,
-                )
-
-            with c_m2:
-                if st.button("−", key=f"minus2_{match_id}", use_container_width=True):
-                    set_score(match_id, score1, max(score2 - 1, 0))
-                    st.rerun()
-
-            with c_v2:
-                st.markdown(
-                    f"<div class='score-value'>{score2}</div>",
-                    unsafe_allow_html=True,
-                )
-
-            with c_p2:
-                if st.button("+", key=f"plus2_{match_id}", use_container_width=True):
-                    set_score(match_id, score1, score2 + 1)
-                    st.rerun()
+            st.cache_data.clear()
+            st.success(f"Gelukt! {saved} uitslagen opgeslagen.")
+            st.rerun()
