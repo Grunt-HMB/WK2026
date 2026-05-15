@@ -10,7 +10,7 @@ def show_pronostiek_scores(user_id="Tom"):
         if len(code) != 2: return "⚽"
         return chr(ord(code[0]) + 127397) + chr(ord(code[1]) + 127397)
 
-    # --- CSS VOOR COMPACTE INPUTS EN MOBIEL ---
+    # --- CSS VOOR COMPACTE INPUTS EN MOBIELE ROWS ---
     st.markdown("""
     <style>
     .block-container { padding: 1rem 0.5rem !important; }
@@ -44,24 +44,35 @@ def show_pronostiek_scores(user_id="Tom"):
         margin-bottom: 5px;
     }
 
-    /* FORCEER SMALLE INPUTS */
-    /* Dit zorgt dat de score-balkjes niet over de hele breedte uitrekken */
+    /* FORCEER KOLOMMEN NAAST ELKAAR OP MOBIEL */
+    [data-testid="stHorizontalBlock"] {
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    [data-testid="column"] {
+        width: auto !important;
+        flex: unset !important;
+        min-width: unset !important;
+    }
+
+    /* SPECIFIEKE BREEDTE VOOR DE INPUT */
     div[data-testid="stNumberInput"] {
-        width: 90px !important;
-        margin: 0 auto !important;
+        width: 100px !important; /* Iets breder gemaakt voor + en - */
     }
     
-    /* Verwijder witruimte boven de inputs */
     div[data-testid="stNumberInput"] > div {
-        padding-top: 0 !important;
+        padding: 0 !important;
     }
-    
-    /* Maak het resultaat (Gok: 1) compact */
+
     .prediction-text {
         text-align: center;
         font-weight: bold;
         font-size: 0.9rem;
-        margin-top: -10px;
+        margin-top: 5px;
         margin-bottom: 15px;
     }
     </style>
@@ -122,23 +133,22 @@ def show_pronostiek_scores(user_id="Tom"):
         </div>
         """, unsafe_allow_html=True)
 
-        # De scores (smalle kolommen om ze te centreren)
-        # De 0.2 kolom is voor het streepje ertussen
-        c_pad1, c_s1, c_mid, c_s2, c_pad2 = st.columns([0.5, 1, 0.2, 1, 0.5])
+        # De scores (Strak naast elkaar zonder spacers)
+        col_left, col_mid, col_right = st.columns([1, 0.2, 1])
         
-        with c_s1:
+        with col_left:
             new_s1 = st.number_input(
-                "Score1", min_value=0, max_value=20, 
+                "S1", min_value=0, max_value=20, 
                 value=int(data['score1']), 
                 key=f"in1_{m_id}", label_visibility="collapsed"
             )
         
-        with c_mid:
-            st.markdown("<div style='text-align:center; line-height:40px; color:#718096;'>-</div>", unsafe_allow_html=True)
+        with col_mid:
+            st.markdown("<div style='text-align:center; line-height:40px; font-weight:bold;'>-</div>", unsafe_allow_html=True)
 
-        with c_s2:
+        with col_right:
             new_s2 = st.number_input(
-                "Score2", min_value=0, max_value=20, 
+                "S2", min_value=0, max_value=20, 
                 value=int(data['score2']), 
                 key=f"in2_{m_id}", label_visibility="collapsed"
             )
