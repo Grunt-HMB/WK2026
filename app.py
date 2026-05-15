@@ -1,3 +1,4 @@
+import inspect
 import streamlit as st
 
 from modules.database import (
@@ -16,6 +17,7 @@ from modules.auth import (
     get_display_team_name,
 )
 from modules.pronostiek import show_pronostiek
+from modules.pronostiek_scores import show_pronostiek_scores
 from modules.admin_results import show_admin_results
 from modules.scoreboard import show_scoreboard
 from modules.poule_standen import show_poule_standen
@@ -31,6 +33,25 @@ st.set_page_config(
 @st.cache_data(ttl=60)
 def get_users():
     return load_users()
+
+
+def show_scoreboard_safe():
+    params = inspect.signature(show_scoreboard).parameters
+
+    if "matches_df" in params and "official_standings_df" in params:
+        show_scoreboard(
+            users_df=load_users(),
+            predictions_df=load_predictions(),
+            results_df=load_results(),
+            matches_df=load_matches(),
+            official_standings_df=load_standings(),
+        )
+    else:
+        show_scoreboard(
+            users_df=load_users(),
+            predictions_df=load_predictions(),
+            results_df=load_results(),
+        )
 
 
 users_df = get_users()
@@ -135,8 +156,11 @@ if st.session_state.main_page == "🏠 Hoofdmenu":
             unsafe_allow_html=True,
         )
 
-        if st.button("⚽ Pronostiek invullen", use_container_width=True, type="primary"):
+        if st.button("⚽ Pronostiek invullen", use_container_width=True):
             go_to("⚽ Pronostiek")
+
+        if st.button("🎯 Pronostiek met scores", use_container_width=True, type="primary"):
+            go_to("🎯 Pronostiek scores")
 
         if st.button("📊 Poulestanden", use_container_width=True):
             go_to("📊 Poulestanden")
@@ -170,7 +194,7 @@ if st.session_state.main_page == "🏠 Hoofdmenu":
 
         st.write("---")
 
-        if st.button("📊 Algemene standen bekijken", use_container_width=True):
+        if st.button("🏆 Scoreboard bekijken", use_container_width=True):
             go_to("🏆 Scoreboard")
 
 
@@ -192,6 +216,15 @@ elif st.session_state.main_page == "⚽ Pronostiek":
         )
 
 
+elif st.session_state.main_page == "🎯 Pronostiek scores":
+    user = require_login()
+
+    if user is not None:
+        show_pronostiek_scores(
+            user_id=user["naam"],
+        )
+
+
 elif st.session_state.main_page == "📊 Poulestanden":
     user = require_login()
 
@@ -204,11 +237,7 @@ elif st.session_state.main_page == "📊 Poulestanden":
 
 
 elif st.session_state.main_page == "🏆 Scoreboard":
-    show_scoreboard(
-        users_df=load_users(),
-        predictions_df=load_predictions(),
-        results_df=load_results(),
-    )
+    show_scoreboard_safe()
 
 
 elif st.session_state.main_page == "🏆 Admin uitslagen":
