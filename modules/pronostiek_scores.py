@@ -1,58 +1,65 @@
 import streamlit as st
 
-# Veiligheidscheck voor de import van de data_loader
+# Veilig de data_loader importeren
 try:
     from modules.data_loader import get_matches
 except ImportError:
     from data_loader import get_matches
 
 def show_pronostiek_scores(user_id):
-    st.markdown(f"### 🏟️ Pronostiek: {user_id}")
+    # Forceer user_id naar string voor de zekerheid
+    naam = str(user_id)
+    st.subheader(f"🏟️ Pronostiek voor {naam}")
     
     df = get_matches()
     if df.empty:
-        st.error("Geen wedstrijddata gevonden. Controleer pronostiek_matches.py")
+        st.error("Geen wedstrijden kunnen laden.")
         return
 
-    # Filter op speeldag
-    speeldagen = sorted(df['speeldag'].unique())
-    gekozen_dag = st.select_slider("Kies Speeldag", options=speeldagen)
+    # Filter per speeldag (1, 2 of 3)
+    dagen = sorted(df['speeldag'].unique())
+    gekozen_dag = st.select_slider("Kies Speeldag", options=dagen)
     
     dag_df = df[df['speeldag'] == gekozen_dag]
 
+    # Toon elke wedstrijd
     for _, match in dag_df.iterrows():
         draw_match_card(match)
 
 def draw_match_card(match):
-    # CRUCIALE FIX: Forceer alles naar string en gebruik een fallback
-    # Dit voorkomt de TypeError als data ontbreekt
+    # STAP 1: Alle data dwingen naar strings (voorkomt TypeErrors in Python 3.14)
     m_id = str(match.get('match_id', '0'))
-    t1 = str(match.get('team1', 'Onbekend'))
-    t2 = str(match.get('team2', 'Onbekend'))
+    t1 = str(match.get('team1', 'Team 1'))
+    t2 = str(match.get('team2', 'Team 2'))
     c1 = str(match.get('team1_code', '??'))
     c2 = str(match.get('team2_code', '??'))
     tijd = str(match.get('tijd', '00:00'))
     groep = str(match.get('groep', '-'))
 
     with st.container(border=True):
+        # Bovenste regel: info
         st.caption(f"Groep {groep} • {tijd}")
         
-        col_l, col_s, col_r = st.columns([4, 3, 4])
+        # Drie kolommen: Team links | Scores | Team rechts
+        col_links, col_midden, col_rechts = st.columns([4, 3, 4])
         
-        with col_l:
-            st.markdown(f"**{t1}**")
+        with col_links:
+            st.write(f"**{t1}**")
             st.caption(c1)
             
-        with col_s:
-            # Gebruik keys gebaseerd op m_id voor de scores
+        with col_midden:
+            # Score-invoer
             s1, s2 = st.columns(2)
-            s1.number_input("T1", 0, 15, 0, 1, key=f"s1_{m_id}", label_visibility="collapsed")
-            s2.number_input("T2", 0, 15, 0, 1, key=f"s2_{m_id}", label_visibility="collapsed")
+            with s1:
+                st.number_input("T1", 0, 15, 0, 1, key=f"s1_{m_id}", label_visibility="collapsed")
+            with s2:
+                st.number_input("T2", 0, 15, 0, 1, key=f"s2_{m_id}", label_visibility="collapsed")
             
-        with col_r:
-            # De plek waar de crash gebeurde is nu beveiligd door de str() conversie hierboven
-            st.markdown(
-                f"<div style='text-align: right;'><b>{t2}</b><br>"
-                f"<span style='color: gray; font-size: 0.8em;'>{c2}</span></div>", 
-                unsafe_content_allowed=True
-            )
+        with col_rechts:
+            # GEEN HTML MEER: Gewone Streamlit markdown met uitlijning
+            # Dit is de veiligste methode tegen TypeErrors
+            st.markdown(f"<p style='text-align:right; margin:0;'><b>{t2}</b></p>", unsafe_content_allowed=True)
+            st.markdown(f"<p style='text-align:right; margin:0; color:gray; font-size:0.8em;'>{c2}</p>", unsafe_content_allowed=True)
+
+    # Ruimte tussen de kaarten
+    st.write("")
