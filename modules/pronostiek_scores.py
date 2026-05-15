@@ -10,45 +10,59 @@ def show_pronostiek_scores(user_id="Tom"):
         if len(code) != 2: return "⚽"
         return chr(ord(code[0]) + 127397) + chr(ord(code[1]) + 127397)
 
-    # --- CSS VOOR MOOIE KAARTJES & MOBIEL ---
+    # --- CSS VOOR COMPACTE INPUTS EN MOBIEL ---
     st.markdown("""
     <style>
     .block-container { padding: 1rem 0.5rem !important; }
     
+    /* Top Bar */
     .st-key-score_top_bar {
         position: fixed; top: 0; left: 0; right: 0; z-index: 999;
         background: #0e1117; padding: 10px; border-bottom: 1px solid #30363d;
     }
     .top-spacer { height: 75px; }
 
-    /* Stijl voor het wedstrijd-kaartje */
+    /* Wedstrijd Kaartje */
     .match-card {
         background: #1a202c;
         border: 1px solid #2d3748;
-        border-radius: 15px;
-        padding: 15px;
-        margin-bottom: 20px;
+        border-radius: 12px;
+        padding: 10px;
+        margin-bottom: 10px;
+        text-align: center;
     }
     
     .match-header {
-        font-size: 1.2rem;
-        font-weight: 800;
-        margin-bottom: 10px;
+        font-size: 1rem;
+        font-weight: 700;
         color: #ffffff;
-        text-align: center;
     }
 
     .match-info {
-        font-size: 0.75rem;
+        font-size: 0.7rem;
         color: #a0aec0;
-        text-align: center;
-        margin-bottom: 15px;
+        margin-bottom: 5px;
     }
 
-    /* Maak de number input labels onzichtbaar maar behoud de ruimte */
-    label[data-testid="stWidgetLabel"] {
-        font-weight: 600 !important;
-        color: #cbd5e0 !important;
+    /* FORCEER SMALLE INPUTS */
+    /* Dit zorgt dat de score-balkjes niet over de hele breedte uitrekken */
+    div[data-testid="stNumberInput"] {
+        width: 90px !important;
+        margin: 0 auto !important;
+    }
+    
+    /* Verwijder witruimte boven de inputs */
+    div[data-testid="stNumberInput"] > div {
+        padding-top: 0 !important;
+    }
+    
+    /* Maak het resultaat (Gok: 1) compact */
+    .prediction-text {
+        text-align: center;
+        font-weight: bold;
+        font-size: 0.9rem;
+        margin-top: -10px;
+        margin-bottom: 15px;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -61,12 +75,13 @@ def show_pronostiek_scores(user_id="Tom"):
     if load_flag not in st.session_state:
         try:
             db_preds = load_predictions(user_id)
-            for _, row in db_preds.iterrows():
-                st.session_state.score_predictions[str(row['match_id'])] = {
-                    "prediction": row['prediction'], 
-                    "score1": int(row['score1']), 
-                    "score2": int(row['score2'])
-                }
+            if not db_preds.empty:
+                for _, row in db_preds.iterrows():
+                    st.session_state.score_predictions[str(row['match_id'])] = {
+                        "prediction": row['prediction'], 
+                        "score1": int(row['score1']), 
+                        "score2": int(row['score2'])
+                    }
             st.session_state[load_flag] = True
         except: pass
 
@@ -80,7 +95,7 @@ def show_pronostiek_scores(user_id="Tom"):
         with c2:
             if st.button("💾 OPSLAAN", type="primary", use_container_width=True):
                 batch_save_predictions(user_id, st.session_state.score_predictions, "concept")
-                st.toast("✅ Pronostiek opgeslagen!")
+                st.toast("✅ Opgeslagen!")
 
     st.markdown('<div class="top-spacer"></div>', unsafe_allow_html=True)
 
@@ -97,37 +112,38 @@ def show_pronostiek_scores(user_id="Tom"):
         
         data = st.session_state.score_predictions[m_id]
 
-        # Start van het kaartje
+        # Header Kaartje
         st.markdown(f"""
         <div class="match-card">
-            <div class="match-info">{m['datum']} • {m['tijd']} • Groep {m['groep']}</div>
+            <div class="match-info">{m['datum']} • {m['tijd']}</div>
             <div class="match-header">
-                {country_flag(m['team1_code'])} {m['team1']} vs {m['team2']} {country_flag(m['team2_code'])}
+                {country_flag(m['team1_code'])} {m['team1']} - {m['team2']} {country_flag(m['team2_code'])}
             </div>
         </div>
         """, unsafe_allow_html=True)
 
-        # Invoer velden direct onder de namen
-        # We gebruiken 2 kolommen voor de scores, die blijven op mobiel meestal wel naast elkaar
-        col_s1, col_s2 = st.columns(2)
+        # De scores (smalle kolommen om ze te centreren)
+        # De 0.2 kolom is voor het streepje ertussen
+        c_pad1, c_s1, c_mid, c_s2, c_pad2 = st.columns([0.5, 1, 0.2, 1, 0.5])
         
-        with col_s1:
+        with c_s1:
             new_s1 = st.number_input(
-                f"Score {m['team1']}", 
-                min_value=0, max_value=20, 
+                "Score1", min_value=0, max_value=20, 
                 value=int(data['score1']), 
-                key=f"in1_{m_id}"
+                key=f"in1_{m_id}", label_visibility="collapsed"
             )
         
-        with col_s2:
+        with c_mid:
+            st.markdown("<div style='text-align:center; line-height:40px; color:#718096;'>-</div>", unsafe_allow_html=True)
+
+        with c_s2:
             new_s2 = st.number_input(
-                f"Score {m['team2']}", 
-                min_value=0, max_value=20, 
+                "Score2", min_value=0, max_value=20, 
                 value=int(data['score2']), 
-                key=f"in2_{m_id}"
+                key=f"in2_{m_id}", label_visibility="collapsed"
             )
 
-        # Berekening
+        # Resultaat bepalen
         if new_s1 > new_s2: res = "1"
         elif new_s1 < new_s2: res = "2"
         else: res = "X"
@@ -136,9 +152,9 @@ def show_pronostiek_scores(user_id="Tom"):
             "prediction": res, "score1": new_s1, "score2": new_s2
         }
 
-        # Toon gok onder de inputs
+        # Gok tekst
         color = "#48bb78" if res != "X" else "#ecc94b"
-        st.markdown(f"<p style='text-align:center; color:{color}; font-weight:bold;'>Gok: {res}</p>", unsafe_allow_html=True)
-        st.markdown("---")
+        st.markdown(f'<div class="prediction-text" style="color:{color};">Gok: {res}</div>', unsafe_allow_html=True)
+        st.divider()
 
     st.markdown("<br><br>", unsafe_allow_html=True)
