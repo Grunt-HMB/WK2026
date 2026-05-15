@@ -14,7 +14,7 @@ def show_pronostiek_scores(user_id=None):
         st.info("Label 1")
 
     with col2:
-        st.success("-----")
+        st.success("-*-")
 
     with col3:
         st.success("Label 2")
