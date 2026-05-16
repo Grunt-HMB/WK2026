@@ -111,16 +111,21 @@ def show_pronostiek_scores(user_id):
     dag_df = df.copy()
 
     with st.form("pronostiek_form"):
+
         for _, match in dag_df.iterrows():
+
             m_id = str(match.get("match_id", "0"))
 
             t1 = str(match.get("team1", "Team 1"))
             t2 = str(match.get("team2", "Team 2"))
+
+            datum = str(match.get("datum", ""))
             tijd = str(match.get("tijd", "00:00"))
             groep = str(match.get("groep", "-"))
 
             with st.container(border=True):
-                st.caption(f"Groep {groep} • {tijd}")
+
+                st.caption(f"Groep {groep} • {datum} • {tijd}")
 
                 st.markdown(f"**{t1}**")
 
@@ -132,20 +137,6 @@ def show_pronostiek_scores(user_id):
                     step=1,
                     key=f"s1_{m_id}",
                     label_visibility="collapsed",
-                )
-
-                st.markdown(
-                    """
-                    <div style="
-                        text-align:center;
-                        font-size:24px;
-                        font-weight:900;
-                        margin: -6px 0 2px 0;
-                    ">
-                        -
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
                 )
 
                 st.number_input(
@@ -167,10 +158,12 @@ def show_pronostiek_scores(user_id):
         )
 
     if submitted:
+
         rows = []
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         for _, match in dag_df.iterrows():
+
             m_id = str(match.get("match_id", "0"))
 
             score1 = int(st.session_state.get(f"s1_{m_id}", 0))
@@ -187,4 +180,5 @@ def show_pronostiek_scores(user_id):
             })
 
         save_predictions_to_sheet(rows)
+
         st.success("Je scores zijn opgeslagen!")
