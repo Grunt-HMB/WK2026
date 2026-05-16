@@ -114,6 +114,23 @@ def show_pronostiek_scores(user_id):
             box-shadow: 0 4px 12px rgba(0,0,0,0.30);
         }
 
+        
+        /* SCORE INPUTS SMALLER */
+        div[data-testid="stNumberInput"] {
+            max-width: 60px;
+        }
+        
+        div[data-testid="stNumberInput"] input {
+            text-align: center;
+            font-weight: 700;
+        }
+        
+        div[data-testid="stNumberInput"] button {
+            padding-left: 4px;
+            padding-right: 4px;
+        }
+        
+        
         .block-container {
             padding-bottom: 80px;
         }
