@@ -60,6 +60,7 @@ def save_predictions_to_sheet(rows):
     existing_df = existing_df[expected_columns]
 
     for _, row in new_df.iterrows():
+
         existing_df = existing_df[
             ~(
                 (existing_df["user_id"].astype(str) == str(row["user_id"]))
@@ -72,55 +73,40 @@ def save_predictions_to_sheet(rows):
     final_df = final_df[expected_columns]
 
     ws.clear()
-    ws.update([expected_columns] + final_df.astype(str).values.tolist())
 
-
-def show_team(team_name, team_code):
-    img = flag_img(team_code)
-
-    if img:
-        flag_html = f'<img src="{img}" width="28" style="border-radius:4px;">'
-    else:
-        flag_html = "⚽"
-
-    st.markdown(
-        f"""
-        <div style="
-            display:flex;
-            align-items:center;
-            gap:8px;
-            min-height:42px;
-        ">
-            {flag_html}
-
-            <div>
-                <div style="
-                    font-weight:700;
-                    line-height:1.1;
-                ">
-                    {team_name}
-                </div>
-
-                <div style="
-                    color:gray;
-                    font-size:12px;
-                    line-height:1.1;
-                ">
-                    {team_code}
-                </div>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    ws.update(
+        [expected_columns] +
+        final_df.astype(str).values.tolist()
     )
 
 
+def show_team(team_name, team_code):
+
+    flag_col, text_col = st.columns([1, 4])
+
+    with flag_col:
+
+        img = flag_img(team_code)
+
+        if img:
+            st.image(img, width=28)
+        else:
+            st.write("⚽")
+
+    with text_col:
+
+        st.markdown(f"**{team_name}**")
+        st.caption(team_code)
+
+
 def show_pronostiek_scores(user_id):
+
     st.markdown(f"### 🎯 Scores invullen: {user_id}")
 
     st.markdown(
         """
         <style>
+
         div[data-testid="stButton"] > button {
             position: fixed;
             bottom: 15px;
@@ -131,6 +117,7 @@ def show_pronostiek_scores(user_id):
             height: 46px;
 
             border-radius: 12px;
+
             font-size: 15px;
             font-weight: 700;
 
@@ -140,6 +127,7 @@ def show_pronostiek_scores(user_id):
         .block-container {
             padding-bottom: 80px;
         }
+
         </style>
         """,
         unsafe_allow_html=True,
@@ -166,14 +154,22 @@ def show_pronostiek_scores(user_id):
         type="primary",
         key="btn_save_pronostiek_scores",
     ):
+
         rows = []
+
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         for _, match in dag_df.iterrows():
+
             m_id = str(match.get("match_id", "0"))
 
-            score1 = int(st.session_state.get(f"s1_{m_id}", 0))
-            score2 = int(st.session_state.get(f"s2_{m_id}", 0))
+            score1 = int(
+                st.session_state.get(f"s1_{m_id}", 0)
+            )
+
+            score2 = int(
+                st.session_state.get(f"s2_{m_id}", 0)
+            )
 
             rows.append({
                 "user_id": user_id,
@@ -186,27 +182,34 @@ def show_pronostiek_scores(user_id):
             })
 
         save_predictions_to_sheet(rows)
-        st.success("Je scores zijn opgeslagen in Predictions!")
+
+        st.success("Je scores zijn opgeslagen!")
 
     for _, match in dag_df.iterrows():
+
         m_id = str(match.get("match_id", "0"))
 
         t1 = str(match.get("team1", "Team 1"))
         t2 = str(match.get("team2", "Team 2"))
+
         c1 = str(match.get("team1_code", "??"))
         c2 = str(match.get("team2_code", "??"))
+
         tijd = str(match.get("tijd", "00:00"))
         groep = str(match.get("groep", "-"))
 
         with st.container(border=True):
+
             st.caption(f"Groep {groep} • {tijd}")
 
             col_l, col_s, col_r = st.columns([5, 3, 5])
 
             with col_l:
+
                 show_team(t1, c1)
 
             with col_s:
+
                 s1, s2 = st.columns(2)
 
                 s1.number_input(
@@ -230,4 +233,5 @@ def show_pronostiek_scores(user_id):
                 )
 
             with col_r:
+
                 show_team(t2, c2)
