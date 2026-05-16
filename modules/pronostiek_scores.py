@@ -76,7 +76,6 @@ def save_predictions_to_sheet(rows):
 
 
 def show_team(team_name, team_code):
-
     img = flag_img(team_code)
 
     st.markdown(
@@ -87,7 +86,6 @@ def show_team(team_name, team_code):
             gap:8px;
             min-height:40px;
         ">
-
             <img src="{img}"
                  width="28"
                  style="
@@ -99,7 +97,6 @@ def show_team(team_name, team_code):
                 line-height:1.1;
                 overflow:hidden;
             ">
-
                 <div style="
                     font-weight:700;
                     font-size:15px;
@@ -116,9 +113,7 @@ def show_team(team_name, team_code):
                 ">
                     {team_code}
                 </div>
-
             </div>
-
         </div>
         """,
         unsafe_allow_html=True,
