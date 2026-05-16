@@ -73,7 +73,7 @@ def show_team(team_name):
             font-weight:700;
             font-size:15px;
             line-height:1.2;
-            padding-top:6px;
+            padding-top:8px;
             white-space:nowrap;
             overflow:hidden;
             text-overflow:ellipsis;
@@ -85,66 +85,25 @@ def show_team(team_name):
     )
 
 
-def init_score(key):
-    if key not in st.session_state:
-        st.session_state[key] = 0
-
-
-def score_control(key):
-    init_score(key)
-
-    c1, c2, c3 = st.columns([1, 1, 1])
-
-    with c1:
-        if st.button("−", key=f"minus_{key}", use_container_width=True):
-            st.session_state[key] = max(0, int(st.session_state[key]) - 1)
-            st.rerun()
-
-    with c2:
-        st.markdown(
-            f"""
-            <div style="
-                text-align:center;
-                font-size:22px;
-                font-weight:800;
-                padding-top:6px;
-            ">
-                {st.session_state[key]}
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    with c3:
-        if st.button("+", key=f"plus_{key}", use_container_width=True):
-            st.session_state[key] = min(15, int(st.session_state[key]) + 1)
-            st.rerun()
-
-
 def show_pronostiek_scores(user_id):
     st.markdown(f"### 🎯 Scores invullen: {user_id}")
 
     st.markdown(
         """
         <style>
-        div[data-testid="stButton"] > button {
-            min-height: 34px;
-            padding: 2px 6px;
-            font-size: 18px;
-            font-weight: 800;
-            border-radius: 8px;
-        }
-
-        div[data-testid="stButton"] > button[kind="primary"] {
+        div[data-testid="stFormSubmitButton"] > button {
             position: fixed;
             bottom: 15px;
             left: 15px;
             z-index: 9999;
+
             width: 130px;
             height: 46px;
+
             border-radius: 12px;
             font-size: 15px;
             font-weight: 700;
+
             box-shadow: 0 4px 12px rgba(0,0,0,0.30);
         }
 
@@ -164,44 +123,60 @@ def show_pronostiek_scores(user_id):
 
     dag_df = df.copy()
 
-    for _, match in dag_df.iterrows():
-        m_id = str(match.get("match_id", "0"))
+    with st.form("pronostiek_form"):
 
-        t1 = str(match.get("team1", "Team 1"))
-        t2 = str(match.get("team2", "Team 2"))
+        for _, match in dag_df.iterrows():
+            m_id = str(match.get("match_id", "0"))
 
-        tijd = str(match.get("tijd", "00:00"))
-        groep = str(match.get("groep", "-"))
+            t1 = str(match.get("team1", "Team 1"))
+            t2 = str(match.get("team2", "Team 2"))
 
-        key1 = f"s1_{m_id}"
-        key2 = f"s2_{m_id}"
+            tijd = str(match.get("tijd", "00:00"))
+            groep = str(match.get("groep", "-"))
 
-        init_score(key1)
-        init_score(key2)
+            with st.container(border=True):
+                st.caption(f"Groep {groep} • {tijd}")
 
-        with st.container(border=True):
-            st.caption(f"Groep {groep} • {tijd}")
+                col_l, col_s, col_r = st.columns([4, 5, 4])
 
-            col_l, col_s1, col_s2, col_r = st.columns([3, 3, 3, 3])
+                with col_l:
+                    show_team(t1)
 
-            with col_l:
-                show_team(t1)
+                with col_s:
+                    s1, s2 = st.columns([1, 1], gap="small")
 
-            with col_s1:
-                score_control(key1)
+                    with s1:
+                        st.number_input(
+                            "T1",
+                            min_value=0,
+                            max_value=15,
+                            value=0,
+                            step=1,
+                            key=f"s1_{m_id}",
+                            label_visibility="collapsed",
+                        )
 
-            with col_s2:
-                score_control(key2)
+                    with s2:
+                        st.number_input(
+                            "T2",
+                            min_value=0,
+                            max_value=15,
+                            value=0,
+                            step=1,
+                            key=f"s2_{m_id}",
+                            label_visibility="collapsed",
+                        )
 
-            with col_r:
-                show_team(t2)
+                with col_r:
+                    show_team(t2)
 
-    if st.button(
-        "💾 Opslaan",
-        use_container_width=False,
-        type="primary",
-        key="btn_save_pronostiek_scores",
-    ):
+        submitted = st.form_submit_button(
+            "💾 Opslaan",
+            use_container_width=False,
+            type="primary",
+        )
+
+    if submitted:
         rows = []
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
