@@ -69,6 +69,33 @@ def save_predictions_to_sheet(rows):
 def show_pronostiek_scores(user_id):
     st.markdown(f"### 🎯 Scores invullen: {user_id}")
 
+    st.markdown(
+        """
+        <style>
+        div[data-testid="stButton"] > button {
+            position: fixed;
+            bottom: 15px;
+            right: 15px;
+            z-index: 9999;
+
+            width: 190px;
+            height: 55px;
+
+            border-radius: 14px;
+            font-size: 17px;
+            font-weight: 700;
+
+            box-shadow: 0 4px 14px rgba(0,0,0,0.35);
+        }
+
+        .block-container {
+            padding-bottom: 90px;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
     df = get_matches()
 
     if df.empty:
@@ -79,10 +106,39 @@ def show_pronostiek_scores(user_id):
 
     gekozen_dag = st.select_slider(
         "Kies Speeldag",
-        options=dagen
+        options=dagen,
     )
 
     dag_df = df[df["speeldag"] == gekozen_dag]
+
+    if st.button(
+        "💾 Opslaan",
+        use_container_width=False,
+        type="primary",
+        key="btn_save_pronostiek_scores",
+    ):
+        rows = []
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        for _, match in dag_df.iterrows():
+            m_id = str(match.get("match_id", "0"))
+
+            score1 = int(st.session_state.get(f"s1_{m_id}", 0))
+            score2 = int(st.session_state.get(f"s2_{m_id}", 0))
+
+            rows.append({
+                "user_id": user_id,
+                "match_id": m_id,
+                "prediction": prediction_from_score(score1, score2),
+                "score1": score1,
+                "score2": score2,
+                "status": "Voorlopig",
+                "timestamp": now,
+            })
+
+        save_predictions_to_sheet(rows)
+
+        st.success("Je scores zijn opgeslagen in Predictions!")
 
     for _, match in dag_df.iterrows():
         m_id = str(match.get("match_id", "0"))
@@ -131,31 +187,8 @@ def show_pronostiek_scores(user_id):
                     f"<p style='text-align:right; margin:0;'><b>{t2}</b></p>",
                     unsafe_allow_html=True,
                 )
+
                 st.markdown(
                     f"<p style='text-align:right; margin:0; color:gray; font-size:0.8em;'>{c2}</p>",
                     unsafe_allow_html=True,
                 )
-
-    if st.button("💾 Pronostiek Opslaan", use_container_width=True, type="primary"):
-        rows = []
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-        for _, match in dag_df.iterrows():
-            m_id = str(match.get("match_id", "0"))
-
-            score1 = int(st.session_state.get(f"s1_{m_id}", 0))
-            score2 = int(st.session_state.get(f"s2_{m_id}", 0))
-
-            rows.append({
-                "user_id": user_id,
-                "match_id": m_id,
-                "prediction": prediction_from_score(score1, score2),
-                "score1": score1,
-                "score2": score2,
-                "status": "Voorlopig",
-                "timestamp": now,
-            })
-
-        save_predictions_to_sheet(rows)
-
-        st.success("Je scores zijn opgeslagen in Predictions!")
