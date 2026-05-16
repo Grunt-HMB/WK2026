@@ -163,7 +163,7 @@ def show_pronostiek_scores(user_id):
             with st.container(border=True):
                 st.caption(f"Groep {groep} • {tijd}")
 
-                col_l, col_s, col_r = st.columns([4, 4, 4])
+                col_l, col_s, col_r = st.columns([3, 7, 3])
 
                 with col_l:
                     show_team(t1, c1)
