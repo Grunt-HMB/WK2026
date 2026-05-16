@@ -76,19 +76,53 @@ def save_predictions_to_sheet(rows):
 
 
 def show_team(team_name, team_code):
-    flag_col, text_col = st.columns([1, 4])
 
-    with flag_col:
-        img = flag_img(team_code)
+    img = flag_img(team_code)
 
-        if img:
-            st.image(img, width=28)
-        else:
-            st.write("⚽")
+    st.markdown(
+        f"""
+        <div style="
+            display:flex;
+            align-items:center;
+            gap:8px;
+            min-height:40px;
+        ">
 
-    with text_col:
-        st.markdown(f"**{team_name}**")
-        st.caption(team_code)
+            <img src="{img}"
+                 width="28"
+                 style="
+                    border-radius:4px;
+                    flex-shrink:0;
+                 ">
+
+            <div style="
+                line-height:1.1;
+                overflow:hidden;
+            ">
+
+                <div style="
+                    font-weight:700;
+                    font-size:15px;
+                    white-space:nowrap;
+                    overflow:hidden;
+                    text-overflow:ellipsis;
+                ">
+                    {team_name}
+                </div>
+
+                <div style="
+                    color:gray;
+                    font-size:11px;
+                ">
+                    {team_code}
+                </div>
+
+            </div>
+
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def show_pronostiek_scores(user_id):
