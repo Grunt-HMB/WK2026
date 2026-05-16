@@ -117,7 +117,7 @@ def show_pronostiek_scores(user_id):
         
         /* SCORE INPUTS SMALLER */
         div[data-testid="stNumberInput"] {
-            max-width: 160px;
+            max-width: 140px;
         }
         
         div[data-testid="stNumberInput"] input {
