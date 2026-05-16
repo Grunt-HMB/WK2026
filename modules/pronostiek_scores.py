@@ -119,9 +119,9 @@ def show_pronostiek_scores(user_id):
             t1 = str(match.get("team1", "Team 1"))
             t2 = str(match.get("team2", "Team 2"))
 
-            datum = str(match.get("datum", ""))
-            tijd = str(match.get("tijd", "00:00"))
             groep = str(match.get("groep", "-"))
+            datum = str(match.get("datum", "GEEN DATUM"))
+            tijd = str(match.get("tijd", "00:00"))
 
             with st.container(border=True):
 
