@@ -66,25 +66,6 @@ def save_predictions_to_sheet(rows):
     ws.update([expected_columns] + final_df.astype(str).values.tolist())
 
 
-def show_team(team_name):
-    st.markdown(
-        f"""
-        <div style="
-            font-weight:700;
-            font-size:15px;
-            line-height:1.2;
-            padding-top:8px;
-            white-space:nowrap;
-            overflow:hidden;
-            text-overflow:ellipsis;
-        ">
-            {team_name}
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
 def show_pronostiek_scores(user_id):
     st.markdown(f"### 🎯 Scores invullen: {user_id}")
 
@@ -97,18 +78,24 @@ def show_pronostiek_scores(user_id):
             left: 15px;
             z-index: 9999;
 
-            width: 130px;
-            height: 46px;
+            width: 150px;
+            height: 48px;
 
-            border-radius: 12px;
-            font-size: 15px;
-            font-weight: 700;
+            border-radius: 14px;
+            font-size: 17px;
+            font-weight: 800;
 
-            box-shadow: 0 4px 12px rgba(0,0,0,0.30);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.35);
         }
 
         .block-container {
-            padding-bottom: 80px;
+            padding-bottom: 90px;
+        }
+
+        div[data-testid="stNumberInput"] input {
+            text-align: center;
+            font-weight: 800;
+            font-size: 20px;
         }
         </style>
         """,
@@ -124,51 +111,54 @@ def show_pronostiek_scores(user_id):
     dag_df = df.copy()
 
     with st.form("pronostiek_form"):
-
         for _, match in dag_df.iterrows():
             m_id = str(match.get("match_id", "0"))
 
             t1 = str(match.get("team1", "Team 1"))
             t2 = str(match.get("team2", "Team 2"))
-
             tijd = str(match.get("tijd", "00:00"))
             groep = str(match.get("groep", "-"))
 
             with st.container(border=True):
                 st.caption(f"Groep {groep} • {tijd}")
 
-                col_l, col_s, col_r = st.columns([4, 5, 4])
+                st.markdown(f"**{t1}**")
 
-                with col_l:
-                    show_team(t1)
+                st.number_input(
+                    f"Score {t1}",
+                    min_value=0,
+                    max_value=15,
+                    value=0,
+                    step=1,
+                    key=f"s1_{m_id}",
+                    label_visibility="collapsed",
+                )
 
-                with col_s:
-                    s1, s2 = st.columns([1, 1], gap="small")
+                st.markdown(
+                    """
+                    <div style="
+                        text-align:center;
+                        font-size:24px;
+                        font-weight:900;
+                        margin: -6px 0 2px 0;
+                    ">
+                        -
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
 
-                    with s1:
-                        st.number_input(
-                            "T1",
-                            min_value=0,
-                            max_value=15,
-                            value=0,
-                            step=1,
-                            key=f"s1_{m_id}",
-                            label_visibility="collapsed",
-                        )
+                st.number_input(
+                    f"Score {t2}",
+                    min_value=0,
+                    max_value=15,
+                    value=0,
+                    step=1,
+                    key=f"s2_{m_id}",
+                    label_visibility="collapsed",
+                )
 
-                    with s2:
-                        st.number_input(
-                            "T2",
-                            min_value=0,
-                            max_value=15,
-                            value=0,
-                            step=1,
-                            key=f"s2_{m_id}",
-                            label_visibility="collapsed",
-                        )
-
-                with col_r:
-                    show_team(t2)
+                st.markdown(f"**{t2}**")
 
         submitted = st.form_submit_button(
             "💾 Opslaan",
@@ -197,5 +187,4 @@ def show_pronostiek_scores(user_id):
             })
 
         save_predictions_to_sheet(rows)
-
         st.success("Je scores zijn opgeslagen!")
