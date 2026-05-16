@@ -70,31 +70,31 @@ def show_pronostiek_scores(user_id):
     st.markdown(f"### 🎯 Scores invullen: {user_id}")
 
     st.markdown(
-        """
-        <style>
-        div[data-testid="stButton"] > button {
-            position: fixed;
-            bottom: 15px;
-            right: 15px;
-            z-index: 9999;
+    """
+    <style>
+    div[data-testid="stButton"] > button {
+        position: fixed;
+        bottom: 15px;
+        left: 15px;
+        z-index: 9999;
 
-            width: 190px;
-            height: 55px;
+        width: 130px;
+        height: 46px;
 
-            border-radius: 14px;
-            font-size: 17px;
-            font-weight: 700;
+        border-radius: 12px;
+        font-size: 15px;
+        font-weight: 700;
 
-            box-shadow: 0 4px 14px rgba(0,0,0,0.35);
-        }
+        box-shadow: 0 4px 12px rgba(0,0,0,0.30);
+    }
 
-        .block-container {
-            padding-bottom: 90px;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
+    .block-container {
+        padding-bottom: 80px;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
     df = get_matches()
 
