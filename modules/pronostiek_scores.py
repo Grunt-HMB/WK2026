@@ -35,49 +35,31 @@ def show_pronostiek_scores(user_id="Tom", standings_df=None):
     if loaded_key not in st.session_state:
         st.session_state[loaded_key] = False
 
-    # ==================== CSS - STRONGER FIXED TOP BAR ====================
+    # ==================== CSS - STRONG FIXED TOP BAR ====================
     st.markdown("""
     <style>
     .block-container { 
-        padding-top: 110px !important; 
+        padding-top: 120px !important; 
         padding-bottom: 2rem !important;
     }
-    header, [data-testid="stHeader"] {
-        display: none !important;
+    header, [data-testid="stHeader"] { display: none !important; }
+
+    .sticky-top {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 999999;
+        background: #0e1117;
+        padding: 12px 10px;
+        border-bottom: 2px solid #ff4d4d;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.4);
     }
-    .fixed-top-bar {
-        position: fixed !important;
-        top: 0 !important;
-        left: 0 !important;
-        right: 0 !important;
-        z-index: 999999 !important;
-        background: #0e1117 !important;
-        padding: 12px 10px 12px 10px !important;
-        border-bottom: 1px solid rgba(255,255,255,0.15) !important;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-    }
-    .fixed-top-bar-inner {
+    .sticky-inner {
         max-width: 820px;
         margin: 0 auto;
         display: flex;
-        gap: 8px;
-    }
-    [class*="st-key-match_card_"] {
-        background: #111827;
-        border: 1px solid rgba(255,255,255,0.13);
-        border-radius: 14px;
-        padding: 0.65rem !important;
-        margin-bottom: 0.65rem;
-    }
-    .score-inputs {
-        margin-top: 10px;
-        padding-top: 8px;
-        border-top: 1px solid rgba(255,255,255,0.08);
-    }
-    .score-label {
-        font-size: 0.78rem;
-        color: #94a3b8;
-        margin-bottom: 3px;
+        gap: 10px;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -104,14 +86,15 @@ def show_pronostiek_scores(user_id="Tom", standings_df=None):
                         }
         st.session_state[loaded_key] = True
 
-    # ==================== FIXED TOP BAR ====================
-    st.markdown('<div class="fixed-top-bar"><div class="fixed-top-bar-inner">', unsafe_allow_html=True)
-    
+    # ==================== STICKY TOP BAR ====================
+    st.markdown('<div class="sticky-top"><div class="sticky-inner">', unsafe_allow_html=True)
+
     col_home, col_save = st.columns([1, 1.4], gap="small")
     with col_home:
         if st.button("☰ Hoofdmenu", key="back_to_main_menu", use_container_width=True):
             st.session_state.main_page = "🏠 Hoofdmenu"
             st.rerun()
+
     with col_save:
         if st.button("💾 OPSLAAN", key="save_button_top", 
                     use_container_width=True, type="primary"):
@@ -121,7 +104,7 @@ def show_pronostiek_scores(user_id="Tom", standings_df=None):
                 status="concept",
             )
             st.success(f"Opgeslagen: {saved} wedstrijden")
-    
+
     st.markdown('</div></div>', unsafe_allow_html=True)
 
     # ==================== MATCHES ====================
