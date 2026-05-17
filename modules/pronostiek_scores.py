@@ -20,10 +20,23 @@ def show_pronostiek_scores(user_id: str):
     
     st.markdown("""
     <style>
-    .compact-card { padding: 10px; border-radius: 10px; border: 1px solid #333; background-color: #1e1e1e; margin-bottom: 10px; }
-    .team-name { font-size: 16px; font-weight: 600; margin-bottom: 6px; }
-    .score-row { display: flex; align-items: center; gap: 8px; }
-    .stButton button { height: 42px; width: 42px; font-size: 18px; }
+    .compact-card { 
+        padding: 10px 12px; 
+        border-radius: 10px; 
+        border: 1px solid #333; 
+        background-color: #1e1e1e; 
+        margin-bottom: 10px; 
+    }
+    .team-name { 
+        font-size: 16px; 
+        font-weight: 600; 
+        margin-bottom: 4px; 
+    }
+    .score-label {
+        font-size: 15px;
+        color: #aaa;
+        margin-bottom: 2px;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -51,42 +64,43 @@ def show_pronostiek_scores(user_id: str):
 
             # Team 1
             st.markdown(f"<div class='team-name'>{t1}</div>", unsafe_allow_html=True)
-            c1 = st.columns([1, 3, 1])
-            with c1[0]:
-                if st.button("−", key=f"min1_{mid}", use_container_width=True):
-                    st.session_state[f"s1_{mid}"] = max(0, st.session_state[f"s1_{mid}"] - 1)
-            with c1[1]:
-                st.number_input("", key=f"num1_{mid}", value=st.session_state[f"s1_{mid}"],
-                               min_value=0, max_value=15, label_visibility="collapsed")
-            with c1[2]:
-                if st.button("+", key=f"plus1_{mid}", use_container_width=True):
-                    st.session_state[f"s1_{mid}"] = min(15, st.session_state[f"s1_{mid}"] + 1)
+            st.markdown("<div class='score-label'>− &nbsp;&nbsp; Score &nbsp;&nbsp; +</div>", unsafe_allow_html=True)
+            st.number_input(
+                label="",
+                min_value=0,
+                max_value=15,
+                value=st.session_state[f"s1_{mid}"],
+                key=f"num1_{mid}",
+                label_visibility="collapsed"
+            )
 
-            st.markdown("<p style='text-align:center; margin:8px 0; color:#888;'>VS</p>", unsafe_allow_html=True)
+            st.markdown("<p style='text-align:center; margin:6px 0; color:#777;'>VS</p>", unsafe_allow_html=True)
 
             # Team 2
             st.markdown(f"<div class='team-name' style='text-align:right'>{t2}</div>", unsafe_allow_html=True)
-            c2 = st.columns([1, 3, 1])
-            with c2[0]:
-                if st.button("−", key=f"min2_{mid}", use_container_width=True):
-                    st.session_state[f"s2_{mid}"] = max(0, st.session_state[f"s2_{mid}"] - 1)
-            with c2[1]:
-                st.number_input("", key=f"num2_{mid}", value=st.session_state[f"s2_{mid}"],
-                               min_value=0, max_value=15, label_visibility="collapsed")
-            with c2[2]:
-                if st.button("+", key=f"plus2_{mid}", use_container_width=True):
-                    st.session_state[f"s2_{mid}"] = min(15, st.session_state[f"s2_{mid}"] + 1)
+            st.markdown("<div class='score-label'>− &nbsp;&nbsp; Score &nbsp;&nbsp; +</div>", unsafe_allow_html=True)
+            st.number_input(
+                label="",
+                min_value=0,
+                max_value=15,
+                value=st.session_state[f"s2_{mid}"],
+                key=f"num2_{mid}",
+                label_visibility="collapsed"
+            )
 
-    # Fixed save button
-    st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("💾 OPSLAAN ALLE VOORSPELLINGEN", type="primary", use_container_width=True):
+    # Fixed Save Button
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    if st.button("💾 OPSLAAN ALLE VOORSPELLINGEN", 
+                 type="primary", 
+                 use_container_width=True):
         rows = []
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
         for _, match in df.iterrows():
             mid = str(match["match_id"])
-            s1 = st.session_state.get(f"s1_{mid}", 0)
-            s2 = st.session_state.get(f"s2_{mid}", 0)
+            s1 = st.session_state.get(f"num1_{mid}", 0)   # Note: using the number_input key
+            s2 = st.session_state.get(f"num2_{mid}", 0)
+            
             rows.append({
                 "user_id": user_id,
                 "match_id": mid,
@@ -99,4 +113,4 @@ def show_pronostiek_scores(user_id: str):
         
         with st.spinner("Opslaan..."):
             save_predictions_to_sheet(rows)
-            st.success("✅ Opgeslagen!")
+            st.success("✅ Alles opgeslagen!")
