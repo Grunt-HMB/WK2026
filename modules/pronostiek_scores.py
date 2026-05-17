@@ -7,7 +7,7 @@ from modules.database import (
 )
 
 def show_pronostiek_scores(user_id="Tom", standings_df=None):
-    # Helpers
+    # ==================== HELPERS ====================
     def country_flag(code):
         code = str(code or "").strip().upper()
         if len(code) != 2:
@@ -27,7 +27,7 @@ def show_pronostiek_scores(user_id="Tom", standings_df=None):
             return ":".join(txt.split(":")[:2])
         return txt
 
-    # Session State
+    # ==================== SESSION STATE ====================
     if "local_predictions" not in st.session_state:
         st.session_state.local_predictions = {}
 
@@ -35,12 +35,15 @@ def show_pronostiek_scores(user_id="Tom", standings_df=None):
     if loaded_key not in st.session_state:
         st.session_state[loaded_key] = False
 
-    # CSS
+    # ==================== CSS - STRONGER FIXED TOP BAR ====================
     st.markdown("""
     <style>
     .block-container { 
-        padding-top: 95px !important; 
+        padding-top: 110px !important; 
         padding-bottom: 2rem !important;
+    }
+    header, [data-testid="stHeader"] {
+        display: none !important;
     }
     .fixed-top-bar {
         position: fixed !important;
@@ -49,12 +52,15 @@ def show_pronostiek_scores(user_id="Tom", standings_df=None):
         right: 0 !important;
         z-index: 999999 !important;
         background: #0e1117 !important;
-        padding: 12px 10px 10px 10px !important;
-        border-bottom: 1px solid rgba(255,255,255,0.12) !important;
+        padding: 12px 10px 12px 10px !important;
+        border-bottom: 1px solid rgba(255,255,255,0.15) !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
     }
-    .fixed-top-bar > div {
+    .fixed-top-bar-inner {
         max-width: 820px;
         margin: 0 auto;
+        display: flex;
+        gap: 8px;
     }
     [class*="st-key-match_card_"] {
         background: #111827;
@@ -76,7 +82,7 @@ def show_pronostiek_scores(user_id="Tom", standings_df=None):
     </style>
     """, unsafe_allow_html=True)
 
-    # Data
+    # ==================== DATA ====================
     @st.cache_data(ttl=60)
     def get_data(active_user_id):
         return load_matches(), load_predictions(active_user_id)
@@ -98,24 +104,27 @@ def show_pronostiek_scores(user_id="Tom", standings_df=None):
                         }
         st.session_state[loaded_key] = True
 
-    # FIXED TOP BAR
-    st.markdown('<div class="fixed-top-bar">', unsafe_allow_html=True)
+    # ==================== FIXED TOP BAR ====================
+    st.markdown('<div class="fixed-top-bar"><div class="fixed-top-bar-inner">', unsafe_allow_html=True)
+    
     col_home, col_save = st.columns([1, 1.4], gap="small")
     with col_home:
         if st.button("☰ Hoofdmenu", key="back_to_main_menu", use_container_width=True):
             st.session_state.main_page = "🏠 Hoofdmenu"
             st.rerun()
     with col_save:
-        if st.button("💾 OPSLAAN", key="save_button_top", use_container_width=True, type="primary"):
+        if st.button("💾 OPSLAAN", key="save_button_top", 
+                    use_container_width=True, type="primary"):
             saved = batch_save_predictions(
                 user_id=user_id,
                 local_predictions=st.session_state.local_predictions,
                 status="concept",
             )
             st.success(f"Opgeslagen: {saved} wedstrijden")
-    st.markdown('</div>', unsafe_allow_html=True)
+    
+    st.markdown('</div></div>', unsafe_allow_html=True)
 
-    # Matches
+    # ==================== MATCHES ====================
     wedstrijden = matches_df.copy()
     if wedstrijden.empty:
         st.warning("Geen wedstrijden gevonden.")
@@ -125,7 +134,7 @@ def show_pronostiek_scores(user_id="Tom", standings_df=None):
 
     for _, match in wedstrijden.iterrows():
         match_id = str(match.get("match_id", "")).strip()
-        if not match_id: 
+        if not match_id:
             continue
 
         datum = format_date(match.get("datum", ""))
