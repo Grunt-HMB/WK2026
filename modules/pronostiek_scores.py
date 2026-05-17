@@ -18,24 +18,30 @@ def prediction_from_score(score1, score2):
 def show_pronostiek_scores(user_id: str):
     st.markdown(f"### 🎯 {user_id} - Voorspellingen")
     
-    # Better mobile styling
     st.markdown("""
     <style>
     .match-card {
-        padding: 14px;
-        border-radius: 12px;
+        padding: 10px 12px;
+        border-radius: 10px;
         border: 1px solid #444;
         background-color: #1e1e1e;
-        margin-bottom: 14px;
+        margin-bottom: 10px;
     }
-    .team-name {
-        font-size: 17px;
-        font-weight: 600;
+    .team-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
     }
-    .score-container {
-        background-color: #2a2a2a;
-        border-radius: 8px;
-        padding: 4px;
+    .stButton button {
+        height: 42px;
+        font-size: 20px;
+        font-weight: bold;
+    }
+    .score-display {
+        font-size: 28px;
+        font-weight: 800;
+        min-width: 48px;
+        text-align: center;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -62,35 +68,34 @@ def show_pronostiek_scores(user_id: str):
         with st.container(border=True):
             st.caption(f"**G{groep}** • {datum} • {tijd}")
 
-            c1, c2 = st.columns([5, 5])
+            # Team 1 - Horizontal layout
+            c1 = st.columns([3.5, 1, 1.2, 1])
+            with c1[0]:
+                st.markdown(f"**{t1}**")
+            with c1[1]:
+                if st.button("−", key=f"min1_{mid}", use_container_width=True):
+                    st.session_state[f"s1_{mid}"] = max(0, st.session_state[f"s1_{mid}"] - 1)
+            with c1[2]:
+                st.markdown(f"<div class='score-display'>{st.session_state[f's1_{mid}']}</div>", unsafe_allow_html=True)
+            with c1[3]:
+                if st.button("+", key=f"plus1_{mid}", use_container_width=True):
+                    st.session_state[f"s1_{mid}"] = min(15, st.session_state[f"s1_{mid}"] + 1)
 
-            # Team 1
-            with c1:
-                st.markdown(f"<div class='team-name'>{t1}</div>", unsafe_allow_html=True)
-                st.number_input(
-                    label="",
-                    min_value=0,
-                    max_value=15,
-                    value=st.session_state[f"s1_{mid}"],
-                    key=f"s1_{mid}",
-                    label_visibility="collapsed"
-                )
+            st.markdown("<p style='text-align:center; margin:4px 0; color:#666;'>VS</p>", unsafe_allow_html=True)
 
-            # Team 2
-            with c2:
-                st.markdown(f"<div class='team-name' style='text-align:right'>{t2}</div>", unsafe_allow_html=True)
-                st.number_input(
-                    label="",
-                    min_value=0,
-                    max_value=15,
-                    value=st.session_state[f"s2_{mid}"],
-                    key=f"s2_{mid}",
-                    label_visibility="collapsed"
-                )
+            # Team 2 - Horizontal layout
+            c2 = st.columns([3.5, 1, 1.2, 1])
+            with c2[0]:
+                st.markdown(f"**{t2}**")
+            with c2[1]:
+                if st.button("−", key=f"min2_{mid}", use_container_width=True):
+                    st.session_state[f"s2_{mid}"] = max(0, st.session_state[f"s2_{mid}"] - 1)
+            with c2[2]:
+                st.markdown(f"<div class='score-display'>{st.session_state[f's2_{mid}']}</div>", unsafe_allow_html=True)
+            with c2[3]:
+                if st.button("+", key=f"plus2_{mid}", use_container_width=True):
+                    st.session_state[f"s2_{mid}"] = min(15, st.session_state[f"s2_{mid}"] + 1)
 
-            st.markdown("<p style='text-align:center; margin:8px 0; color:#888;'>VS</p>", unsafe_allow_html=True)
-
-    # Fixed Save Button
     st.markdown("<br>", unsafe_allow_html=True)
     if st.button("💾 OPSLAAN ALLE VOORSPELLINGEN", type="primary", use_container_width=True):
         rows = []
@@ -112,4 +117,4 @@ def show_pronostiek_scores(user_id: str):
         
         with st.spinner("Opslaan..."):
             save_predictions_to_sheet(rows)
-            st.success("✅ Alles opgeslagen!")
+            st.success("✅ Opgeslagen!")
