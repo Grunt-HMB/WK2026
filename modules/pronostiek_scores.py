@@ -35,23 +35,32 @@ def show_pronostiek_scores(user_id="Tom", standings_df=None):
     if loaded_key not in st.session_state:
         st.session_state[loaded_key] = False
 
-    # ==================== CSS ====================
+    # ==================== CSS - FIXED DROPDOWN BAR ====================
     st.markdown("""
     <style>
     .block-container { 
-        padding-top: 85px !important; 
+        padding-top: 110px !important; 
         padding-bottom: 2rem !important;
     }
-    .top-menu-bar {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        z-index: 999999;
-        background: #0e1117;
-        padding: 12px 10px;
-        border-bottom: 2px solid #ff4d4d;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    header, [data-testid="stHeader"] { display: none !important; }
+
+    .fixed-top-menu {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        z-index: 999999 !important;
+        background: #0e1117 !important;
+        padding: 12px 10px !important;
+        border-bottom: 3px solid #ff4d4d !important;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.5) !important;
+    }
+    .fixed-top-menu-inner {
+        max-width: 820px;
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        gap: 10px;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -63,39 +72,54 @@ def show_pronostiek_scores(user_id="Tom", standings_df=None):
 
     matches_df, predictions_df = get_data(user_id)
 
-    # Load predictions
+    # Load saved predictions
     if not st.session_state[loaded_key]:
         if not predictions_df.empty:
             for _, row in predictions_df.iterrows():
                 mid = str(row.get("match_id", "")).strip()
-                if mid and str(row.get("prediction", "")).upper() in ["1", "X", "2"]:
-                    st.session_state.local_predictions[mid] = {
-                        "prediction": str(row.get("prediction", "")).upper(),
-                        "score1": int(row.get("score1", 0)),
-                        "score2": int(row.get("score2", 0)),
-                    }
+                if mid:
+                    pred = str(row.get("prediction", "")).upper().strip()
+                    if pred in ["1", "X", "2"]:
+                        st.session_state.local_predictions[mid] = {
+                            "prediction": pred,
+                            "score1": int(row.get("score1", 0)),
+                            "score2": int(row.get("score2", 0)),
+                        }
         st.session_state[loaded_key] = True
 
-    # ==================== STICKY TOP MENU ====================
-    st.markdown('<div class="top-menu-bar">', unsafe_allow_html=True)
-    
-    col1, col2 = st.columns([1, 1.4])
+    # ==================== FIXED TOP DROPDOWN MENU ====================
+    st.markdown('<div class="fixed-top-menu"><div class="fixed-top-menu-inner">', unsafe_allow_html=True)
+
+    col1, col2 = st.columns([1.1, 2])
+
     with col1:
         if st.button("☰ Hoofdmenu", key="top_hoofdmenu", use_container_width=True):
             st.session_state.main_page = "🏠 Hoofdmenu"
             st.rerun()
+
     with col2:
-        if st.button("💾 OPSLAAN", key="top_opslaan", type="primary", use_container_width=True):
+        menu_choice = st.selectbox(
+            "Actie",
+            options=["💾 Opslaan", "🔄 Herladen", "📊 Stand bekijken"],
+            key="top_menu_dropdown",
+            label_visibility="collapsed"
+        )
+        if menu_choice == "💾 Opslaan":
             saved = batch_save_predictions(
                 user_id=user_id,
                 local_predictions=st.session_state.local_predictions,
                 status="concept",
             )
-            st.success(f"Opgeslagen: {saved} wedstrijden")
-    
-    st.markdown('</div>', unsafe_allow_html=True)
+            st.success(f"✅ Opgeslagen: {saved} wedstrijden")
+        elif menu_choice == "🔄 Herladen":
+            st.rerun()
+        elif menu_choice == "📊 Stand bekijken":
+            st.session_state.main_page = "🏆 Scoreboard"
+            st.rerun()
 
-    # ==================== MATCH CONTENT ====================
+    st.markdown('</div></div>', unsafe_allow_html=True)
+
+    # ==================== MATCHES ====================
     wedstrijden = matches_df.copy()
     if wedstrijden.empty:
         st.warning("Geen wedstrijden gevonden.")
@@ -153,12 +177,14 @@ def show_pronostiek_scores(user_id="Tom", standings_df=None):
                     c1, c2 = st.columns(2)
                     with c1:
                         st.markdown(f"<div class='score-label'>{team1}</div>", unsafe_allow_html=True)
-                        s1 = st.number_input("", min_value=0, max_value=15, value=int(current.get("score1", 0)),
+                        s1 = st.number_input("", min_value=0, max_value=15, 
+                                           value=int(current.get("score1", 0)),
                                            key=f"score1_{match_id}", label_visibility="collapsed")
                         st.session_state.local_predictions[match_id]["score1"] = s1
                     with c2:
                         st.markdown(f"<div class='score-label'>{team2}</div>", unsafe_allow_html=True)
-                        s2 = st.number_input("", min_value=0, max_value=15, value=int(current.get("score2", 0)),
+                        s2 = st.number_input("", min_value=0, max_value=15, 
+                                           value=int(current.get("score2", 0)),
                                            key=f"score2_{match_id}", label_visibility="collapsed")
                         st.session_state.local_predictions[match_id]["score2"] = s2
                     st.markdown('</div>', unsafe_allow_html=True)
