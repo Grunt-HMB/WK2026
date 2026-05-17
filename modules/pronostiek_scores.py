@@ -1,112 +1,186 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
+from modules.database import (
+    load_matches,
+    load_predictions,
+    batch_save_predictions,
+)
 
-try:
-    from modules.data_loader import get_matches
-except ImportError:
-    from data_loader import get_matches
-from modules.database import connect_to_gsheet
+def show_pronostiek(user_id="Tom", standings_df=None):
+    # ==================== HELPERS ====================
+    def country_flag(code):
+        code = str(code or "").strip().upper()
+        if len(code) != 2:
+            return "⚽"
+        return chr(ord(code[0]) + 127397) + chr(ord(code[1]) + 127397)
 
+    def format_date(value):
+        txt = str(value or "").strip()
+        parts = txt.split("-")
+        if len(parts) >= 2:
+            return f"{parts[0]}/{parts[1]}"
+        return txt
 
-def prediction_from_score(score1, score2):
-    if score1 > score2: return "1"
-    elif score1 < score2: return "2"
-    else: return "X"
+    def format_time(value):
+        txt = str(value or "").strip()
+        if txt.count(":") >= 2:
+            return ":".join(txt.split(":")[:2])
+        return txt
 
+    # ==================== SESSION STATE ====================
+    if "local_predictions" not in st.session_state:
+        st.session_state.local_predictions = {}
 
-def show_pronostiek_scores(user_id: str):
-    st.markdown(f"### 🎯 {user_id} - Voorspellingen")
-    
+    loaded_key = f"loaded_predictions_{user_id}"
+    if loaded_key not in st.session_state:
+        st.session_state[loaded_key] = False
+
+    # ==================== CSS ====================
     st.markdown("""
     <style>
-    .match-card {
-        padding: 12px 15px;
-        border-radius: 12px;
-        border: 1px solid #444;
-        background-color: #1e1e1e;
-        margin-bottom: 12px;
+    .block-container { padding-bottom: 5rem !important; }
+    [class*="st-key-match_card_"] {
+        background: #111827;
+        border: 1px solid rgba(255,255,255,0.13);
+        border-radius: 14px;
+        padding: 0.6rem !important;
+        margin-bottom: 0.6rem;
     }
-    .match-header {
-        font-size: 17px;
-        font-weight: 600;
-        text-align: center;
-        margin-bottom: 10px;
+    .score-inputs {
+        margin-top: 8px;
+    }
+    .score-label {
+        font-size: 0.75rem;
+        color: #94a3b8;
+        margin-bottom: 2px;
     }
     </style>
     """, unsafe_allow_html=True)
 
-    df = get_matches()
-    if df.empty:
+    # ==================== DATA ====================
+    @st.cache_data(ttl=60)
+    def get_data(active_user_id):
+        return load_matches(), load_predictions(active_user_id)
+
+    matches_df, predictions_df = get_data(user_id)
+
+    # Load saved predictions
+    if not st.session_state[loaded_key]:
+        if not predictions_df.empty:
+            for _, row in predictions_df.iterrows():
+                mid = str(row.get("match_id", "")).strip()
+                if mid and str(row.get("prediction", "")).upper() in ["1", "X", "2"]:
+                    st.session_state.local_predictions[mid] = {
+                        "prediction": str(row.get("prediction", "")).upper(),
+                        "score1": row.get("score1", 0),
+                        "score2": row.get("score2", 0),
+                    }
+        st.session_state[loaded_key] = True
+
+    # ==================== TOP BAR ====================
+    with st.container(key="top_bar"):
+        col_home, col_save = st.columns([1, 1.4], gap="small")
+        with col_home:
+            if st.button("☰ Hoofdmenu", key="back_to_main_menu", use_container_width=True):
+                st.session_state.main_page = "🏠 Hoofdmenu"
+                st.rerun()
+        with col_save:
+            if st.button("💾 OPSLAAN", key="save_button", use_container_width=True, type="primary"):
+                saved = batch_save_predictions(
+                    user_id=user_id,
+                    local_predictions=st.session_state.local_predictions,
+                    status="concept",
+                )
+                st.success(f"Opgeslagen: {saved} wedstrijden")
+
+    st.markdown('<div class="top-spacer"></div>', unsafe_allow_html=True)
+
+    # ==================== MATCHES ====================
+    wedstrijden = matches_df.copy()
+    if wedstrijden.empty:
         st.warning("Geen wedstrijden gevonden.")
         return
 
-    # Group by date or groep to create tabs
-    df['display_date'] = df['datum'] + " " + df['tijd']
-    tabs = st.tabs(df['display_date'].unique().tolist() if 'display_date' in df.columns else ["All Matches"])
+    wedstrijden["match_id"] = wedstrijden["match_id"].astype(str).str.strip()
+    # Optional: filter group stage only
+    if "ronde" in wedstrijden.columns:
+        wedstrijden = wedstrijden[wedstrijden["ronde"].astype(str).str.lower().str.contains("groep", na=False)].copy()
 
-    for i, tab in enumerate(tabs):
-        with tab:
-            # Filter matches for this tab
-            current_date = df['display_date'].unique()[i]
-            day_df = df[df['display_date'] == current_date]
+    for _, match in wedstrijden.iterrows():
+        match_id = str(match.get("match_id", "")).strip()
+        if not match_id:
+            continue
 
-            for _, match in day_df.iterrows():
-                mid = str(match["match_id"])
-                t1 = match.get("team1", "Team 1")
-                t2 = match.get("team2", "Team 2")
-                groep = match.get("groep", "-")
+        datum = format_date(match.get("datum", ""))
+        tijd = format_time(match.get("tijd", ""))
+        team1 = str(match.get("team1", "")).strip()
+        team2 = str(match.get("team2", "")).strip()
+        team1_code = match.get("team1_code", "")
+        team2_code = match.get("team2_code", "")
 
-                # Initialize session state
-                st.session_state.setdefault(f"s1_{mid}", 0)
-                st.session_state.setdefault(f"s2_{mid}", 0)
+        pred_key = f"pred_{match_id}"
 
-                with st.container(border=True):
-                    st.caption(f"**G{groep}**")
-                    # Line 1: Team1 - Team2
-                    st.markdown(f"<div class='match-header'>{t1} **-** {t2}</div>", unsafe_allow_html=True)
+        # Get current prediction
+        current_pred = st.session_state.local_predictions.get(match_id, {}).get("prediction")
+
+        with st.container(key=f"match_card_{match_id}"):
+            col_info, col_pred = st.columns([2.1, 1], gap="small")
+
+            with col_info:
+                st.markdown(f"""
+                <div class="match-date-small">
+                    <b>{datum}</b> &nbsp; {tijd} &nbsp; 🟢
+                </div>
+                <div class="match-teams-onecell">
+                    {country_flag(team1_code)} {team1}
+                    <span style="color:#9ca3af;">vs</span>
+                    {country_flag(team2_code)} {team2}
+                </div>
+                """, unsafe_allow_html=True)
+
+            with col_pred:
+                # 1 / X / 2 selector
+                selected = st.segmented_control(
+                    label="Pronostiek",
+                    options=["1", "X", "2"],
+                    key=pred_key,
+                    default=current_pred,
+                    label_visibility="collapsed",
+                )
+
+                # Update local predictions
+                if selected:
+                    if match_id not in st.session_state.local_predictions:
+                        st.session_state.local_predictions[match_id] = {}
+                    st.session_state.local_predictions[match_id]["prediction"] = selected
+
+                # ==================== SCORE INPUTS (appear after selection) ====================
+                if selected:
+                    st.markdown('<div class="score-inputs">', unsafe_allow_html=True)
                     
-                    # Line 2: Scores side by side
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        st.number_input(
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        st.markdown("<div class='score-label'>Score " + team1 + "</div>", unsafe_allow_html=True)
+                        score1 = st.number_input(
                             label="",
                             min_value=0,
                             max_value=15,
-                            value=st.session_state[f"s1_{mid}"],
-                            key=f"s1_{mid}",
+                            value=int(st.session_state.local_predictions[match_id].get("score1", 0)),
+                            key=f"score1_{match_id}",
                             label_visibility="collapsed"
                         )
-                    with col2:
-                        st.number_input(
-                            label="",
-                            min_value=0,
-                            max_value=15,
-                            value=st.session_state[f"s2_{mid}"],
-                            key=f"s2_{mid}",
-                            label_visibility="collapsed"
-                        )
+                        st.session_state.local_predictions[match_id]["score1"] = score1
 
-    # Save button (always visible at bottom)
-    st.markdown("<br><br>", unsafe_allow_html=True)
-    if st.button("💾 OPSLAAN ALLE VOORSPELLINGEN", type="primary", use_container_width=True):
-        rows = []
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
-        for _, match in df.iterrows():
-            mid = str(match["match_id"])
-            s1 = st.session_state.get(f"s1_{mid}", 0)
-            s2 = st.session_state.get(f"s2_{mid}", 0)
-            rows.append({
-                "user_id": user_id,
-                "match_id": mid,
-                "prediction": prediction_from_score(s1, s2),
-                "score1": s1,
-                "score2": s2,
-                "status": "Voorlopig",
-                "timestamp": now,
-            })
-        
-        with st.spinner("Opslaan naar Google Sheets..."):
-            save_predictions_to_sheet(rows)
-            st.success("✅ Alles succesvol opgeslagen!")
+                    with c2:
+                        st.markdown("<div class='score-label'>Score " + team2 + "</div>", unsafe_allow_html=True)
+                        score2 = st.number_input(
+                            label="",
+                            min_value=0,
+                            max_value=15,
+                            value=int(st.session_state.local_predictions[match_id].get("score2", 0)),
+                            key=f"score2_{match_id}",
+                            label_visibility="collapsed"
+                        )
+                        st.session_state.local_predictions[match_id]["score2"] = score2
+
+                    st.markdown('</div>', unsafe_allow_html=True)
