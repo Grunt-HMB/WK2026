@@ -35,16 +35,14 @@ def show_pronostiek_scores(user_id="Tom", standings_df=None):
     if loaded_key not in st.session_state:
         st.session_state[loaded_key] = False
 
-    # ==================== CSS - STRONG FIXED TOP BAR ====================
+    # ==================== CSS ====================
     st.markdown("""
     <style>
     .block-container { 
-        padding-top: 120px !important; 
+        padding-top: 85px !important; 
         padding-bottom: 2rem !important;
     }
-    header, [data-testid="stHeader"] { display: none !important; }
-
-    .sticky-top {
+    .top-menu-bar {
         position: fixed;
         top: 0;
         left: 0;
@@ -53,13 +51,7 @@ def show_pronostiek_scores(user_id="Tom", standings_df=None):
         background: #0e1117;
         padding: 12px 10px;
         border-bottom: 2px solid #ff4d4d;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-    }
-    .sticky-inner {
-        max-width: 820px;
-        margin: 0 auto;
-        display: flex;
-        gap: 10px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.5);
     }
     </style>
     """, unsafe_allow_html=True)
@@ -71,43 +63,39 @@ def show_pronostiek_scores(user_id="Tom", standings_df=None):
 
     matches_df, predictions_df = get_data(user_id)
 
-    # Load saved predictions
+    # Load predictions
     if not st.session_state[loaded_key]:
         if not predictions_df.empty:
             for _, row in predictions_df.iterrows():
                 mid = str(row.get("match_id", "")).strip()
-                if mid:
-                    pred = str(row.get("prediction", "")).upper().strip()
-                    if pred in ["1", "X", "2"]:
-                        st.session_state.local_predictions[mid] = {
-                            "prediction": pred,
-                            "score1": int(row.get("score1", 0)),
-                            "score2": int(row.get("score2", 0)),
-                        }
+                if mid and str(row.get("prediction", "")).upper() in ["1", "X", "2"]:
+                    st.session_state.local_predictions[mid] = {
+                        "prediction": str(row.get("prediction", "")).upper(),
+                        "score1": int(row.get("score1", 0)),
+                        "score2": int(row.get("score2", 0)),
+                    }
         st.session_state[loaded_key] = True
 
-    # ==================== STICKY TOP BAR ====================
-    st.markdown('<div class="sticky-top"><div class="sticky-inner">', unsafe_allow_html=True)
-
-    col_home, col_save = st.columns([1, 1.4], gap="small")
-    with col_home:
-        if st.button("☰ Hoofdmenu", key="back_to_main_menu", use_container_width=True):
+    # ==================== STICKY TOP MENU ====================
+    st.markdown('<div class="top-menu-bar">', unsafe_allow_html=True)
+    
+    col1, col2 = st.columns([1, 1.4])
+    with col1:
+        if st.button("☰ Hoofdmenu", key="top_hoofdmenu", use_container_width=True):
             st.session_state.main_page = "🏠 Hoofdmenu"
             st.rerun()
-
-    with col_save:
-        if st.button("💾 OPSLAAN", key="save_button_top", 
-                    use_container_width=True, type="primary"):
+    with col2:
+        if st.button("💾 OPSLAAN", key="top_opslaan", type="primary", use_container_width=True):
             saved = batch_save_predictions(
                 user_id=user_id,
                 local_predictions=st.session_state.local_predictions,
                 status="concept",
             )
             st.success(f"Opgeslagen: {saved} wedstrijden")
+    
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown('</div></div>', unsafe_allow_html=True)
-
-    # ==================== MATCHES ====================
+    # ==================== MATCH CONTENT ====================
     wedstrijden = matches_df.copy()
     if wedstrijden.empty:
         st.warning("Geen wedstrijden gevonden.")
@@ -165,15 +153,12 @@ def show_pronostiek_scores(user_id="Tom", standings_df=None):
                     c1, c2 = st.columns(2)
                     with c1:
                         st.markdown(f"<div class='score-label'>{team1}</div>", unsafe_allow_html=True)
-                        s1 = st.number_input("", min_value=0, max_value=15, 
-                                           value=int(current.get("score1", 0)),
+                        s1 = st.number_input("", min_value=0, max_value=15, value=int(current.get("score1", 0)),
                                            key=f"score1_{match_id}", label_visibility="collapsed")
                         st.session_state.local_predictions[match_id]["score1"] = s1
-
                     with c2:
                         st.markdown(f"<div class='score-label'>{team2}</div>", unsafe_allow_html=True)
-                        s2 = st.number_input("", min_value=0, max_value=15, 
-                                           value=int(current.get("score2", 0)),
+                        s2 = st.number_input("", min_value=0, max_value=15, value=int(current.get("score2", 0)),
                                            key=f"score2_{match_id}", label_visibility="collapsed")
                         st.session_state.local_predictions[match_id]["score2"] = s2
                     st.markdown('</div>', unsafe_allow_html=True)
