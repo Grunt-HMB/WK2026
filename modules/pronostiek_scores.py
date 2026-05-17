@@ -6,7 +6,7 @@ from modules.database import (
     batch_save_predictions,
 )
 
-def show_pronostiek_scores(user_id="Tom", standings_df=None):
+def show_pronostiek(user_id="Tom", standings_df=None):
     # ==================== HELPERS ====================
     def country_flag(code):
         code = str(code or "").strip().upper()
@@ -35,21 +35,26 @@ def show_pronostiek_scores(user_id="Tom", standings_df=None):
     if loaded_key not in st.session_state:
         st.session_state[loaded_key] = False
 
-    # ==================== CSS - FIXED SAVE BUTTON ====================
+    # ==================== CSS - FIXED TOP SAVE BUTTON ====================
     st.markdown("""
     <style>
     .block-container { 
-        padding-bottom: 85px !important; 
+        padding-top: 90px !important; 
+        padding-bottom: 2rem !important;
     }
-    .fixed-save-btn {
+    .fixed-top-bar {
         position: fixed;
-        bottom: 12px;
-        left: 50%;
-        transform: translateX(-50%);
+        top: 0;
+        left: 0;
+        right: 0;
         z-index: 999999;
-        width: 92%;
-        max-width: 420px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+        background: #0e1117;
+        padding: 12px 10px 10px 10px;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .fixed-top-bar > div {
+        max-width: 820px;
+        margin: 0 auto;
     }
     [class*="st-key-match_card_"] {
         background: #111827;
@@ -92,6 +97,24 @@ def show_pronostiek_scores(user_id="Tom", standings_df=None):
                             "score2": int(row.get("score2", 0)),
                         }
         st.session_state[loaded_key] = True
+
+    # ==================== FIXED TOP BAR ====================
+    with st.container(key="fixed_top_bar"):
+        col_home, col_save = st.columns([1, 1.4], gap="small")
+        with col_home:
+            if st.button("☰ Hoofdmenu", key="back_to_main_menu", use_container_width=True):
+                st.session_state.main_page = "🏠 Hoofdmenu"
+                st.rerun()
+        with col_save:
+            if st.button("💾 OPSLAAN", key="save_button_top", 
+                        use_container_width=True, type="primary"):
+                saved = batch_save_predictions(
+                    user_id=user_id,
+                    local_predictions=st.session_state.local_predictions,
+                    status="concept",
+                )
+                st.success(f"Opgeslagen: {saved} wedstrijden")
+                # Optional: st.rerun()
 
     # ==================== MATCHES ====================
     wedstrijden = matches_df.copy()
@@ -162,19 +185,3 @@ def show_pronostiek_scores(user_id="Tom", standings_df=None):
                                            key=f"score2_{match_id}", label_visibility="collapsed")
                         st.session_state.local_predictions[match_id]["score2"] = s2
                     st.markdown('</div>', unsafe_allow_html=True)
-
-    # ==================== FIXED SAVE BUTTON ====================
-    st.markdown("""
-    <div class="fixed-save-btn">
-    """, unsafe_allow_html=True)
-
-    if st.button("💾 OPSLAAN", key="save_button_fixed", type="primary", use_container_width=True):
-        saved = batch_save_predictions(
-            user_id=user_id,
-            local_predictions=st.session_state.local_predictions,
-            status="concept",
-        )
-        st.success(f"Opgeslagen: {saved} wedstrijden")
-        st.rerun()
-
-    st.markdown('</div>', unsafe_allow_html=True)
