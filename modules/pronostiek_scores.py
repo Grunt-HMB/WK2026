@@ -35,11 +35,11 @@ def show_pronostiek_scores(user_id="Tom", standings_df=None):
     if loaded_key not in st.session_state:
         st.session_state[loaded_key] = False
 
-    # ==================== CSS - FIXED TOP SAVE BUTTON ====================
+    # ==================== CSS ====================
     st.markdown("""
     <style>
     .block-container { 
-        padding-top: 90px !important; 
+        padding-top: 85px !important; 
         padding-bottom: 2rem !important;
     }
     .fixed-top-bar {
@@ -98,7 +98,7 @@ def show_pronostiek_scores(user_id="Tom", standings_df=None):
                         }
         st.session_state[loaded_key] = True
 
-    # ==================== FIXED TOP BAR ====================
+    # ==================== FIXED TOP BAR (Only one) ====================
     with st.container(key="fixed_top_bar"):
         col_home, col_save = st.columns([1, 1.4], gap="small")
         with col_home:
@@ -114,7 +114,6 @@ def show_pronostiek_scores(user_id="Tom", standings_df=None):
                     status="concept",
                 )
                 st.success(f"Opgeslagen: {saved} wedstrijden")
-                # Optional: st.rerun()
 
     # ==================== MATCHES ====================
     wedstrijden = matches_df.copy()
@@ -126,7 +125,8 @@ def show_pronostiek_scores(user_id="Tom", standings_df=None):
 
     for _, match in wedstrijden.iterrows():
         match_id = str(match.get("match_id", "")).strip()
-        if not match_id: continue
+        if not match_id: 
+            continue
 
         datum = format_date(match.get("datum", ""))
         tijd = format_time(match.get("tijd", ""))
