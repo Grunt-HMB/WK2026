@@ -6,8 +6,8 @@ from modules.database import (
     batch_save_predictions,
 )
 
-def show_pronostiek_scores(user_id="Tom", standings_df=None):
-    # ==================== HELPERS ====================
+def show_pronostiek(user_id="Tom", standings_df=None):
+    # Helpers
     def country_flag(code):
         code = str(code or "").strip().upper()
         if len(code) != 2:
@@ -27,7 +27,7 @@ def show_pronostiek_scores(user_id="Tom", standings_df=None):
             return ":".join(txt.split(":")[:2])
         return txt
 
-    # ==================== SESSION STATE ====================
+    # Session State
     if "local_predictions" not in st.session_state:
         st.session_state.local_predictions = {}
 
@@ -35,16 +35,12 @@ def show_pronostiek_scores(user_id="Tom", standings_df=None):
     if loaded_key not in st.session_state:
         st.session_state[loaded_key] = False
 
-    # ==================== CSS - FORCE ONE TOP BAR ====================
+    # CSS
     st.markdown("""
     <style>
     .block-container { 
         padding-top: 95px !important; 
         padding-bottom: 2rem !important;
-    }
-    /* Hide any default Streamlit header */
-    header, .stApp header, [data-testid="stHeader"] {
-        display: none !important;
     }
     .fixed-top-bar {
         position: fixed !important;
@@ -80,14 +76,14 @@ def show_pronostiek_scores(user_id="Tom", standings_df=None):
     </style>
     """, unsafe_allow_html=True)
 
-    # ==================== DATA ====================
+    # Data
     @st.cache_data(ttl=60)
     def get_data(active_user_id):
         return load_matches(), load_predictions(active_user_id)
 
     matches_df, predictions_df = get_data(user_id)
 
-    # Load previous predictions
+    # Load saved predictions
     if not st.session_state[loaded_key]:
         if not predictions_df.empty:
             for _, row in predictions_df.iterrows():
@@ -102,24 +98,24 @@ def show_pronostiek_scores(user_id="Tom", standings_df=None):
                         }
         st.session_state[loaded_key] = True
 
-    # ==================== FIXED TOP BAR (Only One) ====================
-    with st.container(key="fixed_top_bar"):
-        col_home, col_save = st.columns([1, 1.4], gap="small")
-        with col_home:
-            if st.button("☰ Hoofdmenu", key="back_to_main_menu_unique", use_container_width=True):
-                st.session_state.main_page = "🏠 Hoofdmenu"
-                st.rerun()
-        with col_save:
-            if st.button("💾 OPSLAAN", key="save_button_top_unique", 
-                        use_container_width=True, type="primary"):
-                saved = batch_save_predictions(
-                    user_id=user_id,
-                    local_predictions=st.session_state.local_predictions,
-                    status="concept",
-                )
-                st.success(f"Opgeslagen: {saved} wedstrijden")
+    # FIXED TOP BAR
+    st.markdown('<div class="fixed-top-bar">', unsafe_allow_html=True)
+    col_home, col_save = st.columns([1, 1.4], gap="small")
+    with col_home:
+        if st.button("☰ Hoofdmenu", key="back_to_main_menu", use_container_width=True):
+            st.session_state.main_page = "🏠 Hoofdmenu"
+            st.rerun()
+    with col_save:
+        if st.button("💾 OPSLAAN", key="save_button_top", use_container_width=True, type="primary"):
+            saved = batch_save_predictions(
+                user_id=user_id,
+                local_predictions=st.session_state.local_predictions,
+                status="concept",
+            )
+            st.success(f"Opgeslagen: {saved} wedstrijden")
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    # ==================== MATCH CARDS ====================
+    # Matches
     wedstrijden = matches_df.copy()
     if wedstrijden.empty:
         st.warning("Geen wedstrijden gevonden.")
