@@ -18,31 +18,24 @@ def prediction_from_score(score1, score2):
 def show_pronostiek_scores(user_id: str):
     st.markdown(f"### 🎯 {user_id} - Voorspellingen")
     
+    # Better mobile styling
     st.markdown("""
     <style>
     .match-card {
-        padding: 12px;
+        padding: 14px;
         border-radius: 12px;
-        border: 1px solid #333;
+        border: 1px solid #444;
         background-color: #1e1e1e;
-        margin-bottom: 12px;
+        margin-bottom: 14px;
     }
-    .team-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin: 8px 0;
+    .team-name {
+        font-size: 17px;
+        font-weight: 600;
     }
-    .score-big {
-        font-size: 32px;
-        font-weight: 800;
-        min-width: 50px;
-        text-align: center;
-    }
-    .stButton button {
-        height: 48px;
-        font-size: 24px;
-        font-weight: bold;
+    .score-container {
+        background-color: #2a2a2a;
+        border-radius: 8px;
+        padding: 4px;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -52,7 +45,7 @@ def show_pronostiek_scores(user_id: str):
         st.warning("Geen wedstrijden gevonden.")
         return
 
-    # Initialize scores
+    # Initialize
     for _, m in df.iterrows():
         mid = str(m["match_id"])
         st.session_state.setdefault(f"s1_{mid}", 0)
@@ -69,37 +62,36 @@ def show_pronostiek_scores(user_id: str):
         with st.container(border=True):
             st.caption(f"**G{groep}** • {datum} • {tijd}")
 
-            # Team 1
-            col1, col2, col3 = st.columns([4, 2, 2])
-            with col1:
-                st.markdown(f"**{t1}**")
-            with col2:
-                if st.button("−", key=f"min1_{mid}", use_container_width=True):
-                    st.session_state[f"s1_{mid}"] = max(0, st.session_state[f"s1_{mid}"] - 1)
-                    st.rerun()
-            with col3:
-                st.markdown(f"<div class='score-big'>{st.session_state[f's1_{mid}']}</div>", unsafe_allow_html=True)
-                if st.button("+", key=f"plus1_{mid}", use_container_width=True):
-                    st.session_state[f"s1_{mid}"] = min(15, st.session_state[f"s1_{mid}"] + 1)
-                    st.rerun()
+            c1, c2 = st.columns([5, 5])
 
-            st.markdown("<p style='text-align:center; margin:4px 0; color:#777;'>VS</p>", unsafe_allow_html=True)
+            # Team 1
+            with c1:
+                st.markdown(f"<div class='team-name'>{t1}</div>", unsafe_allow_html=True)
+                st.number_input(
+                    label="",
+                    min_value=0,
+                    max_value=15,
+                    value=st.session_state[f"s1_{mid}"],
+                    key=f"s1_{mid}",
+                    label_visibility="collapsed"
+                )
 
             # Team 2
-            col4, col5, col6 = st.columns([4, 2, 2])
-            with col4:
-                st.markdown(f"**{t2}**")
-            with col5:
-                if st.button("−", key=f"min2_{mid}", use_container_width=True):
-                    st.session_state[f"s2_{mid}"] = max(0, st.session_state[f"s2_{mid}"] - 1)
-                    st.rerun()
-            with col6:
-                st.markdown(f"<div class='score-big'>{st.session_state[f's2_{mid}']}</div>", unsafe_allow_html=True)
-                if st.button("+", key=f"plus2_{mid}", use_container_width=True):
-                    st.session_state[f"s2_{mid}"] = min(15, st.session_state[f"s2_{mid}"] + 1)
+            with c2:
+                st.markdown(f"<div class='team-name' style='text-align:right'>{t2}</div>", unsafe_allow_html=True)
+                st.number_input(
+                    label="",
+                    min_value=0,
+                    max_value=15,
+                    value=st.session_state[f"s2_{mid}"],
+                    key=f"s2_{mid}",
+                    label_visibility="collapsed"
+                )
 
-    # Save button (fixed at bottom)
-    st.markdown("<br><br>", unsafe_allow_html=True)
+            st.markdown("<p style='text-align:center; margin:8px 0; color:#888;'>VS</p>", unsafe_allow_html=True)
+
+    # Fixed Save Button
+    st.markdown("<br>", unsafe_allow_html=True)
     if st.button("💾 OPSLAAN ALLE VOORSPELLINGEN", type="primary", use_container_width=True):
         rows = []
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -120,4 +112,4 @@ def show_pronostiek_scores(user_id: str):
         
         with st.spinner("Opslaan..."):
             save_predictions_to_sheet(rows)
-            st.success("✅ Opgeslagen!")
+            st.success("✅ Alles opgeslagen!")
