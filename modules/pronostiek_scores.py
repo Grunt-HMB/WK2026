@@ -21,27 +21,22 @@ def show_pronostiek_scores(user_id: str):
     st.markdown("""
     <style>
     .match-card {
-        padding: 10px 12px;
-        border-radius: 10px;
+        padding: 12px 14px;
+        border-radius: 12px;
         border: 1px solid #444;
         background-color: #1e1e1e;
-        margin-bottom: 10px;
+        margin-bottom: 12px;
     }
-    .team-row {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-    .stButton button {
-        height: 42px;
-        font-size: 20px;
-        font-weight: bold;
-    }
-    .score-display {
-        font-size: 28px;
-        font-weight: 800;
-        min-width: 48px;
+    .vs-line {
+        font-size: 17px;
+        font-weight: 600;
         text-align: center;
+        margin: 8px 0;
+    }
+    .score-row {
+        display: flex;
+        gap: 15px;
+        justify-content: center;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -51,7 +46,7 @@ def show_pronostiek_scores(user_id: str):
         st.warning("Geen wedstrijden gevonden.")
         return
 
-    # Initialize
+    # Initialize session state
     for _, m in df.iterrows():
         mid = str(m["match_id"])
         st.session_state.setdefault(f"s1_{mid}", 0)
@@ -67,36 +62,33 @@ def show_pronostiek_scores(user_id: str):
 
         with st.container(border=True):
             st.caption(f"**G{groep}** • {datum} • {tijd}")
+            
+            # Line 1: Country vs Country
+            st.markdown(f"<div class='vs-line'>{t1} **VS** {t2}</div>", unsafe_allow_html=True)
+            
+            # Line 2: Two scores side by side
+            col1, col2 = st.columns(2)
+            with col1:
+                st.number_input(
+                    f"{t1}",
+                    min_value=0, 
+                    max_value=15,
+                    value=st.session_state[f"s1_{mid}"],
+                    key=f"s1_{mid}",
+                    label_visibility="collapsed"
+                )
+            with col2:
+                st.number_input(
+                    f"{t2}",
+                    min_value=0, 
+                    max_value=15,
+                    value=st.session_state[f"s2_{mid}"],
+                    key=f"s2_{mid}",
+                    label_visibility="collapsed"
+                )
 
-            # Team 1 - Horizontal layout
-            c1 = st.columns([3.5, 1, 1.2, 1])
-            with c1[0]:
-                st.markdown(f"**{t1}**")
-            with c1[1]:
-                if st.button("−", key=f"min1_{mid}", use_container_width=True):
-                    st.session_state[f"s1_{mid}"] = max(0, st.session_state[f"s1_{mid}"] - 1)
-            with c1[2]:
-                st.markdown(f"<div class='score-display'>{st.session_state[f's1_{mid}']}</div>", unsafe_allow_html=True)
-            with c1[3]:
-                if st.button("+", key=f"plus1_{mid}", use_container_width=True):
-                    st.session_state[f"s1_{mid}"] = min(15, st.session_state[f"s1_{mid}"] + 1)
-
-            st.markdown("<p style='text-align:center; margin:4px 0; color:#666;'>VS</p>", unsafe_allow_html=True)
-
-            # Team 2 - Horizontal layout
-            c2 = st.columns([3.5, 1, 1.2, 1])
-            with c2[0]:
-                st.markdown(f"**{t2}**")
-            with c2[1]:
-                if st.button("−", key=f"min2_{mid}", use_container_width=True):
-                    st.session_state[f"s2_{mid}"] = max(0, st.session_state[f"s2_{mid}"] - 1)
-            with c2[2]:
-                st.markdown(f"<div class='score-display'>{st.session_state[f's2_{mid}']}</div>", unsafe_allow_html=True)
-            with c2[3]:
-                if st.button("+", key=f"plus2_{mid}", use_container_width=True):
-                    st.session_state[f"s2_{mid}"] = min(15, st.session_state[f"s2_{mid}"] + 1)
-
-    st.markdown("<br>", unsafe_allow_html=True)
+    # Save button at bottom
+    st.markdown("<br><br>", unsafe_allow_html=True)
     if st.button("💾 OPSLAAN ALLE VOORSPELLINGEN", type="primary", use_container_width=True):
         rows = []
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -117,4 +109,4 @@ def show_pronostiek_scores(user_id: str):
         
         with st.spinner("Opslaan..."):
             save_predictions_to_sheet(rows)
-            st.success("✅ Opgeslagen!")
+            st.success("✅ Alles opgeslagen!")
