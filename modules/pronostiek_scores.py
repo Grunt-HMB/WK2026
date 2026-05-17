@@ -20,21 +20,22 @@ def show_pronostiek_scores(user_id: str):
     
     st.markdown("""
     <style>
-    .compact-card { 
-        padding: 10px 12px; 
-        border-radius: 10px; 
-        border: 1px solid #333; 
-        background-color: #1e1e1e; 
-        margin-bottom: 10px; 
+    .match-card {
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid #333;
+        background-color: #1e1e1e;
+        margin-bottom: 10px;
     }
-    .team-name { 
-        font-size: 16px; 
-        font-weight: 600; 
-        margin-bottom: 4px; 
+    .team-name {
+        font-size: 16px;
+        font-weight: 600;
+        margin-bottom: 3px;
     }
     .score-label {
-        font-size: 15px;
+        font-size: 14px;
         color: #aaa;
+        text-align: center;
         margin-bottom: 2px;
     }
     </style>
@@ -64,13 +65,13 @@ def show_pronostiek_scores(user_id: str):
 
             # Team 1
             st.markdown(f"<div class='team-name'>{t1}</div>", unsafe_allow_html=True)
-            st.markdown("<div class='score-label'>− &nbsp;&nbsp; Score &nbsp;&nbsp; +</div>", unsafe_allow_html=True)
+            st.markdown("<div class='score-label'>− &nbsp; Score &nbsp; +</div>", unsafe_allow_html=True)
             st.number_input(
                 label="",
                 min_value=0,
                 max_value=15,
                 value=st.session_state[f"s1_{mid}"],
-                key=f"num1_{mid}",
+                key=f"s1_{mid}",
                 label_visibility="collapsed"
             )
 
@@ -78,28 +79,26 @@ def show_pronostiek_scores(user_id: str):
 
             # Team 2
             st.markdown(f"<div class='team-name' style='text-align:right'>{t2}</div>", unsafe_allow_html=True)
-            st.markdown("<div class='score-label'>− &nbsp;&nbsp; Score &nbsp;&nbsp; +</div>", unsafe_allow_html=True)
+            st.markdown("<div class='score-label'>− &nbsp; Score &nbsp; +</div>", unsafe_allow_html=True)
             st.number_input(
                 label="",
                 min_value=0,
                 max_value=15,
                 value=st.session_state[f"s2_{mid}"],
-                key=f"num2_{mid}",
+                key=f"s2_{mid}",
                 label_visibility="collapsed"
             )
 
-    # Fixed Save Button
+    # Save Button (stays at bottom)
     st.markdown("<br><br>", unsafe_allow_html=True)
-    if st.button("💾 OPSLAAN ALLE VOORSPELLINGEN", 
-                 type="primary", 
-                 use_container_width=True):
+    if st.button("💾 OPSLAAN ALLE VOORSPELLINGEN", type="primary", use_container_width=True):
         rows = []
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
         for _, match in df.iterrows():
             mid = str(match["match_id"])
-            s1 = st.session_state.get(f"num1_{mid}", 0)   # Note: using the number_input key
-            s2 = st.session_state.get(f"num2_{mid}", 0)
+            s1 = st.session_state.get(f"s1_{mid}", 0)
+            s2 = st.session_state.get(f"s2_{mid}", 0)
             
             rows.append({
                 "user_id": user_id,
@@ -113,4 +112,4 @@ def show_pronostiek_scores(user_id: str):
         
         with st.spinner("Opslaan..."):
             save_predictions_to_sheet(rows)
-            st.success("✅ Alles opgeslagen!")
+            st.success("✅ Alles opgeslagen in Google Sheets!")
