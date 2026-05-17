@@ -21,22 +21,17 @@ def show_pronostiek_scores(user_id: str):
     st.markdown("""
     <style>
     .match-card {
-        padding: 12px 14px;
+        padding: 12px 15px;
         border-radius: 12px;
         border: 1px solid #444;
         background-color: #1e1e1e;
         margin-bottom: 12px;
     }
-    .vs-line {
+    .match-header {
         font-size: 17px;
         font-weight: 600;
         text-align: center;
-        margin: 8px 0;
-    }
-    .score-row {
-        display: flex;
-        gap: 15px;
-        justify-content: center;
+        margin-bottom: 10px;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -46,48 +41,53 @@ def show_pronostiek_scores(user_id: str):
         st.warning("Geen wedstrijden gevonden.")
         return
 
-    # Initialize session state
-    for _, m in df.iterrows():
-        mid = str(m["match_id"])
-        st.session_state.setdefault(f"s1_{mid}", 0)
-        st.session_state.setdefault(f"s2_{mid}", 0)
+    # Group by date or groep to create tabs
+    df['display_date'] = df['datum'] + " " + df['tijd']
+    tabs = st.tabs(df['display_date'].unique().tolist() if 'display_date' in df.columns else ["All Matches"])
 
-    for _, match in df.iterrows():
-        mid = str(match["match_id"])
-        t1 = match.get("team1", "Team 1")
-        t2 = match.get("team2", "Team 2")
-        groep = match.get("groep", "-")
-        datum = match.get("datum", "")
-        tijd = match.get("tijd", "")
+    for i, tab in enumerate(tabs):
+        with tab:
+            # Filter matches for this tab
+            current_date = df['display_date'].unique()[i]
+            day_df = df[df['display_date'] == current_date]
 
-        with st.container(border=True):
-            st.caption(f"**G{groep}** • {datum} • {tijd}")
-            
-            # Line 1: Country vs Country
-            st.markdown(f"<div class='vs-line'>{t1} **VS** {t2}</div>", unsafe_allow_html=True)
-            
-            # Line 2: Two scores side by side
-            col1, col2 = st.columns(2)
-            with col1:
-                st.number_input(
-                    f"{t1}",
-                    min_value=0, 
-                    max_value=15,
-                    value=st.session_state[f"s1_{mid}"],
-                    key=f"s1_{mid}",
-                    label_visibility="collapsed"
-                )
-            with col2:
-                st.number_input(
-                    f"{t2}",
-                    min_value=0, 
-                    max_value=15,
-                    value=st.session_state[f"s2_{mid}"],
-                    key=f"s2_{mid}",
-                    label_visibility="collapsed"
-                )
+            for _, match in day_df.iterrows():
+                mid = str(match["match_id"])
+                t1 = match.get("team1", "Team 1")
+                t2 = match.get("team2", "Team 2")
+                groep = match.get("groep", "-")
 
-    # Save button at bottom
+                # Initialize session state
+                st.session_state.setdefault(f"s1_{mid}", 0)
+                st.session_state.setdefault(f"s2_{mid}", 0)
+
+                with st.container(border=True):
+                    st.caption(f"**G{groep}**")
+                    # Line 1: Team1 - Team2
+                    st.markdown(f"<div class='match-header'>{t1} **-** {t2}</div>", unsafe_allow_html=True)
+                    
+                    # Line 2: Scores side by side
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.number_input(
+                            label="",
+                            min_value=0,
+                            max_value=15,
+                            value=st.session_state[f"s1_{mid}"],
+                            key=f"s1_{mid}",
+                            label_visibility="collapsed"
+                        )
+                    with col2:
+                        st.number_input(
+                            label="",
+                            min_value=0,
+                            max_value=15,
+                            value=st.session_state[f"s2_{mid}"],
+                            key=f"s2_{mid}",
+                            label_visibility="collapsed"
+                        )
+
+    # Save button (always visible at bottom)
     st.markdown("<br><br>", unsafe_allow_html=True)
     if st.button("💾 OPSLAAN ALLE VOORSPELLINGEN", type="primary", use_container_width=True):
         rows = []
@@ -107,6 +107,6 @@ def show_pronostiek_scores(user_id: str):
                 "timestamp": now,
             })
         
-        with st.spinner("Opslaan..."):
+        with st.spinner("Opslaan naar Google Sheets..."):
             save_predictions_to_sheet(rows)
-            st.success("✅ Alles opgeslagen!")
+            st.success("✅ Alles succesvol opgeslagen!")
