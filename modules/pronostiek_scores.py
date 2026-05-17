@@ -35,22 +35,26 @@ def show_pronostiek_scores(user_id="Tom", standings_df=None):
     if loaded_key not in st.session_state:
         st.session_state[loaded_key] = False
 
-    # ==================== CSS ====================
+    # ==================== CSS - FORCE ONE TOP BAR ====================
     st.markdown("""
     <style>
     .block-container { 
-        padding-top: 85px !important; 
+        padding-top: 95px !important; 
         padding-bottom: 2rem !important;
     }
+    /* Hide any default Streamlit header */
+    header, .stApp header, [data-testid="stHeader"] {
+        display: none !important;
+    }
     .fixed-top-bar {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        z-index: 999999;
-        background: #0e1117;
-        padding: 12px 10px 10px 10px;
-        border-bottom: 1px solid rgba(255,255,255,0.1);
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        z-index: 999999 !important;
+        background: #0e1117 !important;
+        padding: 12px 10px 10px 10px !important;
+        border-bottom: 1px solid rgba(255,255,255,0.12) !important;
     }
     .fixed-top-bar > div {
         max-width: 820px;
@@ -98,15 +102,15 @@ def show_pronostiek_scores(user_id="Tom", standings_df=None):
                         }
         st.session_state[loaded_key] = True
 
-    # ==================== FIXED TOP BAR (Only one) ====================
+    # ==================== FIXED TOP BAR (Only One) ====================
     with st.container(key="fixed_top_bar"):
         col_home, col_save = st.columns([1, 1.4], gap="small")
         with col_home:
-            if st.button("☰ Hoofdmenu", key="back_to_main_menu", use_container_width=True):
+            if st.button("☰ Hoofdmenu", key="back_to_main_menu_unique", use_container_width=True):
                 st.session_state.main_page = "🏠 Hoofdmenu"
                 st.rerun()
         with col_save:
-            if st.button("💾 OPSLAAN", key="save_button_top", 
+            if st.button("💾 OPSLAAN", key="save_button_top_unique", 
                         use_container_width=True, type="primary"):
                 saved = batch_save_predictions(
                     user_id=user_id,
@@ -115,7 +119,7 @@ def show_pronostiek_scores(user_id="Tom", standings_df=None):
                 )
                 st.success(f"Opgeslagen: {saved} wedstrijden")
 
-    # ==================== MATCHES ====================
+    # ==================== MATCH CARDS ====================
     wedstrijden = matches_df.copy()
     if wedstrijden.empty:
         st.warning("Geen wedstrijden gevonden.")
