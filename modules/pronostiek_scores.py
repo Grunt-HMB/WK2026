@@ -35,24 +35,38 @@ def show_pronostiek_scores(user_id="Tom", standings_df=None):
     if loaded_key not in st.session_state:
         st.session_state[loaded_key] = False
 
-    # ==================== CSS ====================
+    # ==================== CSS - FIXED SAVE BUTTON ====================
     st.markdown("""
     <style>
-    .block-container { padding-bottom: 5rem !important; }
+    .block-container { 
+        padding-bottom: 85px !important; 
+    }
+    .fixed-save-btn {
+        position: fixed;
+        bottom: 12px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 999999;
+        width: 92%;
+        max-width: 420px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+    }
     [class*="st-key-match_card_"] {
         background: #111827;
         border: 1px solid rgba(255,255,255,0.13);
         border-radius: 14px;
-        padding: 0.6rem !important;
-        margin-bottom: 0.6rem;
+        padding: 0.65rem !important;
+        margin-bottom: 0.65rem;
     }
     .score-inputs {
-        margin-top: 8px;
+        margin-top: 10px;
+        padding-top: 8px;
+        border-top: 1px solid rgba(255,255,255,0.08);
     }
     .score-label {
-        font-size: 0.75rem;
+        font-size: 0.78rem;
         color: #94a3b8;
-        margin-bottom: 2px;
+        margin-bottom: 3px;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -64,36 +78,20 @@ def show_pronostiek_scores(user_id="Tom", standings_df=None):
 
     matches_df, predictions_df = get_data(user_id)
 
-    # Load saved predictions
+    # Load previous predictions
     if not st.session_state[loaded_key]:
         if not predictions_df.empty:
             for _, row in predictions_df.iterrows():
                 mid = str(row.get("match_id", "")).strip()
-                if mid and str(row.get("prediction", "")).upper() in ["1", "X", "2"]:
-                    st.session_state.local_predictions[mid] = {
-                        "prediction": str(row.get("prediction", "")).upper(),
-                        "score1": row.get("score1", 0),
-                        "score2": row.get("score2", 0),
-                    }
+                if mid:
+                    pred = str(row.get("prediction", "")).upper().strip()
+                    if pred in ["1", "X", "2"]:
+                        st.session_state.local_predictions[mid] = {
+                            "prediction": pred,
+                            "score1": int(row.get("score1", 0)),
+                            "score2": int(row.get("score2", 0)),
+                        }
         st.session_state[loaded_key] = True
-
-    # ==================== TOP BAR ====================
-    with st.container(key="top_bar"):
-        col_home, col_save = st.columns([1, 1.4], gap="small")
-        with col_home:
-            if st.button("☰ Hoofdmenu", key="back_to_main_menu", use_container_width=True):
-                st.session_state.main_page = "🏠 Hoofdmenu"
-                st.rerun()
-        with col_save:
-            if st.button("💾 OPSLAAN", key="save_button", use_container_width=True, type="primary"):
-                saved = batch_save_predictions(
-                    user_id=user_id,
-                    local_predictions=st.session_state.local_predictions,
-                    status="concept",
-                )
-                st.success(f"Opgeslagen: {saved} wedstrijden")
-
-    st.markdown('<div class="top-spacer"></div>', unsafe_allow_html=True)
 
     # ==================== MATCHES ====================
     wedstrijden = matches_df.copy()
@@ -102,14 +100,10 @@ def show_pronostiek_scores(user_id="Tom", standings_df=None):
         return
 
     wedstrijden["match_id"] = wedstrijden["match_id"].astype(str).str.strip()
-    # Optional: filter group stage only
-    if "ronde" in wedstrijden.columns:
-        wedstrijden = wedstrijden[wedstrijden["ronde"].astype(str).str.lower().str.contains("groep", na=False)].copy()
 
     for _, match in wedstrijden.iterrows():
         match_id = str(match.get("match_id", "")).strip()
-        if not match_id:
-            continue
+        if not match_id: continue
 
         datum = format_date(match.get("datum", ""))
         tijd = format_time(match.get("tijd", ""))
@@ -119,9 +113,8 @@ def show_pronostiek_scores(user_id="Tom", standings_df=None):
         team2_code = match.get("team2_code", "")
 
         pred_key = f"pred_{match_id}"
-
-        # Get current prediction
-        current_pred = st.session_state.local_predictions.get(match_id, {}).get("prediction")
+        current = st.session_state.local_predictions.get(match_id, {})
+        current_pred = current.get("prediction")
 
         with st.container(key=f"match_card_{match_id}"):
             col_info, col_pred = st.columns([2.1, 1], gap="small")
@@ -139,7 +132,6 @@ def show_pronostiek_scores(user_id="Tom", standings_df=None):
                 """, unsafe_allow_html=True)
 
             with col_pred:
-                # 1 / X / 2 selector
                 selected = st.segmented_control(
                     label="Pronostiek",
                     options=["1", "X", "2"],
@@ -148,39 +140,41 @@ def show_pronostiek_scores(user_id="Tom", standings_df=None):
                     label_visibility="collapsed",
                 )
 
-                # Update local predictions
                 if selected:
                     if match_id not in st.session_state.local_predictions:
                         st.session_state.local_predictions[match_id] = {}
                     st.session_state.local_predictions[match_id]["prediction"] = selected
 
-                # ==================== SCORE INPUTS (appear after selection) ====================
                 if selected:
                     st.markdown('<div class="score-inputs">', unsafe_allow_html=True)
-                    
                     c1, c2 = st.columns(2)
                     with c1:
-                        st.markdown("<div class='score-label'>Score " + team1 + "</div>", unsafe_allow_html=True)
-                        score1 = st.number_input(
-                            label="",
-                            min_value=0,
-                            max_value=15,
-                            value=int(st.session_state.local_predictions[match_id].get("score1", 0)),
-                            key=f"score1_{match_id}",
-                            label_visibility="collapsed"
-                        )
-                        st.session_state.local_predictions[match_id]["score1"] = score1
+                        st.markdown(f"<div class='score-label'>{team1}</div>", unsafe_allow_html=True)
+                        s1 = st.number_input("", min_value=0, max_value=15, 
+                                           value=int(current.get("score1", 0)),
+                                           key=f"score1_{match_id}", label_visibility="collapsed")
+                        st.session_state.local_predictions[match_id]["score1"] = s1
 
                     with c2:
-                        st.markdown("<div class='score-label'>Score " + team2 + "</div>", unsafe_allow_html=True)
-                        score2 = st.number_input(
-                            label="",
-                            min_value=0,
-                            max_value=15,
-                            value=int(st.session_state.local_predictions[match_id].get("score2", 0)),
-                            key=f"score2_{match_id}",
-                            label_visibility="collapsed"
-                        )
-                        st.session_state.local_predictions[match_id]["score2"] = score2
-
+                        st.markdown(f"<div class='score-label'>{team2}</div>", unsafe_allow_html=True)
+                        s2 = st.number_input("", min_value=0, max_value=15, 
+                                           value=int(current.get("score2", 0)),
+                                           key=f"score2_{match_id}", label_visibility="collapsed")
+                        st.session_state.local_predictions[match_id]["score2"] = s2
                     st.markdown('</div>', unsafe_allow_html=True)
+
+    # ==================== FIXED SAVE BUTTON ====================
+    st.markdown("""
+    <div class="fixed-save-btn">
+    """, unsafe_allow_html=True)
+
+    if st.button("💾 OPSLAAN", key="save_button_fixed", type="primary", use_container_width=True):
+        saved = batch_save_predictions(
+            user_id=user_id,
+            local_predictions=st.session_state.local_predictions,
+            status="concept",
+        )
+        st.success(f"Opgeslagen: {saved} wedstrijden")
+        st.rerun()
+
+    st.markdown('</div>', unsafe_allow_html=True)
