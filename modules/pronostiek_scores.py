@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 
-# Your imports...
 try:
     from modules.data_loader import get_matches
 except ImportError:
@@ -16,38 +15,27 @@ def prediction_from_score(score1, score2):
     else: return "X"
 
 
-def flag_emoji(country):
-    flags = {"Netherlands": "🇳🇱", "Germany": "🇩🇪", "France": "🇫🇷", "Spain": "🇪🇸", 
-             "England": "🇬🇧", "Italy": "🇮🇹", "Belgium": "🇧🇪", "Portugal": "🇵🇹"}
-    return flags.get(country, "🏴")
-
-
 def show_pronostiek_scores(user_id: str):
     st.markdown(f"### 🎯 {user_id} - Voorspellingen")
     
     st.markdown("""
     <style>
-    .match-card {
+    .compact-card {
         padding: 10px 12px;
-        border-radius: 12px;
-        border: 1px solid #ddd;
-        background-color: #fafafa;
-        margin-bottom: 10px;
+        border-radius: 10px;
+        border: 1px solid #e0e0e0;
+        background-color: #f9f9f9;
+        margin-bottom: 9px;
     }
-    .team-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
+    .team-name {
+        font-size: 15.5px;
+        font-weight: 600;
+        margin-bottom: 4px;
     }
-    .score-container {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-    .score-btn {
-        font-size: 18px !important;
-        padding: 4px 12px !important;
-        min-width: 40px;
+    .score-input {
+        font-size: 24px;
+        font-weight: 700;
+        text-align: center;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -60,56 +48,54 @@ def show_pronostiek_scores(user_id: str):
     # Initialize session state
     for _, m in df.iterrows():
         mid = str(m["match_id"])
-        if f"s1_{mid}" not in st.session_state:
-            st.session_state[f"s1_{mid}"] = 0
-        if f"s2_{mid}" not in st.session_state:
-            st.session_state[f"s2_{mid}"] = 0
+        st.session_state.setdefault(f"s1_{mid}", 0)
+        st.session_state.setdefault(f"s2_{mid}", 0)
 
     for _, match in df.iterrows():
         mid = str(match["match_id"])
-        t1 = match.get("team1", "Team1")
-        t2 = match.get("team2", "Team2")
+        t1 = match.get("team1", "Team 1")
+        t2 = match.get("team2", "Team 2")
         groep = match.get("groep", "-")
         datum = match.get("datum", "")
         tijd = match.get("tijd", "")
 
         with st.container(border=True):
-            st.caption(f"**Groep {groep}** • {datum} • {tijd}")
+            st.caption(f"**G{groep}** • {datum} • {tijd}")
 
-            # Row 1: Team names + flags
-            col1, col2 = st.columns([5, 5])
+            # Team 1 row
+            col1, col2 = st.columns([1, 4])
             with col1:
-                st.markdown(f"**{flag_emoji(t1)} {t1}**")
+                st.markdown(f"<div class='team-name'>{t1}</div>", unsafe_allow_html=True)
             with col2:
-                st.markdown(f"**{t2} {flag_emoji(t2)}**")
-
-            # Row 2: Scores side by side
-            c1, c2, c3 = st.columns([5, 2, 5])
-            
-            with c1:
-                btn1 = st.columns([1, 3, 1])
-                if btn1[0].button("−", key=f"min1_{mid}", use_container_width=True):
+                c = st.columns([1, 2, 1])
+                if c[0].button("−", key=f"min1_{mid}", use_container_width=True):
                     st.session_state[f"s1_{mid}"] = max(0, st.session_state[f"s1_{mid}"] - 1)
-                st.number_input("", min_value=0, max_value=15, value=st.session_state[f"s1_{mid}"],
-                               key=f"num1_{mid}", label_visibility="collapsed")
-                if btn1[2].button("+", key=f"plus1_{mid}", use_container_width=True):
+                st.number_input("", key=f"num1_{mid}", value=st.session_state[f"s1_{mid}"],
+                               min_value=0, max_value=15, label_visibility="collapsed")
+                if c[2].button("+", key=f"plus1_{mid}", use_container_width=True):
                     st.session_state[f"s1_{mid}"] = min(15, st.session_state[f"s1_{mid}"] + 1)
 
-            with c2:
-                st.markdown("**VS**", unsafe_allow_html=True)
+            # VS
+            st.markdown("<p style='text-align:center; margin:4px 0; color:#666;'>VS</p>", unsafe_allow_html=True)
 
-            with c3:
-                btn2 = st.columns([1, 3, 1])
-                if btn2[0].button("−", key=f"min2_{mid}", use_container_width=True):
+            # Team 2 row
+            col3, col4 = st.columns([1, 4])
+            with col3:
+                st.markdown(f"<div class='team-name' style='text-align:right'>{t2}</div>", unsafe_allow_html=True)
+            with col4:
+                c2 = st.columns([1, 2, 1])
+                if c2[0].button("−", key=f"min2_{mid}", use_container_width=True):
                     st.session_state[f"s2_{mid}"] = max(0, st.session_state[f"s2_{mid}"] - 1)
-                st.number_input("", min_value=0, max_value=15, value=st.session_state[f"s2_{mid}"],
-                               key=f"num2_{mid}", label_visibility="collapsed")
-                if btn2[2].button("+", key=f"plus2_{mid}", use_container_width=True):
+                st.number_input("", key=f"num2_{mid}", value=st.session_state[f"s2_{mid}"],
+                               min_value=0, max_value=15, label_visibility="collapsed")
+                if c2[2].button("+", key=f"plus2_{mid}", use_container_width=True):
                     st.session_state[f"s2_{mid}"] = min(15, st.session_state[f"s2_{mid}"] + 1)
 
-    # === FIXED SAVE BUTTON ===
+    # Fixed save button
     st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("💾 OPSLAAN ALLE VOORSPELLINGEN", type="primary", use_container_width=True):
+    if st.button("💾 OPSLAAN ALLE VOORSPELLINGEN", 
+                 type="primary", 
+                 use_container_width=True):
         rows = []
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
@@ -128,6 +114,6 @@ def show_pronostiek_scores(user_id: str):
                 "timestamp": now,
             })
         
-        with st.spinner("Opslaan..."):
+        with st.spinner("Opslaan naar Google Sheets..."):
             save_predictions_to_sheet(rows)
-            st.success("✅ Alles succesvol opgeslagen!")
+            st.success("✅ Succesvol opgeslagen!")
