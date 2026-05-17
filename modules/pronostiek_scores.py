@@ -6,7 +6,7 @@ from modules.database import (
     batch_save_predictions,
 )
 
-def show_pronostiek(user_id="Tom", standings_df=None):
+def show_pronostiek_scores(user_id="Tom", standings_df=None):
     # Helpers
     def country_flag(code):
         code = str(code or "").strip().upper()
