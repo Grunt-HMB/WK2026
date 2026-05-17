@@ -173,7 +173,7 @@ footer {
 # TOP NAVIGATIE (HOME KNOP)
 # =========================================================
 
-if st.session_state.main_page != "🏠 Hoofdmenu":
+if st.session_state.main_page not in ["🏠 Hoofdmenu", "⚽ Pronostiek", "🎯 Pronostiek scores"]:
     if st.button("☰ Hoofdmenu", use_container_width=True):
         go_to("🏠 Hoofdmenu")
 
