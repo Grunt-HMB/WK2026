@@ -141,6 +141,7 @@ def show_pronostiek_scores(user_id="Tom", standings_df=None):
         use_container_width=False,
         type="primary",
     ):
+        st.write(st.session_state.local_predictions)
         saved = batch_save_predictions(
             user_id=user_id,
             local_predictions=st.session_state.local_predictions,
