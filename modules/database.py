@@ -14,10 +14,6 @@ SCOPES = [
 ]
 
 
-# =========================================================
-# HOOFD GOOGLE SHEET
-# Gebruikt voor Users, Matches, Predictions, enz.
-# =========================================================
 @st.cache_resource
 def connect_to_gsheet():
     credentials = Credentials.from_service_account_info(
@@ -26,16 +22,11 @@ def connect_to_gsheet():
     )
 
     client = gspread.authorize(credentials)
-
     sheet_id = st.secrets["GOOGLE_SHEET_ID"]
 
     return client.open_by_key(sheet_id)
 
 
-# =========================================================
-# APARTE GOOGLE SHEET VOOR OFFICIËLE UITSLAGEN
-# Gebruikt enkel voor Results
-# =========================================================
 @st.cache_resource
 def connect_to_results_gsheet():
     credentials = Credentials.from_service_account_info(
@@ -44,7 +35,6 @@ def connect_to_results_gsheet():
     )
 
     client = gspread.authorize(credentials)
-
     sheet_id = st.secrets["GOOGLE_RESULTS_SHEET_ID"]
 
     return client.open_by_key(sheet_id)
@@ -75,6 +65,11 @@ def get_results_worksheet(name):
     return sh.worksheet(name)
 
 
+def get_predictions_worksheet(name):
+    sh = connect_to_results_gsheet()
+    return sh.worksheet(name)
+
+
 @st.cache_data(ttl=60)
 def load_sheet(name):
     ws = get_worksheet(name)
@@ -95,6 +90,7 @@ def load_sheet(name):
     return df
 
 
+@st.cache_data(ttl=60)
 def load_results_sheet():
     ws = get_results_worksheet("Results")
 
@@ -108,6 +104,26 @@ def load_results_sheet():
     df = pd.DataFrame(data)
 
     for col in REQUIRED_SHEETS.get("Results", []):
+        if col not in df.columns:
+            df[col] = ""
+
+    return df
+
+
+@st.cache_data(ttl=60)
+def load_predictions_sheet():
+    ws = get_predictions_worksheet("Predictions")
+
+    expected_headers = REQUIRED_SHEETS.get("Predictions", None)
+
+    if expected_headers:
+        data = ws.get_all_records(expected_headers=expected_headers)
+    else:
+        data = ws.get_all_records()
+
+    df = pd.DataFrame(data)
+
+    for col in REQUIRED_SHEETS.get("Predictions", []):
         if col not in df.columns:
             df[col] = ""
 
@@ -184,9 +200,8 @@ def merge_results_into_matches(matches_df, results_df):
 def load_all_data():
     users_df = load_sheet("Users")
     matches_df = load_sheet("Matches")
-    predictions_df = load_sheet("Predictions")
 
-    # Results komt nu uit de aparte officiële uitslagen-sheet
+    predictions_df = load_predictions_sheet()
     results_df = load_results_sheet()
 
     matches_df = ensure_match_columns(matches_df)
@@ -214,6 +229,8 @@ def load_all_data():
 
 def clear_data_cache():
     load_sheet.clear()
+    load_results_sheet.clear()
+    load_predictions_sheet.clear()
     load_all_data.clear()
     get_existing_sheet_names.clear()
 
@@ -257,10 +274,7 @@ def batch_upsert_predictions(
         return 0
 
     if allowed_match_ids is not None:
-        allowed_match_ids = set(
-            str(x).strip()
-            for x in allowed_match_ids
-        )
+        allowed_match_ids = set(str(x).strip() for x in allowed_match_ids)
 
         local_predictions = {
             str(match_id).strip(): data
@@ -271,7 +285,7 @@ def batch_upsert_predictions(
     if not local_predictions:
         return 0
 
-    ws = get_worksheet("Predictions")
+    ws = get_predictions_worksheet("Predictions")
     rows = ws.get_all_values()
 
     if not rows:
@@ -279,7 +293,6 @@ def batch_upsert_predictions(
             REQUIRED_SHEETS["Predictions"],
             value_input_option="USER_ENTERED",
         )
-
         rows = ws.get_all_values()
 
     existing_map = {}
@@ -358,8 +371,6 @@ def batch_upsert_predictions(
 
 
 def update_or_append_result(match_id, real_team1, real_team2):
-    # Schrijft nu naar de aparte Google Sheet:
-    # GOOGLE_RESULTS_SHEET_ID → tabblad Results
     ws = get_results_worksheet("Results")
     rows = ws.get_all_values()
 
@@ -368,7 +379,6 @@ def update_or_append_result(match_id, real_team1, real_team2):
             REQUIRED_SHEETS["Results"],
             value_input_option="USER_ENTERED",
         )
-
         rows = ws.get_all_values()
 
     now = timestamp()
@@ -396,10 +406,6 @@ def update_or_append_result(match_id, real_team1, real_team2):
 
     clear_data_cache()
 
-
-# =========================================================
-# EXTRA WRAPPERS VOOR MOBIELE / SNELLE APP
-# =========================================================
 
 def load_users():
     data = load_all_data()
@@ -462,7 +468,6 @@ def batch_save_predictions(
                 "score1": data.get("score1", ""),
                 "score2": data.get("score2", ""),
             }
-
         else:
             normalized_predictions[match_id] = {
                 "prediction": str(data).upper().strip(),
