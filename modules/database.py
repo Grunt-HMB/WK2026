@@ -14,6 +14,10 @@ SCOPES = [
 ]
 
 
+# =========================================================
+# HOOFD GOOGLE SHEET
+# Gebruikt voor Users, Matches, Predictions, enz.
+# =========================================================
 @st.cache_resource
 def connect_to_gsheet():
     credentials = Credentials.from_service_account_info(
@@ -24,6 +28,24 @@ def connect_to_gsheet():
     client = gspread.authorize(credentials)
 
     sheet_id = st.secrets["GOOGLE_SHEET_ID"]
+
+    return client.open_by_key(sheet_id)
+
+
+# =========================================================
+# APARTE GOOGLE SHEET VOOR OFFICIËLE UITSLAGEN
+# Gebruikt enkel voor Results
+# =========================================================
+@st.cache_resource
+def connect_to_results_gsheet():
+    credentials = Credentials.from_service_account_info(
+        st.secrets["gcp_service_account"],
+        scopes=SCOPES,
+    )
+
+    client = gspread.authorize(credentials)
+
+    sheet_id = st.secrets["GOOGLE_RESULTS_SHEET_ID"]
 
     return client.open_by_key(sheet_id)
 
@@ -48,6 +70,11 @@ def get_worksheet(name):
     return sh.worksheet(name)
 
 
+def get_results_worksheet(name):
+    sh = connect_to_results_gsheet()
+    return sh.worksheet(name)
+
+
 @st.cache_data(ttl=60)
 def load_sheet(name):
     ws = get_worksheet(name)
@@ -62,6 +89,25 @@ def load_sheet(name):
     df = pd.DataFrame(data)
 
     for col in REQUIRED_SHEETS.get(name, []):
+        if col not in df.columns:
+            df[col] = ""
+
+    return df
+
+
+def load_results_sheet():
+    ws = get_results_worksheet("Results")
+
+    expected_headers = REQUIRED_SHEETS.get("Results", None)
+
+    if expected_headers:
+        data = ws.get_all_records(expected_headers=expected_headers)
+    else:
+        data = ws.get_all_records()
+
+    df = pd.DataFrame(data)
+
+    for col in REQUIRED_SHEETS.get("Results", []):
         if col not in df.columns:
             df[col] = ""
 
@@ -139,7 +185,9 @@ def load_all_data():
     users_df = load_sheet("Users")
     matches_df = load_sheet("Matches")
     predictions_df = load_sheet("Predictions")
-    results_df = load_sheet("Results")
+
+    # Results komt nu uit de aparte officiële uitslagen-sheet
+    results_df = load_results_sheet()
 
     matches_df = ensure_match_columns(matches_df)
     matches_df = merge_results_into_matches(matches_df, results_df)
@@ -310,7 +358,9 @@ def batch_upsert_predictions(
 
 
 def update_or_append_result(match_id, real_team1, real_team2):
-    ws = get_worksheet("Results")
+    # Schrijft nu naar de aparte Google Sheet:
+    # GOOGLE_RESULTS_SHEET_ID → tabblad Results
+    ws = get_results_worksheet("Results")
     rows = ws.get_all_values()
 
     if not rows:
@@ -328,6 +378,7 @@ def update_or_append_result(match_id, real_team1, real_team2):
             ws.update(
                 f"B{index}:D{index}",
                 [[real_team1, real_team2, now]],
+                value_input_option="USER_ENTERED",
             )
 
             clear_data_cache()
