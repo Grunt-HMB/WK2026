@@ -40,7 +40,6 @@ def load_results_matches():
     ws = sh.worksheet(MATCHES_SHEET)
 
     values = ws.get_all_values()
-
     empty_df = pd.DataFrame(columns=["match_id", "datum_tijd", "team1", "team2"])
 
     if not values:
@@ -50,12 +49,7 @@ def load_results_matches():
 
     for i, row in enumerate(values):
         clean_row = [str(c).strip() for c in row]
-
-        if (
-            "Match No." in clean_row
-            and "Team 1" in clean_row
-            and "Team 2" in clean_row
-        ):
+        if "Match No." in clean_row and "Team 1" in clean_row and "Team 2" in clean_row:
             header_row_index = i
             break
 
@@ -67,29 +61,23 @@ def load_results_matches():
     data_rows = values[header_row_index + 1:]
 
     fixed_rows = []
-
     for row in data_rows:
         row = row[:len(headers)] + [""] * max(0, len(headers) - len(row))
         fixed_rows.append(row)
 
     raw_df = pd.DataFrame(fixed_rows, columns=headers)
 
-    if "Date (my time)" in raw_df.columns:
-        date_col = "Date (my time)"
-    elif "Date  (my time)" in raw_df.columns:
-        date_col = "Date  (my time)"
-    else:
-        date_col = ""
+    date_col = ""
+    for possible in ["Date (my time)", "Date  (my time)", "datum_tijd", "datum"]:
+        if possible in raw_df.columns:
+            date_col = possible
+            break
 
     df = pd.DataFrame()
     df["match_id"] = raw_df["Match No."].astype(str).str.strip()
     df["team1"] = raw_df["Team 1"].astype(str).str.strip()
     df["team2"] = raw_df["Team 2"].astype(str).str.strip()
-
-    if date_col:
-        df["datum_tijd"] = raw_df[date_col].astype(str).str.strip()
-    else:
-        df["datum_tijd"] = ""
+    df["datum_tijd"] = raw_df[date_col].astype(str).str.strip() if date_col else ""
 
     df = df[
         (df["match_id"] != "")
@@ -114,7 +102,6 @@ def load_results_predictions():
     data_rows = values[1:]
 
     fixed_rows = []
-
     for row in data_rows:
         row = row[:len(headers)] + [""] * max(0, len(headers) - len(row))
         fixed_rows.append(row)
@@ -130,10 +117,7 @@ def load_results_predictions():
     for col in PREDICTION_HEADERS:
         df[col] = df[col].astype(str).str.strip()
 
-    df = df[
-        (df["user_id"] != "")
-        & (df["match_id"] != "")
-    ].copy()
+    df = df[(df["user_id"] != "") & (df["match_id"] != "")].copy()
 
     return df
 
@@ -147,11 +131,8 @@ def save_predictions_to_sheet(user_id, local_predictions):
     if existing_df.empty:
         existing_df = pd.DataFrame(columns=PREDICTION_HEADERS)
 
-    existing_df["user_id"] = existing_df["user_id"].astype(str).str.strip()
-    existing_df["match_id"] = existing_df["match_id"].astype(str).str.strip()
-
     rows_to_keep = existing_df[
-        existing_df["user_id"] != str(user_id)
+        existing_df["user_id"].astype(str).str.strip() != str(user_id)
     ].copy()
 
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -225,75 +206,96 @@ def init_local_predictions(user_id):
     st.session_state.stand_local_user = user_id
 
 
-def clear_active_score():
-    st.session_state.active_match_id = None
-    st.session_state.active_prediction = ""
+def reset_temp_scores():
     st.session_state.temp_score1 = ""
     st.session_state.temp_score2 = ""
 
 
-def digit_keyboard(label, key_prefix):
-    st.markdown(f"**{label}**")
+def clear_active_score():
+    st.session_state.active_match_id = None
+    st.session_state.active_prediction = ""
+    reset_temp_scores()
 
-    if key_prefix not in st.session_state:
-        st.session_state[key_prefix] = ""
 
-    cols = st.columns(3)
-
-    digits = ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
-
-    for i, digit in enumerate(digits):
-        with cols[i % 3]:
-            if st.button(
-                digit,
-                key=f"{key_prefix}_{digit}",
-                use_container_width=True,
-            ):
-                if len(st.session_state[key_prefix]) < 2:
-                    st.session_state[key_prefix] += digit
-                st.rerun()
-
-    col_back, col_zero, _ = st.columns(3)
-
-    with col_back:
-        if st.button(
-            "←",
-            key=f"{key_prefix}_back",
-            use_container_width=True,
-        ):
-            st.session_state[key_prefix] = st.session_state[key_prefix][:-1]
-            st.rerun()
-
-    with col_zero:
-        if st.button(
-            "0",
-            key=f"{key_prefix}_0",
-            use_container_width=True,
-        ):
-            if len(st.session_state[key_prefix]) < 2:
-                st.session_state[key_prefix] += "0"
-            st.rerun()
-
-    value = st.session_state[key_prefix] or "&nbsp;"
-
+def score_display(value):
+    shown = value if value else "&nbsp;"
     st.markdown(
         f"""
-        <div style="
-            margin-top:8px;
-            padding:8px;
-            border:1px solid #cbd5e1;
-            border-radius:8px;
-            text-align:center;
-            font-size:24px;
-            font-weight:900;
-            background:white;
-            color:#111827;
-        ">
-            {value}
-        </div>
+        <div class="score-display">{shown}</div>
         """,
         unsafe_allow_html=True,
     )
+
+
+def add_digit(key_name, digit):
+    current = st.session_state.get(key_name, "")
+
+    if len(current) < 2:
+        st.session_state[key_name] = current + str(digit)
+
+
+def remove_digit(key_name):
+    current = st.session_state.get(key_name, "")
+    st.session_state[key_name] = current[:-1]
+
+
+def numeric_keyboard(label, key_name, unique_prefix):
+    st.markdown(f"<div class='keyboard-title'>{label}</div>", unsafe_allow_html=True)
+
+    score_display(st.session_state.get(key_name, ""))
+
+    layout = [
+        ["1", "2", "3"],
+        ["4", "5", "6"],
+        ["7", "8", "9"],
+        ["←", "0", "C"],
+    ]
+
+    for row_i, row in enumerate(layout):
+        cols = st.columns(3)
+
+        for col_i, value in enumerate(row):
+            with cols[col_i]:
+                if st.button(
+                    value,
+                    key=f"{unique_prefix}_{key_name}_{row_i}_{col_i}_{value}",
+                    use_container_width=True,
+                ):
+                    if value == "←":
+                        remove_digit(key_name)
+                    elif value == "C":
+                        st.session_state[key_name] = ""
+                    else:
+                        add_digit(key_name, value)
+
+                    st.rerun()
+
+
+def prediction_keyboard(match_id, team1, team2):
+    st.markdown("<div class='keyboard-title'>Kies uitslag</div>", unsafe_allow_html=True)
+
+    c1, cx, c2 = st.columns(3)
+
+    with c1:
+        if st.button("1", key=f"pred_1_{match_id}", use_container_width=True):
+            st.session_state.active_match_id = match_id
+            st.session_state.active_prediction = "1"
+            reset_temp_scores()
+            st.rerun()
+
+    with cx:
+        if st.button("X", key=f"pred_x_{match_id}", use_container_width=True):
+            st.session_state.active_match_id = match_id
+            st.session_state.active_prediction = "X"
+            reset_temp_scores()
+            st.rerun()
+
+    with c2:
+        if st.button("2", key=f"pred_2_{match_id}", use_container_width=True):
+            st.session_state.active_match_id = match_id
+            st.session_state.active_prediction = "2"
+            reset_temp_scores()
+            st.rerun()
 
 
 def show_stand_uitprinten(user_id=None):
@@ -312,17 +314,14 @@ def show_stand_uitprinten(user_id=None):
         st.warning("Geen wedstrijden gevonden in tabblad 'Matches'.")
         return
 
-    if "active_match_id" not in st.session_state:
-        st.session_state.active_match_id = None
-
-    if "active_prediction" not in st.session_state:
-        st.session_state.active_prediction = ""
-
-    if "temp_score1" not in st.session_state:
-        st.session_state.temp_score1 = ""
-
-    if "temp_score2" not in st.session_state:
-        st.session_state.temp_score2 = ""
+    for key, default in {
+        "active_match_id": None,
+        "active_prediction": "",
+        "temp_score1": "",
+        "temp_score2": "",
+    }.items():
+        if key not in st.session_state:
+            st.session_state[key] = default
 
     st.markdown("""
     <style>
@@ -358,15 +357,56 @@ def show_stand_uitprinten(user_id=None):
         font-size: 12px;
     }
 
+    .keyboard-box {
+        border: 1px solid rgba(148,163,184,0.45);
+        border-radius: 14px;
+        padding: 12px;
+        margin-top: 10px;
+        margin-bottom: 16px;
+        background: rgba(15,23,42,0.55);
+    }
+
+    .keyboard-title {
+        text-align: center;
+        font-size: 13px;
+        font-weight: 900;
+        color: #cbd5e1;
+        margin-bottom: 8px;
+    }
+
+    .score-display {
+        height: 44px;
+        border: 2px solid #cbd5e1;
+        border-radius: 10px;
+        background: white;
+        color: #111827;
+        text-align: center;
+        font-size: 26px;
+        font-weight: 900;
+        line-height: 40px;
+        margin-bottom: 8px;
+    }
+
+    div.stButton > button {
+        min-height: 42px;
+        font-size: 18px;
+        font-weight: 900;
+    }
+
     .bottom-space {
-        height: 90px;
+        height: 95px;
+    }
+
+    .save-note {
+        font-size: 13px;
+        color: #94a3b8;
+        text-align: center;
+        margin-bottom: 8px;
     }
     </style>
     """, unsafe_allow_html=True)
 
-    st.info(
-        "Wijzigingen worden pas naar Google Sheets geschreven wanneer je op OPSLAAN drukt."
-    )
+    st.info("Wijzigingen worden pas naar Google Sheets geschreven wanneer je op OPSLAAN drukt.")
 
     for _, row in matches_df.iterrows():
         match_id = str(row.get("match_id", "")).strip()
@@ -380,15 +420,8 @@ def show_stand_uitprinten(user_id=None):
         score1 = str(pred.get("score1", "")).strip()
         score2 = str(pred.get("score2", "")).strip()
 
-        score_txt = ""
-
-        if score1 != "" or score2 != "":
-            score_txt = f'<span class="score-pill">{score1} - {score2}</span>'
-
-        prediction_txt = ""
-
-        if prediction:
-            prediction_txt = f'<span class="score-pill">{prediction}</span>'
+        prediction_txt = f'<span class="score-pill">{prediction}</span>' if prediction else ""
+        score_txt = f'<span class="score-pill">{score1} - {score2}</span>' if score1 or score2 else ""
 
         st.markdown(
             f"""
@@ -402,47 +435,10 @@ def show_stand_uitprinten(user_id=None):
             unsafe_allow_html=True,
         )
 
-        col1, colx, col2 = st.columns(3)
-
-        with col1:
-            if st.button(
-                "1",
-                key=f"pred_1_{match_id}",
-                use_container_width=True,
-            ):
-                st.session_state.active_match_id = match_id
-                st.session_state.active_prediction = "1"
-                st.session_state.temp_score1 = ""
-                st.session_state.temp_score2 = ""
-                st.rerun()
-
-        with colx:
-            if st.button(
-                "X",
-                key=f"pred_x_{match_id}",
-                use_container_width=True,
-            ):
-                st.session_state.active_match_id = match_id
-                st.session_state.active_prediction = "X"
-                st.session_state.temp_score1 = ""
-                st.session_state.temp_score2 = ""
-                st.rerun()
-
-        with col2:
-            if st.button(
-                "2",
-                key=f"pred_2_{match_id}",
-                use_container_width=True,
-            ):
-                st.session_state.active_match_id = match_id
-                st.session_state.active_prediction = "2"
-                st.session_state.temp_score1 = ""
-                st.session_state.temp_score2 = ""
-                st.rerun()
+        prediction_keyboard(match_id, team1, team2)
 
         if st.session_state.active_match_id == match_id:
-            st.markdown("---")
-            st.markdown(f"### Score voor: {team1} vs {team2}")
+            st.markdown("<div class='keyboard-box'>", unsafe_allow_html=True)
 
             active_prediction = st.session_state.get("active_prediction", "")
 
@@ -456,10 +452,10 @@ def show_stand_uitprinten(user_id=None):
             k1, k2 = st.columns(2)
 
             with k1:
-                digit_keyboard(team1, "temp_score1")
+                numeric_keyboard(team1, "temp_score1", match_id)
 
             with k2:
-                digit_keyboard(team2, "temp_score2")
+                numeric_keyboard(team2, "temp_score2", match_id)
 
             c_apply, c_cancel = st.columns(2)
 
@@ -487,9 +483,14 @@ def show_stand_uitprinten(user_id=None):
                     clear_active_score()
                     st.rerun()
 
-            st.markdown("---")
+            st.markdown("</div>", unsafe_allow_html=True)
 
     st.markdown('<div class="bottom-space"></div>', unsafe_allow_html=True)
+
+    st.markdown(
+        '<div class="save-note">Pas bij OPSLAAN wordt alles naar Google Sheets geschreven.</div>',
+        unsafe_allow_html=True,
+    )
 
     if st.button("💾 OPSLAAN", type="primary", use_container_width=True):
         save_predictions_to_sheet(
