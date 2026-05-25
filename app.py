@@ -22,7 +22,7 @@ from modules.auth import (
 from modules.admin_results import show_admin_results
 from modules.scoreboard import show_scoreboard
 from modules.poule_standen import show_poule_standen
-from modules.wedstrijdpoules import show_wedstrijdpoules
+from modules.wedstrijdpoules import show_wedstrijd_poules
 
 
 st.set_page_config(
