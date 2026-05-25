@@ -361,7 +361,7 @@ def process_query_actions(user_id):
         st.session_state.stand_message = "Opgeslagen in tabblad 'Predictions'."
 
     st.query_params.clear()
-    st.session_state.main_page = "🖨️ Stand uitprinten"
+    st.session_state.main_page = "⚽ Poulewedstrijden"
     st.rerun()
 
 
