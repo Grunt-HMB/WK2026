@@ -19,12 +19,10 @@ from modules.auth import (
     get_display_team_name,
 )
 
-from modules.pronostiek import show_pronostiek
-from modules.pronostiek_scores import show_pronostiek_scores
 from modules.admin_results import show_admin_results
 from modules.scoreboard import show_scoreboard
 from modules.poule_standen import show_poule_standen
-from modules.stand_uitprinten import show_stand_uitprinten
+from modules.wedstrijdpoules import show_wedstrijdpoules
 
 
 st.set_page_config(
@@ -109,8 +107,10 @@ cookies = restore_login_from_cookie(users_df)
 
 if "main_page" not in st.session_state:
     st.session_state.main_page = "🏠 Hoofdmenu"
+
 if st.query_params.get("stand_action"):
-    st.session_state.main_page = "🖨️ Stand uitprinten"
+    st.session_state.main_page = "⚽ Poulewedstrijden"
+
 
 def go_to(page):
     st.session_state.main_page = page
@@ -183,8 +183,6 @@ footer {
 
 if st.session_state.main_page not in [
     "🏠 Hoofdmenu",
-    "⚽ Pronostiek",
-    "🎯 Pronostiek scores",
 ]:
     if st.button("☰ Hoofdmenu", use_container_width=True):
         go_to("🏠 Hoofdmenu")
@@ -211,11 +209,8 @@ if st.session_state.main_page == "🏠 Hoofdmenu":
         </div>
         """, unsafe_allow_html=True)
 
-        if st.button("⚽ Winnaars voorspellen (1X2)", use_container_width=True):
-            go_to("⚽ Pronostiek")
-
-        if st.button("🎯 Exacte scores invullen", use_container_width=True, type="primary"):
-            go_to("🎯 Pronostiek scores")
+        if st.button("⚽ Poulewedstrijden", use_container_width=True):
+            go_to("⚽ Poulewedstrijden")
 
         if st.button("📊 Poulestanden", use_container_width=True):
             go_to("📊 Poulestanden")
@@ -231,7 +226,7 @@ if st.session_state.main_page == "🏠 Hoofdmenu":
                 go_to("🏆 Admin uitslagen")
 
             if st.button("🖨️ Stand exporteren (PDF/Print)", use_container_width=True):
-                go_to("🖨️ Stand uitprinten")
+                go_to("⚽ Poulewedstrijden")
 
         st.write("---")
 
@@ -265,22 +260,12 @@ elif st.session_state.main_page == "📝 Registreren":
     show_register_page(users_df)
 
 
-elif st.session_state.main_page == "⚽ Pronostiek":
-    user = require_login()
-
-    if user:
-        show_pronostiek(
-            user_id=str(user["naam"]),
-            standings_df=load_standings(),
-        )
-
-
-elif st.session_state.main_page == "🎯 Pronostiek scores":
+elif st.session_state.main_page == "⚽ Poulewedstrijden":
     user = require_login()
 
     if user:
         safe_user_id = str(user.get("naam", "Gast"))
-        show_pronostiek_scores(user_id=safe_user_id)
+        show_wedstrijd_poules(user_id=safe_user_id)
 
 
 elif st.session_state.main_page == "📊 Poulestanden":
@@ -306,14 +291,5 @@ elif st.session_state.main_page == "🏆 Admin uitslagen":
             load_matches(),
             load_results(),
         )
-    else:
-        st.error("Toegang geweigerd.")
-
-
-elif st.session_state.main_page == "🖨️ Stand uitprinten":
-    user = require_login()
-
-    if user and bool(user.get("admin", False)):
-        show_stand_uitprinten()
     else:
         st.error("Toegang geweigerd.")
