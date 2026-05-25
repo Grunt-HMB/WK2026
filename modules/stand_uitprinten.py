@@ -1,281 +1,405 @@
 import streamlit as st
-import streamlit.components.v1 as components
+import pandas as pd
+import gspread
+from google.oauth2.service_account import Credentials
+from datetime import datetime
 
 
-def show_stand_uitprinten():
+SCOPES = [
+    "https://www.googleapis.com/auth/spreadsheets",
+    "https://www.googleapis.com/auth/drive",
+]
+
+MATCHES_SHEET = "Matches"
+PREDICTIONS_SHEET = "Predictions"
+
+
+@st.cache_resource
+def connect_results_sheet():
+    credentials = Credentials.from_service_account_info(
+        st.secrets["gcp_service_account"],
+        scopes=SCOPES,
+    )
+    client = gspread.authorize(credentials)
+    return client.open_by_key(st.secrets["GOOGLE_RESULTS_SHEET_ID"])
+
+
+@st.cache_data(ttl=60)
+def load_results_matches():
+    sh = connect_results_sheet()
+    ws = sh.worksheet(MATCHES_SHEET)
+    rows = ws.get_all_records()
+
+    df = pd.DataFrame(rows)
+
+    if df.empty:
+        return df
+
+    df.columns = [str(c).strip() for c in df.columns]
+
+    rename_map = {
+        "Match No.": "match_id",
+        "Team 1": "team1",
+        "Team 2": "team2",
+        "Date (my time)": "datum_tijd",
+        "Date  (my time)": "datum_tijd",
+        "Date (local time host)": "datum_host",
+    }
+
+    df = df.rename(columns=rename_map)
+
+    needed = ["match_id", "datum_tijd", "team1", "team2"]
+    for col in needed:
+        if col not in df.columns:
+            df[col] = ""
+
+    df["match_id"] = df["match_id"].astype(str).str.strip()
+    df["team1"] = df["team1"].astype(str).str.strip()
+    df["team2"] = df["team2"].astype(str).str.strip()
+    df["datum_tijd"] = df["datum_tijd"].astype(str).str.strip()
+
+    return df[needed]
+
+
+@st.cache_data(ttl=30)
+def load_results_predictions():
+    sh = connect_results_sheet()
+    ws = sh.worksheet(PREDICTIONS_SHEET)
+    rows = ws.get_all_records()
+
+    df = pd.DataFrame(rows)
+
+    if df.empty:
+        return pd.DataFrame(columns=[
+            "user_id", "match_id", "prediction",
+            "score1", "score2", "status", "timestamp"
+        ])
+
+    df.columns = [str(c).strip() for c in df.columns]
+
+    for col in ["user_id", "match_id", "prediction", "score1", "score2", "status", "timestamp"]:
+        if col not in df.columns:
+            df[col] = ""
+
+    df["user_id"] = df["user_id"].astype(str).str.strip()
+    df["match_id"] = df["match_id"].astype(str).str.strip()
+
+    return df
+
+
+def save_predictions_to_sheet(user_id, local_predictions):
+    sh = connect_results_sheet()
+    ws = sh.worksheet(PREDICTIONS_SHEET)
+
+    existing = ws.get_all_records()
+    existing_df = pd.DataFrame(existing)
+
+    headers = [
+        "user_id",
+        "match_id",
+        "prediction",
+        "score1",
+        "score2",
+        "status",
+        "timestamp",
+    ]
+
+    if existing_df.empty:
+        existing_df = pd.DataFrame(columns=headers)
+
+    for col in headers:
+        if col not in existing_df.columns:
+            existing_df[col] = ""
+
+    existing_df["user_id"] = existing_df["user_id"].astype(str).str.strip()
+    existing_df["match_id"] = existing_df["match_id"].astype(str).str.strip()
+
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    rows_to_keep = existing_df[
+        existing_df["user_id"] != str(user_id)
+    ].copy()
+
+    new_rows = []
+
+    for match_id, pred in local_predictions.items():
+        new_rows.append({
+            "user_id": str(user_id),
+            "match_id": str(match_id),
+            "prediction": str(pred.get("prediction", "")),
+            "score1": str(pred.get("score1", "")),
+            "score2": str(pred.get("score2", "")),
+            "status": "concept",
+            "timestamp": now,
+        })
+
+    new_df = pd.DataFrame(new_rows, columns=headers)
+
+    final_df = pd.concat([rows_to_keep[headers], new_df], ignore_index=True)
+
+    ws.clear()
+    ws.update([headers] + final_df.fillna("").values.tolist())
+
+    st.cache_data.clear()
+
+
+def digit_keyboard(label, key_prefix):
+    st.markdown(f"**{label}**")
+
+    if key_prefix not in st.session_state:
+        st.session_state[key_prefix] = ""
+
+    cols = st.columns(3)
+
+    digits = ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
+
+    for i, digit in enumerate(digits):
+        with cols[i % 3]:
+            if st.button(digit, key=f"{key_prefix}_{digit}", use_container_width=True):
+                if len(st.session_state[key_prefix]) < 2:
+                    st.session_state[key_prefix] += digit
+                st.rerun()
+
+    col_back, col_zero, col_empty = st.columns(3)
+
+    with col_back:
+        if st.button("←", key=f"{key_prefix}_back", use_container_width=True):
+            st.session_state[key_prefix] = st.session_state[key_prefix][:-1]
+            st.rerun()
+
+    with col_zero:
+        if st.button("0", key=f"{key_prefix}_0", use_container_width=True):
+            if len(st.session_state[key_prefix]) < 2:
+                st.session_state[key_prefix] += "0"
+            st.rerun()
+
+    st.markdown(
+        f"""
+        <div style="
+            margin-top:8px;
+            padding:8px;
+            border:1px solid #cbd5e1;
+            border-radius:8px;
+            text-align:center;
+            font-size:24px;
+            font-weight:900;
+            background:white;
+            color:#111827;
+        ">
+            {st.session_state[key_prefix] or "&nbsp;"}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def init_local_predictions(user_id):
+    if "stand_local_user" not in st.session_state:
+        st.session_state.stand_local_user = None
+
+    if st.session_state.stand_local_user == user_id:
+        return
+
+    predictions_df = load_results_predictions()
+    user_df = predictions_df[predictions_df["user_id"] == str(user_id)].copy()
+
+    local = {}
+
+    for _, row in user_df.iterrows():
+        match_id = str(row.get("match_id", "")).strip()
+
+        if not match_id:
+            continue
+
+        local[match_id] = {
+            "prediction": str(row.get("prediction", "")).strip(),
+            "score1": str(row.get("score1", "")).strip(),
+            "score2": str(row.get("score2", "")).strip(),
+        }
+
+    st.session_state.stand_local_predictions = local
+    st.session_state.stand_local_user = user_id
+
+
+def show_stand_uitprinten(user_id=None):
     st.title("🖨️ Stand uitprinten")
 
-    team1 = "Mexico"
-    team2 = "Zuid-Afrika"
+    if user_id is None:
+        user_id = st.session_state.get("user", {}).get("naam", "Gast")
 
-    html_code = f"""
-    <div style="
-        font-family: Arial, sans-serif;
-        display: flex;
-        justify-content: center;
-        padding-top: 10px;
-    ">
-        <div style="
-            width: 100%;
-            max-width: 440px;
-            padding: 24px;
-            border-radius: 16px;
-            border: 1px solid #ddd;
-            background: #ffffff;
-            color: #111827;
-            box-shadow: 0 4px 14px rgba(0,0,0,0.08);
-        ">
+    user_id = str(user_id)
 
-            <h2 style="
-                text-align: center;
-                margin-top: 0;
-                margin-bottom: 20px;
-                font-size: 22px;
-            ">
-                Score invullen
-            </h2>
+    init_local_predictions(user_id)
 
-            <div style="
-                display: grid;
-                grid-template-columns: 1fr 120px 1fr;
-                gap: 10px;
-                align-items: center;
-                margin-bottom: 20px;
-            ">
-                <div style="text-align: right; font-size: 16px; font-weight: 800;">
-                    <div style="margin-bottom: 4px;">{team1}</div>
-                    <input id="score1" type="text" placeholder="0" readonly
-                        style="width: 55px; height: 38px; font-size: 22px; text-align: center; border: 2px solid #cbd5e1; border-radius: 8px; outline: none; background: #fff;">
-                </div>
+    matches_df = load_results_matches()
 
-                <div style="display: flex; gap: 4px; justify-content: center;">
-                    <button onclick="choosePrediction('1')" style="flex: 1; height: 42px; font-size: 16px; font-weight: bold; cursor: pointer; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px;">1</button>
-                    <button onclick="choosePrediction('X')" style="flex: 1; height: 42px; font-size: 16px; font-weight: bold; cursor: pointer; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px;">X</button>
-                    <button onclick="choosePrediction('2')" style="flex: 1; height: 42px; font-size: 16px; font-weight: bold; cursor: pointer; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px;">2</button>
-                </div>
+    if matches_df.empty:
+        st.warning("Geen wedstrijden gevonden in tabblad 'Matches'.")
+        return
 
-                <div style="text-align: left; font-size: 16px; font-weight: 800;">
-                    <div style="margin-bottom: 4px;">{team2}</div>
-                    <input id="score2" type="text" placeholder="0" readonly
-                        style="width: 55px; height: 38px; font-size: 22px; text-align: center; border: 2px solid #cbd5e1; border-radius: 8px; outline: none; background: #fff;">
-                </div>
-            </div>
+    if "active_match_id" not in st.session_state:
+        st.session_state.active_match_id = None
 
-            <div id="prediction-alert" style="
-                text-align: center;
-                font-weight: bold;
-                color: #2563eb;
-                font-size: 14px;
-                margin-bottom: 15px;
-                display: none;
-            "></div>
+    st.markdown("""
+    <style>
+    .save-spacer {
+        height: 78px;
+    }
 
-            <div id="keyboard-panel" style="
-                display: none;
-                background: #f8fafc;
-                padding: 14px;
-                border-radius: 12px;
-                border: 1px solid #e2e8f0;
-            ">
+    div[data-testid="stVerticalBlock"] div:has(button[kind="primary"]) {
+        position: sticky;
+        bottom: 0;
+        z-index: 999;
+        background: rgba(15, 23, 42, 0.95);
+        padding: 10px 0;
+        border-top: 1px solid rgba(255,255,255,0.15);
+    }
 
-                <div style="
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    margin-bottom: 12px;
-                    border-bottom: 1px solid #e2e8f0;
-                    padding-bottom: 6px;
-                ">
-                    <span style="font-weight: bold; font-size: 13px; color: #475569;">
-                        Exacte doelpunten:
-                    </span>
+    .match-card {
+        border: 1px solid rgba(148,163,184,0.45);
+        border-radius: 14px;
+        padding: 12px;
+        margin-bottom: 10px;
+        background: rgba(15,23,42,0.35);
+    }
 
-                    <button onclick="closePanel()" style="
-                        background: #ef4444;
-                        color: white;
-                        border: none;
-                        border-radius: 6px;
-                        padding: 4px 10px;
-                        font-size: 11px;
-                        font-weight: bold;
-                        cursor: pointer;
-                    ">
-                        Sluiten
-                    </button>
-                </div>
+    .match-date {
+        font-size: 12px;
+        color: #94a3b8;
+        margin-bottom: 6px;
+        font-weight: 700;
+    }
 
-                <div style="
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    gap: 16px;
-                ">
-                    <div>
-                        <div style="
-                            font-size: 12px;
-                            font-weight: bold;
-                            margin-bottom: 6px;
-                            text-align: center;
-                            color: #64748b;
-                        ">
-                            {team1}
-                        </div>
+    .match-title {
+        font-size: 15px;
+        font-weight: 900;
+        margin-bottom: 8px;
+    }
 
-                        <div id="grid-t1" style="
-                            display: grid;
-                            grid-template-columns: repeat(3, 1fr);
-                            gap: 5px;
-                        "></div>
-                    </div>
+    .score-pill {
+        display: inline-block;
+        margin-left: 8px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: #e0f2fe;
+        color: #0f172a;
+        font-weight: 900;
+        font-size: 12px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-                    <div>
-                        <div style="
-                            font-size: 12px;
-                            font-weight: bold;
-                            margin-bottom: 6px;
-                            text-align: center;
-                            color: #64748b;
-                        ">
-                            {team2}
-                        </div>
+    st.info("Wijzigingen worden pas naar Google Sheets geschreven wanneer je op OPSLAAN drukt.")
 
-                        <div id="grid-t2" style="
-                            display: grid;
-                            grid-template-columns: repeat(3, 1fr);
-                            gap: 5px;
-                        "></div>
-                    </div>
+    for _, row in matches_df.iterrows():
+        match_id = str(row.get("match_id", "")).strip()
+        datum_tijd = str(row.get("datum_tijd", "")).strip()
+        team1 = str(row.get("team1", "")).strip()
+        team2 = str(row.get("team2", "")).strip()
+
+        if not match_id:
+            continue
+
+        pred = st.session_state.stand_local_predictions.get(match_id, {})
+        gekozen = pred.get("prediction", "")
+        score1 = pred.get("score1", "")
+        score2 = pred.get("score2", "")
+
+        score_txt = ""
+        if score1 != "" or score2 != "":
+            score_txt = f'<span class="score-pill">{score1} - {score2}</span>'
+
+        st.markdown(
+            f"""
+            <div class="match-card">
+                <div class="match-date">{datum_tijd}</div>
+                <div class="match-title">
+                    {team1} vs {team2} {score_txt}
                 </div>
             </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
-        </div>
-    </div>
+        col1, colx, col2 = st.columns(3)
 
-    <script>
-        var label1 = "{team1}";
-        var label2 = "{team2}";
+        with col1:
+            if st.button("1", key=f"pred_1_{match_id}", use_container_width=True):
+                st.session_state.active_match_id = match_id
+                st.session_state.active_prediction = "1"
+                st.session_state.temp_score1 = ""
+                st.session_state.temp_score2 = ""
+                st.rerun()
 
-        function choosePrediction(type) {{
-            document.getElementById('score1').value = "";
-            document.getElementById('score2').value = "";
+        with colx:
+            if st.button("X", key=f"pred_x_{match_id}", use_container_width=True):
+                st.session_state.active_match_id = match_id
+                st.session_state.active_prediction = "X"
+                st.session_state.temp_score1 = ""
+                st.session_state.temp_score2 = ""
+                st.rerun()
 
-            var text = "";
+        with col2:
+            if st.button("2", key=f"pred_2_{match_id}", use_container_width=True):
+                st.session_state.active_match_id = match_id
+                st.session_state.active_prediction = "2"
+                st.session_state.temp_score1 = ""
+                st.session_state.temp_score2 = ""
+                st.rerun()
 
-            if (type === '1') {{
-                text = "Gekozen: " + label1 + " wint (1)";
-            }}
+        if st.session_state.active_match_id == match_id:
+            st.markdown("---")
+            st.markdown(f"### Score voor: {team1} vs {team2}")
 
-            if (type === 'X') {{
-                text = "Gekozen: Gelijkspel (X)";
-            }}
+            active_prediction = st.session_state.get("active_prediction", "")
 
-            if (type === '2') {{
-                text = "Gekozen: " + label2 + " wint (2)";
-            }}
+            if active_prediction == "1":
+                st.success(f"Gekozen: {team1} wint")
+            elif active_prediction == "X":
+                st.success("Gekozen: gelijkspel")
+            elif active_prediction == "2":
+                st.success(f"Gekozen: {team2} wint")
 
-            document.getElementById('prediction-alert').innerText = text;
-            document.getElementById('prediction-alert').style.display = 'block';
+            k1, k2 = st.columns(2)
 
-            document.getElementById('keyboard-panel').style.display = 'block';
+            with k1:
+                digit_keyboard(team1, "temp_score1")
 
-            buildKeyboards();
-        }}
+            with k2:
+                digit_keyboard(team2, "temp_score2")
 
-        function closePanel() {{
-            document.getElementById('keyboard-panel').style.display = 'none';
-        }}
+            c_apply, c_cancel = st.columns(2)
 
-        function addVal1(val) {{
-            var input = document.getElementById('score1');
+            with c_apply:
+                if st.button("✅ Toepassen", key=f"apply_{match_id}", use_container_width=True):
+                    st.session_state.stand_local_predictions[match_id] = {
+                        "prediction": active_prediction,
+                        "score1": st.session_state.get("temp_score1", ""),
+                        "score2": st.session_state.get("temp_score2", ""),
+                    }
 
-            if (input.value.length >= 2) {{
-                return;
-            }}
+                    st.session_state.active_match_id = None
+                    st.session_state.active_prediction = ""
+                    st.session_state.temp_score1 = ""
+                    st.session_state.temp_score2 = ""
 
-            input.value += val;
-        }}
+                    st.rerun()
 
-        function delVal1() {{
-            var input = document.getElementById('score1');
-            input.value = input.value.substring(0, input.value.length - 1);
-        }}
+            with c_cancel:
+                if st.button("Annuleren", key=f"cancel_{match_id}", use_container_width=True):
+                    st.session_state.active_match_id = None
+                    st.session_state.active_prediction = ""
+                    st.session_state.temp_score1 = ""
+                    st.session_state.temp_score2 = ""
+                    st.rerun()
 
-        function addVal2(val) {{
-            var input = document.getElementById('score2');
+            st.markdown("---")
 
-            if (input.value.length >= 2) {{
-                return;
-            }}
+    st.markdown('<div class="save-spacer"></div>', unsafe_allow_html=True)
 
-            input.value += val;
-        }}
-
-        function delVal2() {{
-            var input = document.getElementById('score2');
-            input.value = input.value.substring(0, input.value.length - 1);
-        }}
-
-        function numberButton(value, target) {{
-            return `
-                <input
-                    type="button"
-                    value="${{value}}"
-                    onclick="addVal${{target}}('${{value}}')"
-                    style="
-                        height:36px;
-                        font-weight:bold;
-                        cursor:pointer;
-                        background:#fff;
-                        border:1px solid #cbd5e1;
-                        border-radius:4px;
-                        font-size:14px;
-                    "
-                >
-            `;
-        }}
-
-        function backspaceButton(target) {{
-            return `
-                <input
-                    type="button"
-                    value="←"
-                    onclick="delVal${{target}}()"
-                    style="
-                        height:36px;
-                        cursor:pointer;
-                        background:#cbd5e1;
-                        border:1px solid #94a3b8;
-                        border-radius:4px;
-                        font-size:12px;
-                        font-weight:bold;
-                    "
-                >
-            `;
-        }}
-
-        function buildKeyboards() {{
-            var nums = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-
-            var grid1 = document.getElementById('grid-t1');
-            var grid2 = document.getElementById('grid-t2');
-
-            var html1 = "";
-            var html2 = "";
-
-            for (var i = 0; i < nums.length; i++) {{
-                html1 += numberButton(nums[i], 1);
-                html2 += numberButton(nums[i], 2);
-            }}
-
-            html1 += backspaceButton(1);
-            html1 += numberButton(0, 1);
-
-            html2 += backspaceButton(2);
-            html2 += numberButton(0, 2);
-
-            grid1.innerHTML = html1;
-            grid2.innerHTML = html2;
-        }}
-    </script>
-    """
-
-    components.html(html_code, height=540)
+    if st.button("💾 OPSLAAN", type="primary", use_container_width=True):
+        save_predictions_to_sheet(
+            user_id=user_id,
+            local_predictions=st.session_state.stand_local_predictions,
+        )
+        st.success("Opgeslagen in tabblad 'Predictions'.")
