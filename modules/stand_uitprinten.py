@@ -98,6 +98,7 @@ def load_results_matches():
     ws = sh.worksheet(MATCHES_SHEET)
 
     values = ws.get_all_values()
+
     empty_df = pd.DataFrame(
         columns=[
             "match_id",
@@ -329,13 +330,19 @@ def process_query_actions(user_id):
         for item in matches:
             match_id = str(item.get("match_id", "")).strip()
             prediction = str(item.get("prediction", "")).strip()
-            score1 = str(item.get("score1", "")).strip()
-            score2 = str(item.get("score2", "")).strip()
+            score1 = str(item.get("score1", "0")).strip()
+            score2 = str(item.get("score2", "0")).strip()
 
             if not match_id:
                 continue
 
-            if prediction == "" and score1 == "" and score2 == "":
+            if score1 == "":
+                score1 = "0"
+
+            if score2 == "":
+                score2 = "0"
+
+            if prediction == "" and score1 == "0" and score2 == "0":
                 continue
 
             local[match_id] = {
@@ -409,10 +416,11 @@ def build_mobile_html(matches_df, local_predictions):
                 background: rgba(30, 64, 175, 0.22);
                 border: 1px solid rgba(147, 197, 253, 0.35);
                 color: #dbeafe;
-                padding: 10px 12px;
+                padding: 8px 10px;
                 border-radius: 12px;
-                font-size: 13px;
+                font-size: 12px;
                 margin-bottom: 8px;
+                line-height: 1.25;
             }}
 
             .top-save-bar {{
@@ -426,12 +434,12 @@ def build_mobile_html(matches_df, local_predictions):
 
             .save-btn {{
                 width: 100%;
-                height: 48px;
+                height: 44px;
                 border: 0;
                 border-radius: 14px;
                 background: #2563eb;
                 color: white;
-                font-size: 17px;
+                font-size: 16px;
                 font-weight: 900;
                 cursor: pointer;
             }}
@@ -622,8 +630,7 @@ def build_mobile_html(matches_df, local_predictions):
 
     <body>
         <div class="info">
-            Kies 1 / X / 2. Vul de score in. <b>Toepassen</b> werkt zonder refresh.
-            Pas bij <b>OPSLAAN</b> wordt Google Sheets aangepast.
+            Kies 1 / X / 2. Score start op 0-0. Pas bij <b>OPSLAAN</b> wordt Google Sheets aangepast.
         </div>
 
         <div class="top-save-bar">
@@ -637,8 +644,8 @@ def build_mobile_html(matches_df, local_predictions):
 
             let activeMatch = null;
             let activePrediction = "";
-            let tempScore1 = "";
-            let tempScore2 = "";
+            let tempScore1 = "0";
+            let tempScore2 = "0";
 
             function escapeHtml(text) {{
                 return String(text || "")
@@ -667,7 +674,9 @@ def build_mobile_html(matches_df, local_predictions):
                         if (m.prediction) parts.push(m.prediction);
 
                         if (m.score1 || m.score2) {{
-                            parts.push((m.score1 || "") + "-" + (m.score2 || ""));
+                            let s1 = m.score1 || "0";
+                            let s2 = m.score2 || "0";
+                            parts.push(s1 + "-" + s2);
                         }}
 
                         badge = `<div class="badge">${{escapeHtml(parts.join(" · "))}}</div>`;
@@ -713,8 +722,8 @@ def build_mobile_html(matches_df, local_predictions):
                 activeMatch = findMatch(matchId);
                 activePrediction = prediction;
 
-                tempScore1 = "";
-                tempScore2 = "";
+                tempScore1 = "0";
+                tempScore2 = "0";
 
                 if (!activeMatch) return;
 
@@ -738,7 +747,7 @@ def build_mobile_html(matches_df, local_predictions):
                             <div class="team-label">
                                 ${{flagImg(activeMatch.team1_code)}} ${{escapeHtml(activeMatch.team1)}}
                             </div>
-                            <div class="score-display" id="score1">&nbsp;</div>
+                            <div class="score-display" id="score1">0</div>
                             <div class="keypad" id="keypad1"></div>
                         </div>
 
@@ -746,7 +755,7 @@ def build_mobile_html(matches_df, local_predictions):
                             <div class="team-label">
                                 ${{flagImg(activeMatch.team2_code)}} ${{escapeHtml(activeMatch.team2)}}
                             </div>
-                            <div class="score-display" id="score2">&nbsp;</div>
+                            <div class="score-display" id="score2">0</div>
                             <div class="keypad" id="keypad2"></div>
                         </div>
                     </div>
@@ -776,23 +785,31 @@ def build_mobile_html(matches_df, local_predictions):
 
                 activeMatch = null;
                 activePrediction = "";
-                tempScore1 = "";
-                tempScore2 = "";
+                tempScore1 = "0";
+                tempScore2 = "0";
             }}
 
             function updateDisplays() {{
                 const s1 = document.getElementById("score1");
                 const s2 = document.getElementById("score2");
 
-                if (s1) s1.innerHTML = tempScore1 || "&nbsp;";
-                if (s2) s2.innerHTML = tempScore2 || "&nbsp;";
+                if (s1) s1.innerHTML = tempScore1 || "0";
+                if (s2) s2.innerHTML = tempScore2 || "0";
             }}
 
             function addDigit(side, digit) {{
                 if (side === 1) {{
-                    if (tempScore1.length < 2) tempScore1 += digit;
+                    if (tempScore1 === "0") {{
+                        tempScore1 = digit;
+                    }} else if (tempScore1.length < 2) {{
+                        tempScore1 += digit;
+                    }}
                 }} else {{
-                    if (tempScore2.length < 2) tempScore2 += digit;
+                    if (tempScore2 === "0") {{
+                        tempScore2 = digit;
+                    }} else if (tempScore2.length < 2) {{
+                        tempScore2 += digit;
+                    }}
                 }}
 
                 updateDisplays();
@@ -800,9 +817,9 @@ def build_mobile_html(matches_df, local_predictions):
 
             function backspace(side) {{
                 if (side === 1) {{
-                    tempScore1 = tempScore1.slice(0, -1);
+                    tempScore1 = tempScore1.slice(0, -1) || "0";
                 }} else {{
-                    tempScore2 = tempScore2.slice(0, -1);
+                    tempScore2 = tempScore2.slice(0, -1) || "0";
                 }}
 
                 updateDisplays();
@@ -810,9 +827,9 @@ def build_mobile_html(matches_df, local_predictions):
 
             function clearScore(side) {{
                 if (side === 1) {{
-                    tempScore1 = "";
+                    tempScore1 = "0";
                 }} else {{
-                    tempScore2 = "";
+                    tempScore2 = "0";
                 }}
 
                 updateDisplays();
@@ -842,15 +859,15 @@ def build_mobile_html(matches_df, local_predictions):
                 if (!activeMatch) return;
 
                 activeMatch.prediction = activePrediction;
-                activeMatch.score1 = tempScore1;
-                activeMatch.score2 = tempScore2;
+                activeMatch.score1 = tempScore1 || "0";
+                activeMatch.score2 = tempScore2 || "0";
 
                 const rememberId = activeMatch.match_id;
 
                 activeMatch = null;
                 activePrediction = "";
-                tempScore1 = "";
-                tempScore2 = "";
+                tempScore1 = "0";
+                tempScore2 = "0";
 
                 renderMatches();
 
@@ -894,7 +911,19 @@ def build_mobile_html(matches_df, local_predictions):
 
 
 def show_stand_uitprinten(user_id=None):
-    st.title("🖨️ Stand uitprinten")
+    st.markdown(
+        """
+        <h2 style="
+            margin-top: 0.4rem;
+            margin-bottom: 0.8rem;
+            font-size: 1.55rem;
+            font-weight: 900;
+        ">
+            ⚽ Poule Wedstrijden
+        </h2>
+        """,
+        unsafe_allow_html=True,
+    )
 
     if user_id is None:
         user_id = st.session_state.get("user", {}).get("naam", "Gast")
@@ -919,10 +948,8 @@ def show_stand_uitprinten(user_id=None):
         local_predictions=st.session_state.stand_local_predictions,
     )
 
-    height = max(850, 126 * len(matches_df) + 180)
-
     components.html(
         html_code,
-        height=height,
-        scrolling=False,
+        height=760,
+        scrolling=True,
     )
