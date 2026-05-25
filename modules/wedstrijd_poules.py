@@ -910,7 +910,7 @@ def build_mobile_html(matches_df, local_predictions):
     """
 
 
-def show_stand_uitprinten(user_id=None):
+def show_wedstrijd_poules(user_id=None):
     st.markdown(
         """
         <h2 style="
