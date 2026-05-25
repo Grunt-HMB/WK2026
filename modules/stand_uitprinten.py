@@ -26,6 +26,57 @@ PREDICTION_HEADERS = [
     "timestamp",
 ]
 
+COUNTRY_CODES = {
+    "Argentinië": "AR",
+    "Oostenrijk": "AT",
+    "Australië": "AU",
+    "Bosnië": "BA",
+    "België": "BE",
+    "Brazilië": "BR",
+    "Canada": "CA",
+    "DR Congo": "CD",
+    "Zwitserland": "CH",
+    "Ivoorkust": "CI",
+    "Colombia": "CO",
+    "Kaapverdië": "CV",
+    "Curaçao": "CW",
+    "Tsjechië": "CZ",
+    "Duitsland": "DE",
+    "Algerije": "DZ",
+    "Ecuador": "EC",
+    "Egypte": "EG",
+    "Spanje": "ES",
+    "Frankrijk": "FR",
+    "Engeland": "GB",
+    "Schotland": "GB",
+    "Ghana": "GH",
+    "Kroatië": "HR",
+    "Haïti": "HT",
+    "Irak": "IQ",
+    "Iran": "IR",
+    "Jordanië": "JO",
+    "Japan": "JP",
+    "Zuid-Korea": "KR",
+    "Marokko": "MA",
+    "Mexico": "MX",
+    "Nederland": "NL",
+    "Noorwegen": "NO",
+    "Nieuw-Zeeland": "NZ",
+    "Panama": "PA",
+    "Portugal": "PT",
+    "Paraguay": "PY",
+    "Qatar": "QA",
+    "Saoedi-Arabië": "SA",
+    "Zweden": "SE",
+    "Senegal": "SN",
+    "Tunesië": "TN",
+    "Turkije": "TR",
+    "USA": "US",
+    "Uruguay": "UY",
+    "Oezbekistan": "UZ",
+    "Zuid-Afrika": "ZA",
+}
+
 
 @st.cache_resource
 def connect_results_sheet():
@@ -37,13 +88,26 @@ def connect_results_sheet():
     return client.open_by_key(st.secrets["GOOGLE_RESULTS_SHEET_ID"])
 
 
+def country_code(team_name):
+    return COUNTRY_CODES.get(str(team_name).strip(), "")
+
+
 @st.cache_data(ttl=60)
 def load_results_matches():
     sh = connect_results_sheet()
     ws = sh.worksheet(MATCHES_SHEET)
 
     values = ws.get_all_values()
-    empty_df = pd.DataFrame(columns=["match_id", "datum_tijd", "team1", "team2"])
+    empty_df = pd.DataFrame(
+        columns=[
+            "match_id",
+            "datum_tijd",
+            "team1",
+            "team2",
+            "team1_code",
+            "team2_code",
+        ]
+    )
 
     if not values:
         return empty_df
@@ -74,20 +138,28 @@ def load_results_matches():
 
     date_col = ""
 
-    for possible in ["Date (my time)", "Date  (my time)", "datum_tijd", "datum"]:
+    for possible in [
+        "Date (my time)",
+        "Date  (my time)",
+        "Date(my time)",
+        "Date my time",
+    ]:
         if possible in raw_df.columns:
             date_col = possible
             break
 
+    if not date_col:
+        st.error("Kolom 'Date (my time)' niet gevonden in tabblad 'Matches'.")
+        return empty_df
+
     df = pd.DataFrame()
     df["match_id"] = raw_df["Match No."].astype(str).str.strip()
+    df["datum_tijd"] = raw_df[date_col].astype(str).str.strip()
     df["team1"] = raw_df["Team 1"].astype(str).str.strip()
     df["team2"] = raw_df["Team 2"].astype(str).str.strip()
 
-    if date_col:
-        df["datum_tijd"] = raw_df[date_col].astype(str).str.strip()
-    else:
-        df["datum_tijd"] = ""
+    df["team1_code"] = df["team1"].apply(country_code)
+    df["team2_code"] = df["team2"].apply(country_code)
 
     df = df[
         (df["match_id"] != "")
@@ -95,7 +167,16 @@ def load_results_matches():
         & (df["team2"] != "")
     ].copy()
 
-    return df[["match_id", "datum_tijd", "team1", "team2"]]
+    return df[
+        [
+            "match_id",
+            "datum_tijd",
+            "team1",
+            "team2",
+            "team1_code",
+            "team2_code",
+        ]
+    ]
 
 
 @st.cache_data(ttl=30)
@@ -285,6 +366,8 @@ def build_mobile_html(matches_df, local_predictions):
         datum_tijd = str(row.get("datum_tijd", "")).strip()
         team1 = str(row.get("team1", "")).strip()
         team2 = str(row.get("team2", "")).strip()
+        team1_code = str(row.get("team1_code", "")).strip()
+        team2_code = str(row.get("team2_code", "")).strip()
 
         pred = local_predictions.get(match_id, {})
 
@@ -293,6 +376,8 @@ def build_mobile_html(matches_df, local_predictions):
             "datum_tijd": datum_tijd,
             "team1": team1,
             "team2": team2,
+            "team1_code": team1_code,
+            "team2_code": team2_code,
             "prediction": str(pred.get("prediction", "")).strip(),
             "score1": str(pred.get("score1", "")).strip(),
             "score2": str(pred.get("score2", "")).strip(),
@@ -384,10 +469,31 @@ def build_mobile_html(matches_df, local_predictions):
             }}
 
             .teams {{
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 7px;
+                flex-wrap: wrap;
                 font-size: 14px;
                 font-weight: 900;
                 line-height: 1.25;
                 margin-bottom: 9px;
+                text-align: center;
+            }}
+
+            .team {{
+                display: inline-flex;
+                align-items: center;
+                gap: 5px;
+                white-space: nowrap;
+            }}
+
+            .flag {{
+                width: 22px;
+                height: 16px;
+                object-fit: cover;
+                border-radius: 3px;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.35);
             }}
 
             .pick-row {{
@@ -405,14 +511,6 @@ def build_mobile_html(matches_df, local_predictions):
                 background: #f1f5f9;
                 color: #0f172a;
                 cursor: pointer;
-            }}
-
-            .pick-btn:active,
-            .key:active,
-            .apply-btn:active,
-            .cancel-btn:active,
-            .save-btn:active {{
-                transform: scale(0.97);
             }}
 
             .editor {{
@@ -551,6 +649,11 @@ def build_mobile_html(matches_df, local_predictions):
                     .replaceAll("'", "&#039;");
             }}
 
+            function flagImg(code) {{
+                if (!code) return "";
+                return `<img class="flag" src="https://flagcdn.com/w40/${{String(code).toLowerCase()}}.png">`;
+            }}
+
             function renderMatches() {{
                 const wrap = document.getElementById("matches");
                 let output = "";
@@ -561,9 +664,7 @@ def build_mobile_html(matches_df, local_predictions):
                     if (m.prediction || m.score1 || m.score2) {{
                         let parts = [];
 
-                        if (m.prediction) {{
-                            parts.push(m.prediction);
-                        }}
+                        if (m.prediction) parts.push(m.prediction);
 
                         if (m.score1 || m.score2) {{
                             parts.push((m.score1 || "") + "-" + (m.score2 || ""));
@@ -580,7 +681,9 @@ def build_mobile_html(matches_df, local_predictions):
                             </div>
 
                             <div class="teams">
-                                ${{escapeHtml(m.team1)}} vs ${{escapeHtml(m.team2)}}
+                                <span class="team">${{flagImg(m.team1_code)}}${{escapeHtml(m.team1)}}</span>
+                                <span>vs</span>
+                                <span class="team">${{flagImg(m.team2_code)}}${{escapeHtml(m.team2)}}</span>
                             </div>
 
                             <div class="pick-row">
@@ -624,18 +727,25 @@ def build_mobile_html(matches_df, local_predictions):
                 const editor = document.getElementById("editor-" + matchId);
 
                 editor.innerHTML = `
-                    <div class="editor-title">${{escapeHtml(activeMatch.team1)}} vs ${{escapeHtml(activeMatch.team2)}}</div>
+                    <div class="editor-title">
+                        ${{escapeHtml(activeMatch.team1)}} vs ${{escapeHtml(activeMatch.team2)}}
+                    </div>
+
                     <div class="editor-subtitle">Gekozen: ${{escapeHtml(choiceText)}}</div>
 
                     <div class="score-row">
                         <div class="score-panel">
-                            <div class="team-label">${{escapeHtml(activeMatch.team1)}}</div>
+                            <div class="team-label">
+                                ${{flagImg(activeMatch.team1_code)}} ${{escapeHtml(activeMatch.team1)}}
+                            </div>
                             <div class="score-display" id="score1">&nbsp;</div>
                             <div class="keypad" id="keypad1"></div>
                         </div>
 
                         <div class="score-panel">
-                            <div class="team-label">${{escapeHtml(activeMatch.team2)}}</div>
+                            <div class="team-label">
+                                ${{flagImg(activeMatch.team2_code)}} ${{escapeHtml(activeMatch.team2)}}
+                            </div>
                             <div class="score-display" id="score2">&nbsp;</div>
                             <div class="keypad" id="keypad2"></div>
                         </div>
