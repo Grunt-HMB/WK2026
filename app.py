@@ -1,7 +1,6 @@
 import inspect
 import time
 import streamlit as st
-import streamlit.components.v1 as components
 
 from modules.database import (
     load_users,
@@ -10,6 +9,7 @@ from modules.database import (
     load_standings,
     load_predictions,
 )
+
 from modules.auth import (
     show_login_page,
     show_register_page,
@@ -18,11 +18,13 @@ from modules.auth import (
     logout,
     get_display_team_name,
 )
+
 from modules.pronostiek import show_pronostiek
 from modules.pronostiek_scores import show_pronostiek_scores
 from modules.admin_results import show_admin_results
 from modules.scoreboard import show_scoreboard
 from modules.poule_standen import show_poule_standen
+from modules.stand_uitprinten import show_stand_uitprinten
 
 
 st.set_page_config(
@@ -31,118 +33,6 @@ st.set_page_config(
     layout="centered",
     initial_sidebar_state="collapsed",
 )
-
-
-# =========================================================
-# PRINT TESTPAGINA
-# =========================================================
-
-def show_stand_uitprinten():
-    st.title("🖨️ Stand uitprinten")
-
-    team1 = "Mexico"
-    team2 = "Zuid-Afrika"
-
-    html_code = f"""
-    <div style="
-        min-height: 65vh;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-family: Arial, sans-serif;
-    ">
-        <div style="
-            width: 100%;
-            max-width: 440px;
-            padding: 24px;
-            border-radius: 16px;
-            border: 1px solid #ddd;
-            background: #ffffff;
-            color: #111827;
-            box-shadow: 0 4px 14px rgba(0,0,0,0.08);
-        ">
-
-            <h2 style="
-                text-align: center;
-                margin-top: 0;
-                margin-bottom: 26px;
-            ">
-                Score invullen
-            </h2>
-
-            <div style="
-                display: grid;
-                grid-template-columns: 1fr 72px 32px 72px 1fr;
-                gap: 8px;
-                align-items: center;
-            ">
-
-                <div style="
-                    text-align: right;
-                    font-size: 18px;
-                    font-weight: 800;
-                    white-space: nowrap;
-                ">
-                    {team1}
-                </div>
-
-                <input
-                    type="text"
-                    inputmode="numeric"
-                    pattern="[0-9]*"
-                    maxlength="2"
-                    placeholder=""
-                    style="
-                        width: 62px;
-                        height: 52px;
-                        font-size: 26px;
-                        text-align: center;
-                        border: 2px solid #cbd5e1;
-                        border-radius: 10px;
-                        outline: none;
-                    "
-                >
-
-                <div style="
-                    text-align: center;
-                    font-size: 24px;
-                    font-weight: 900;
-                ">
-                    -
-                </div>
-
-                <input
-                    type="text"
-                    inputmode="numeric"
-                    pattern="[0-9]*"
-                    maxlength="2"
-                    placeholder=""
-                    style="
-                        width: 62px;
-                        height: 52px;
-                        font-size: 26px;
-                        text-align: center;
-                        border: 2px solid #cbd5e1;
-                        border-radius: 10px;
-                        outline: none;
-                    "
-                >
-
-                <div style="
-                    text-align: left;
-                    font-size: 18px;
-                    font-weight: 800;
-                    white-space: nowrap;
-                ">
-                    {team2}
-                </div>
-
-            </div>
-        </div>
-    </div>
-    """
-
-    components.html(html_code, height=420)
 
 
 # =========================================================
@@ -176,14 +66,13 @@ if not st.session_state.splash_done:
         """, unsafe_allow_html=True)
 
     time.sleep(1.5)
-
     st.session_state.splash_done = True
     splash.empty()
     st.rerun()
 
 
 # =========================================================
-# DATA & LOGIN HERSTEL
+# DATA
 # =========================================================
 
 @st.cache_data(ttl=60)
@@ -215,7 +104,7 @@ cookies = restore_login_from_cookie(users_df)
 
 
 # =========================================================
-# NAVIGATIE LOGICA
+# NAVIGATIE
 # =========================================================
 
 if "main_page" not in st.session_state:
@@ -228,7 +117,7 @@ def go_to(page):
 
 
 # =========================================================
-# CSS STYLING
+# CSS
 # =========================================================
 
 st.markdown("""
@@ -288,16 +177,20 @@ footer {
 
 
 # =========================================================
-# TOP NAVIGATIE
+# HOME-KNOP
 # =========================================================
 
-if st.session_state.main_page not in ["🏠 Hoofdmenu", "⚽ Pronostiek", "🎯 Pronostiek scores"]:
+if st.session_state.main_page not in [
+    "🏠 Hoofdmenu",
+    "⚽ Pronostiek",
+    "🎯 Pronostiek scores",
+]:
     if st.button("☰ Hoofdmenu", use_container_width=True):
         go_to("🏠 Hoofdmenu")
 
 
 # =========================================================
-# PAGINA ROUTING
+# ROUTING
 # =========================================================
 
 if st.session_state.main_page == "🏠 Hoofdmenu":
@@ -373,6 +266,7 @@ elif st.session_state.main_page == "📝 Registreren":
 
 elif st.session_state.main_page == "⚽ Pronostiek":
     user = require_login()
+
     if user:
         show_pronostiek(
             user_id=str(user["naam"]),
@@ -382,6 +276,7 @@ elif st.session_state.main_page == "⚽ Pronostiek":
 
 elif st.session_state.main_page == "🎯 Pronostiek scores":
     user = require_login()
+
     if user:
         safe_user_id = str(user.get("naam", "Gast"))
         show_pronostiek_scores(user_id=safe_user_id)
@@ -389,6 +284,7 @@ elif st.session_state.main_page == "🎯 Pronostiek scores":
 
 elif st.session_state.main_page == "📊 Poulestanden":
     user = require_login()
+
     if user:
         show_poule_standen(
             matches_df=load_matches(),
