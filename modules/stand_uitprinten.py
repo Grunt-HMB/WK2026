@@ -34,7 +34,7 @@ st.set_page_config(
 
 
 # =========================================================
-# PRINT TESTPAGINA
+# PRINT TESTPAGINA (MET 1/X/2 EN DUBBEL TOETSENBORD)
 # =========================================================
 
 def show_stand_uitprinten():
@@ -78,27 +78,27 @@ def show_stand_uitprinten():
                 margin-bottom: 20px;
             ">
                 <div style="text-align: right; font-size: 16px; font-weight: 800;">
-                    <div>{team1}</div>
+                    <div style="margin-bottom: 4px;">{team1}</div>
                     <input id="score1" type="text" placeholder="0" readonly 
-                        style="width: 50px; height: 35px; font-size: 20px; text-align: center; border: 2px solid #cbd5e1; border-radius: 8px; margin-top: 5px; outline: none; background: #fff;">
+                        style="width: 55px; height: 38px; font-size: 22px; text-align: center; border: 2px solid #cbd5e1; border-radius: 8px; outline: none; background: #fff;">
                 </div>
                 
                 <div style="display: flex; gap: 4px; justify-content: center;">
-                    <button onclick="choosePrediction('1')" style="flex: 1; height: 40px; font-weight: bold; cursor: pointer; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px;">1</button>
-                    <button onclick="choosePrediction('X')" style="flex: 1; height: 40px; font-weight: bold; cursor: pointer; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px;">X</button>
-                    <button onclick="choosePrediction('2')" style="flex: 1; height: 40px; font-weight: bold; cursor: pointer; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px;">2</button>
+                    <button onclick="choosePrediction('1')" style="flex: 1; height: 42px; font-size: 16px; font-weight: bold; cursor: pointer; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px;">1</button>
+                    <button onclick="choosePrediction('X')" style="flex: 1; height: 42px; font-size: 16px; font-weight: bold; cursor: pointer; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px;">X</button>
+                    <button onclick="choosePrediction('2')" style="flex: 1; height: 42px; font-size: 16px; font-weight: bold; cursor: pointer; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px;">2</button>
                 </div>
 
                 <div style="text-align: left; font-size: 16px; font-weight: 800;">
-                    <div>{team2}</div>
+                    <div style="margin-bottom: 4px;">{team2}</div>
                     <input id="score2" type="text" placeholder="0" readonly 
-                        style="width: 50px; height: 35px; font-size: 20px; text-align: center; border: 2px solid #cbd5e1; border-radius: 8px; margin-top: 5px; outline: none; background: #fff;">
+                        style="width: 55px; height: 38px; font-size: 22px; text-align: center; border: 2px solid #cbd5e1; border-radius: 8px; outline: none; background: #fff;">
                 </div>
             </div>
 
             <div id="prediction-alert" style="text-align: center; font-weight: bold; color: #2563eb; font-size: 14px; margin-bottom: 15px; display: none;"></div>
 
-            <div id="keyboard-panel" style="display: none; background: #f8fafc; padding: 12px; border-radius: 12px; border: 1px solid #e2e8f0;">
+            <div id="keyboard-panel" style="display: none; background: #f8fafc; padding: 14px; border-radius: 12px; border: 1px solid #e2e8f0;">
                 
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px;">
                     <span style="font-weight: bold; font-size: 13px; color: #475569;">Exacte doelpunten:</span>
@@ -107,13 +107,13 @@ def show_stand_uitprinten():
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                     <div>
-                        <div style="font-size: 11px; font-weight: bold; margin-bottom: 4px; text-align: center; color: #64748b;">{team1}</div>
-                        <div id="grid-t1" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;"></div>
+                        <div style="font-size: 12px; font-weight: bold; margin-bottom: 6px; text-align: center; color: #64748b;">{team1}</div>
+                        <div id="grid-t1" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px;"></div>
                     </div>
 
                     <div>
-                        <div style="font-size: 11px; font-weight: bold; margin-bottom: 4px; text-align: center; color: #64748b;">{team2}</div>
-                        <div id="grid-t2" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px;"></div>
+                        <div style="font-size: 12px; font-weight: bold; margin-bottom: 6px; text-align: center; color: #64748b;">{team2}</div>
+                        <div id="grid-t2" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px;"></div>
                     </div>
                 </div>
             </div>
@@ -158,29 +158,28 @@ def show_stand_uitprinten():
             var grid1 = document.getElementById('grid-t1');
             var grid2 = document.getElementById('grid-t2');
             
-            // Toetsenbord 1
+            // Bouw Toetsenbord Links
             var html1 = "";
             for(var i=0; i<9; i++) {{
-                html1 += `<input type="button" value="${{nums1[i]}}" onclick="addVal1('${{nums1[i]}}')" style="height:34px; font-weight:bold; cursor:pointer; background:#fff; border:1px solid #cbd5e1; border-radius:4px; font-size:14px;">`;
+                html1 += `<input type="button" value="${{nums1[i]}}" onclick="addVal1('${{nums1[i]}}')" style="height:36px; font-weight:bold; cursor:pointer; background:#fff; border:1px solid #cbd5e1; border-radius:4px; font-size:14px;">`;
             }}
-            html1 += `<input type="button" value="←" onclick="delVal1()" style="height:34px; cursor:pointer; background:#cbd5e1; border:1px solid #94a3b8; border-radius:4px; font-size:12px; font-weight:bold;">`;
-            html1 += `<input type="button" value="${{nums1[9]}}" onclick="addVal1('${{nums1[9]}}')" style="height:34px; font-weight:bold; cursor:pointer; background:#fff; border:1px solid #cbd5e1; border-radius:4px; font-size:14px;">`;
+            html1 += `<input type="button" value="←" onclick="delVal1()" style="height:36px; cursor:pointer; background:#cbd5e1; border:1px solid #94a3b8; border-radius:4px; font-size:12px; font-weight:bold;">`;
+            html1 += `<input type="button" value="${{nums1[9]}}" onclick="addVal1('${{nums1[9]}}')" style="height:36px; font-weight:bold; cursor:pointer; background:#fff; border:1px solid #cbd5e1; border-radius:4px; font-size:14px;">`;
             grid1.innerHTML = html1;
 
-            // Toetsenbord 2
+            // Bouw Toetsenbord Rechts
             var html2 = "";
             for(var i=0; i<9; i++) {{
-                html2 += `<input type="button" value="${{nums2[i]}}" onclick="addVal2('${{nums2[i]}}')" style="height:34px; font-weight:bold; cursor:pointer; background:#fff; border:1px solid #cbd5e1; border-radius:4px; font-size:14px;">`;
+                html2 += `<input type="button" value="${{nums2[i]}}" onclick="addVal2('${{nums2[i]}}')" style="height:36px; font-weight:bold; cursor:pointer; background:#fff; border:1px solid #cbd5e1; border-radius:4px; font-size:14px;">`;
             }}
-            html2 += `<input type="button" value="←" onclick="delVal2()" style="height:34px; cursor:pointer; background:#cbd5e1; border:1px solid #94a3b8; border-radius:4px; font-size:12px; font-weight:bold;">`;
-            html2 += `<input type="button" value="${{nums2[9]}}" onclick="addVal2('${{nums2[9]}}')" style="height:34px; font-weight:bold; cursor:pointer; background:#fff; border:1px solid #cbd5e1; border-radius:4px; font-size:14px;">`;
+            html2 += `<input type="button" value="←" onclick="delVal2()" style="height:36px; cursor:pointer; background:#cbd5e1; border:1px solid #94a3b8; border-radius:4px; font-size:12px; font-weight:bold;">`;
+            html2 += `<input type="button" value="${{nums2[9]}}" onclick="addVal2('${{nums2[9]}}')" style="height:36px; font-weight:bold; cursor:pointer; background:#fff; border:1px solid #cbd5e1; border-radius:4px; font-size:14px;">`;
             grid2.innerHTML = html2;
         }}
     </script>
     """
 
-    # Verhoogd naar 520px zodat het witte kaartje en de opengeklapte keyboards perfect passen
-    components.html(html_code, height=520)
+    components.html(html_code, height=540)
 
 
 # =========================================================
