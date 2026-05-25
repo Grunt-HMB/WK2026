@@ -13,6 +13,16 @@ SCOPES = [
 MATCHES_SHEET = "Matches"
 PREDICTIONS_SHEET = "Predictions"
 
+PREDICTION_HEADERS = [
+    "user_id",
+    "match_id",
+    "prediction",
+    "score1",
+    "score2",
+    "status",
+    "timestamp",
+]
+
 
 @st.cache_resource
 def connect_results_sheet():
@@ -28,17 +38,24 @@ def connect_results_sheet():
 def load_results_matches():
     sh = connect_results_sheet()
     ws = sh.worksheet(MATCHES_SHEET)
+
     rows = ws.get_all_records()
 
     df = pd.DataFrame(rows)
 
     if df.empty:
-        return df
+        return pd.DataFrame(columns=[
+            "match_id",
+            "datum_tijd",
+            "team1",
+            "team2",
+        ])
 
     df.columns = [str(c).strip() for c in df.columns]
 
     rename_map = {
         "Match No.": "match_id",
+        "Match No": "match_id",
         "Team 1": "team1",
         "Team 2": "team2",
         "Date (my time)": "datum_tijd",
@@ -49,6 +66,7 @@ def load_results_matches():
     df = df.rename(columns=rename_map)
 
     needed = ["match_id", "datum_tijd", "team1", "team2"]
+
     for col in needed:
         if col not in df.columns:
             df[col] = ""
@@ -58,6 +76,8 @@ def load_results_matches():
     df["team2"] = df["team2"].astype(str).str.strip()
     df["datum_tijd"] = df["datum_tijd"].astype(str).str.strip()
 
+    df = df[df["match_id"] != ""].copy()
+
     return df[needed]
 
 
@@ -65,24 +85,31 @@ def load_results_matches():
 def load_results_predictions():
     sh = connect_results_sheet()
     ws = sh.worksheet(PREDICTIONS_SHEET)
-    rows = ws.get_all_records()
+
+    rows = ws.get_all_records(
+        expected_headers=PREDICTION_HEADERS
+    )
 
     df = pd.DataFrame(rows)
 
     if df.empty:
-        return pd.DataFrame(columns=[
-            "user_id", "match_id", "prediction",
-            "score1", "score2", "status", "timestamp"
-        ])
+        return pd.DataFrame(columns=PREDICTION_HEADERS)
 
     df.columns = [str(c).strip() for c in df.columns]
 
-    for col in ["user_id", "match_id", "prediction", "score1", "score2", "status", "timestamp"]:
+    for col in PREDICTION_HEADERS:
         if col not in df.columns:
             df[col] = ""
 
+    df = df[PREDICTION_HEADERS].copy()
+
     df["user_id"] = df["user_id"].astype(str).str.strip()
     df["match_id"] = df["match_id"].astype(str).str.strip()
+    df["prediction"] = df["prediction"].astype(str).str.strip()
+    df["score1"] = df["score1"].astype(str).str.strip()
+    df["score2"] = df["score2"].astype(str).str.strip()
+    df["status"] = df["status"].astype(str).str.strip()
+    df["timestamp"] = df["timestamp"].astype(str).str.strip()
 
     return df
 
@@ -91,56 +118,99 @@ def save_predictions_to_sheet(user_id, local_predictions):
     sh = connect_results_sheet()
     ws = sh.worksheet(PREDICTIONS_SHEET)
 
-    existing = ws.get_all_records()
+    existing = ws.get_all_records(
+        expected_headers=PREDICTION_HEADERS
+    )
+
     existing_df = pd.DataFrame(existing)
 
-    headers = [
-        "user_id",
-        "match_id",
-        "prediction",
-        "score1",
-        "score2",
-        "status",
-        "timestamp",
-    ]
-
     if existing_df.empty:
-        existing_df = pd.DataFrame(columns=headers)
+        existing_df = pd.DataFrame(columns=PREDICTION_HEADERS)
 
-    for col in headers:
+    existing_df.columns = [str(c).strip() for c in existing_df.columns]
+
+    for col in PREDICTION_HEADERS:
         if col not in existing_df.columns:
             existing_df[col] = ""
 
+    existing_df = existing_df[PREDICTION_HEADERS].copy()
+
     existing_df["user_id"] = existing_df["user_id"].astype(str).str.strip()
     existing_df["match_id"] = existing_df["match_id"].astype(str).str.strip()
-
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     rows_to_keep = existing_df[
         existing_df["user_id"] != str(user_id)
     ].copy()
 
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
     new_rows = []
 
     for match_id, pred in local_predictions.items():
+        prediction = str(pred.get("prediction", "")).strip()
+        score1 = str(pred.get("score1", "")).strip()
+        score2 = str(pred.get("score2", "")).strip()
+
+        if prediction == "" and score1 == "" and score2 == "":
+            continue
+
         new_rows.append({
             "user_id": str(user_id),
             "match_id": str(match_id),
-            "prediction": str(pred.get("prediction", "")),
-            "score1": str(pred.get("score1", "")),
-            "score2": str(pred.get("score2", "")),
+            "prediction": prediction,
+            "score1": score1,
+            "score2": score2,
             "status": "concept",
             "timestamp": now,
         })
 
-    new_df = pd.DataFrame(new_rows, columns=headers)
+    new_df = pd.DataFrame(new_rows, columns=PREDICTION_HEADERS)
 
-    final_df = pd.concat([rows_to_keep[headers], new_df], ignore_index=True)
+    final_df = pd.concat(
+        [rows_to_keep[PREDICTION_HEADERS], new_df],
+        ignore_index=True,
+    )
 
     ws.clear()
-    ws.update([headers] + final_df.fillna("").values.tolist())
+    ws.update(
+        [PREDICTION_HEADERS] + final_df.fillna("").values.tolist()
+    )
 
     st.cache_data.clear()
+
+
+def init_local_predictions(user_id):
+    if "stand_local_user" not in st.session_state:
+        st.session_state.stand_local_user = None
+
+    if "stand_local_predictions" not in st.session_state:
+        st.session_state.stand_local_predictions = {}
+
+    if st.session_state.stand_local_user == user_id:
+        return
+
+    predictions_df = load_results_predictions()
+
+    user_df = predictions_df[
+        predictions_df["user_id"] == str(user_id)
+    ].copy()
+
+    local = {}
+
+    for _, row in user_df.iterrows():
+        match_id = str(row.get("match_id", "")).strip()
+
+        if not match_id:
+            continue
+
+        local[match_id] = {
+            "prediction": str(row.get("prediction", "")).strip(),
+            "score1": str(row.get("score1", "")).strip(),
+            "score2": str(row.get("score2", "")).strip(),
+        }
+
+    st.session_state.stand_local_predictions = local
+    st.session_state.stand_local_user = user_id
 
 
 def digit_keyboard(label, key_prefix):
@@ -155,7 +225,11 @@ def digit_keyboard(label, key_prefix):
 
     for i, digit in enumerate(digits):
         with cols[i % 3]:
-            if st.button(digit, key=f"{key_prefix}_{digit}", use_container_width=True):
+            if st.button(
+                digit,
+                key=f"{key_prefix}_{digit}",
+                use_container_width=True,
+            ):
                 if len(st.session_state[key_prefix]) < 2:
                     st.session_state[key_prefix] += digit
                 st.rerun()
@@ -163,12 +237,20 @@ def digit_keyboard(label, key_prefix):
     col_back, col_zero, col_empty = st.columns(3)
 
     with col_back:
-        if st.button("←", key=f"{key_prefix}_back", use_container_width=True):
+        if st.button(
+            "←",
+            key=f"{key_prefix}_back",
+            use_container_width=True,
+        ):
             st.session_state[key_prefix] = st.session_state[key_prefix][:-1]
             st.rerun()
 
     with col_zero:
-        if st.button("0", key=f"{key_prefix}_0", use_container_width=True):
+        if st.button(
+            "0",
+            key=f"{key_prefix}_0",
+            use_container_width=True,
+        ):
             if len(st.session_state[key_prefix]) < 2:
                 st.session_state[key_prefix] += "0"
             st.rerun()
@@ -193,32 +275,11 @@ def digit_keyboard(label, key_prefix):
     )
 
 
-def init_local_predictions(user_id):
-    if "stand_local_user" not in st.session_state:
-        st.session_state.stand_local_user = None
-
-    if st.session_state.stand_local_user == user_id:
-        return
-
-    predictions_df = load_results_predictions()
-    user_df = predictions_df[predictions_df["user_id"] == str(user_id)].copy()
-
-    local = {}
-
-    for _, row in user_df.iterrows():
-        match_id = str(row.get("match_id", "")).strip()
-
-        if not match_id:
-            continue
-
-        local[match_id] = {
-            "prediction": str(row.get("prediction", "")).strip(),
-            "score1": str(row.get("score1", "")).strip(),
-            "score2": str(row.get("score2", "")).strip(),
-        }
-
-    st.session_state.stand_local_predictions = local
-    st.session_state.stand_local_user = user_id
+def clear_active_score():
+    st.session_state.active_match_id = None
+    st.session_state.active_prediction = ""
+    st.session_state.temp_score1 = ""
+    st.session_state.temp_score2 = ""
 
 
 def show_stand_uitprinten(user_id=None):
@@ -240,26 +301,22 @@ def show_stand_uitprinten(user_id=None):
     if "active_match_id" not in st.session_state:
         st.session_state.active_match_id = None
 
+    if "active_prediction" not in st.session_state:
+        st.session_state.active_prediction = ""
+
+    if "temp_score1" not in st.session_state:
+        st.session_state.temp_score1 = ""
+
+    if "temp_score2" not in st.session_state:
+        st.session_state.temp_score2 = ""
+
     st.markdown("""
     <style>
-    .save-spacer {
-        height: 78px;
-    }
-
-    div[data-testid="stVerticalBlock"] div:has(button[kind="primary"]) {
-        position: sticky;
-        bottom: 0;
-        z-index: 999;
-        background: rgba(15, 23, 42, 0.95);
-        padding: 10px 0;
-        border-top: 1px solid rgba(255,255,255,0.15);
-    }
-
     .match-card {
         border: 1px solid rgba(148,163,184,0.45);
         border-radius: 14px;
         padding: 12px;
-        margin-bottom: 10px;
+        margin-bottom: 8px;
         background: rgba(15,23,42,0.35);
     }
 
@@ -286,10 +343,32 @@ def show_stand_uitprinten(user_id=None):
         font-weight: 900;
         font-size: 12px;
     }
+
+    .save-footer {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 9999;
+        background: rgba(15, 23, 42, 0.96);
+        padding: 10px 12px;
+        border-top: 1px solid rgba(255,255,255,0.15);
+    }
+
+    .save-footer-inner {
+        max-width: 820px;
+        margin: 0 auto;
+    }
+
+    .bottom-space {
+        height: 90px;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-    st.info("Wijzigingen worden pas naar Google Sheets geschreven wanneer je op OPSLAAN drukt.")
+    st.info(
+        "Wijzigingen worden pas naar Google Sheets geschreven wanneer je op OPSLAAN drukt."
+    )
 
     for _, row in matches_df.iterrows():
         match_id = str(row.get("match_id", "")).strip()
@@ -301,11 +380,13 @@ def show_stand_uitprinten(user_id=None):
             continue
 
         pred = st.session_state.stand_local_predictions.get(match_id, {})
-        gekozen = pred.get("prediction", "")
-        score1 = pred.get("score1", "")
-        score2 = pred.get("score2", "")
+
+        gekozen = str(pred.get("prediction", "")).strip()
+        score1 = str(pred.get("score1", "")).strip()
+        score2 = str(pred.get("score2", "")).strip()
 
         score_txt = ""
+
         if score1 != "" or score2 != "":
             score_txt = f'<span class="score-pill">{score1} - {score2}</span>'
 
@@ -324,7 +405,11 @@ def show_stand_uitprinten(user_id=None):
         col1, colx, col2 = st.columns(3)
 
         with col1:
-            if st.button("1", key=f"pred_1_{match_id}", use_container_width=True):
+            if st.button(
+                "1",
+                key=f"pred_1_{match_id}",
+                use_container_width=True,
+            ):
                 st.session_state.active_match_id = match_id
                 st.session_state.active_prediction = "1"
                 st.session_state.temp_score1 = ""
@@ -332,7 +417,11 @@ def show_stand_uitprinten(user_id=None):
                 st.rerun()
 
         with colx:
-            if st.button("X", key=f"pred_x_{match_id}", use_container_width=True):
+            if st.button(
+                "X",
+                key=f"pred_x_{match_id}",
+                use_container_width=True,
+            ):
                 st.session_state.active_match_id = match_id
                 st.session_state.active_prediction = "X"
                 st.session_state.temp_score1 = ""
@@ -340,7 +429,11 @@ def show_stand_uitprinten(user_id=None):
                 st.rerun()
 
         with col2:
-            if st.button("2", key=f"pred_2_{match_id}", use_container_width=True):
+            if st.button(
+                "2",
+                key=f"pred_2_{match_id}",
+                use_container_width=True,
+            ):
                 st.session_state.active_match_id = match_id
                 st.session_state.active_prediction = "2"
                 st.session_state.temp_score1 = ""
@@ -371,31 +464,40 @@ def show_stand_uitprinten(user_id=None):
             c_apply, c_cancel = st.columns(2)
 
             with c_apply:
-                if st.button("✅ Toepassen", key=f"apply_{match_id}", use_container_width=True):
+                if st.button(
+                    "✅ Toepassen",
+                    key=f"apply_{match_id}",
+                    use_container_width=True,
+                ):
                     st.session_state.stand_local_predictions[match_id] = {
                         "prediction": active_prediction,
                         "score1": st.session_state.get("temp_score1", ""),
                         "score2": st.session_state.get("temp_score2", ""),
                     }
 
-                    st.session_state.active_match_id = None
-                    st.session_state.active_prediction = ""
-                    st.session_state.temp_score1 = ""
-                    st.session_state.temp_score2 = ""
-
+                    clear_active_score()
                     st.rerun()
 
             with c_cancel:
-                if st.button("Annuleren", key=f"cancel_{match_id}", use_container_width=True):
-                    st.session_state.active_match_id = None
-                    st.session_state.active_prediction = ""
-                    st.session_state.temp_score1 = ""
-                    st.session_state.temp_score2 = ""
+                if st.button(
+                    "Annuleren",
+                    key=f"cancel_{match_id}",
+                    use_container_width=True,
+                ):
+                    clear_active_score()
                     st.rerun()
 
             st.markdown("---")
 
-    st.markdown('<div class="save-spacer"></div>', unsafe_allow_html=True)
+    st.markdown('<div class="bottom-space"></div>', unsafe_allow_html=True)
+
+    st.markdown(
+        """
+        <div class="save-footer">
+            <div class="save-footer-inner">
+        """,
+        unsafe_allow_html=True,
+    )
 
     if st.button("💾 OPSLAAN", type="primary", use_container_width=True):
         save_predictions_to_sheet(
@@ -403,3 +505,11 @@ def show_stand_uitprinten(user_id=None):
             local_predictions=st.session_state.stand_local_predictions,
         )
         st.success("Opgeslagen in tabblad 'Predictions'.")
+
+    st.markdown(
+        """
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
