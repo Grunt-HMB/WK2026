@@ -1,6 +1,7 @@
 import inspect
 import time
 import streamlit as st
+import streamlit.components.v1 as components
 
 from modules.database import (
     load_users,
@@ -23,13 +24,126 @@ from modules.admin_results import show_admin_results
 from modules.scoreboard import show_scoreboard
 from modules.poule_standen import show_poule_standen
 
-# Pagina configuratie
+
 st.set_page_config(
     page_title="WK 2026",
     page_icon="⚽",
     layout="centered",
     initial_sidebar_state="collapsed",
 )
+
+
+# =========================================================
+# PRINT TESTPAGINA
+# =========================================================
+
+def show_stand_uitprinten():
+    st.title("🖨️ Stand uitprinten")
+
+    team1 = "Mexico"
+    team2 = "Zuid-Afrika"
+
+    html_code = f"""
+    <div style="
+        min-height: 65vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: Arial, sans-serif;
+    ">
+        <div style="
+            width: 100%;
+            max-width: 440px;
+            padding: 24px;
+            border-radius: 16px;
+            border: 1px solid #ddd;
+            background: #ffffff;
+            color: #111827;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.08);
+        ">
+
+            <h2 style="
+                text-align: center;
+                margin-top: 0;
+                margin-bottom: 26px;
+            ">
+                Score invullen
+            </h2>
+
+            <div style="
+                display: grid;
+                grid-template-columns: 1fr 72px 32px 72px 1fr;
+                gap: 8px;
+                align-items: center;
+            ">
+
+                <div style="
+                    text-align: right;
+                    font-size: 18px;
+                    font-weight: 800;
+                    white-space: nowrap;
+                ">
+                    {team1}
+                </div>
+
+                <input
+                    type="text"
+                    inputmode="numeric"
+                    pattern="[0-9]*"
+                    maxlength="2"
+                    placeholder=""
+                    style="
+                        width: 62px;
+                        height: 52px;
+                        font-size: 26px;
+                        text-align: center;
+                        border: 2px solid #cbd5e1;
+                        border-radius: 10px;
+                        outline: none;
+                    "
+                >
+
+                <div style="
+                    text-align: center;
+                    font-size: 24px;
+                    font-weight: 900;
+                ">
+                    -
+                </div>
+
+                <input
+                    type="text"
+                    inputmode="numeric"
+                    pattern="[0-9]*"
+                    maxlength="2"
+                    placeholder=""
+                    style="
+                        width: 62px;
+                        height: 52px;
+                        font-size: 26px;
+                        text-align: center;
+                        border: 2px solid #cbd5e1;
+                        border-radius: 10px;
+                        outline: none;
+                    "
+                >
+
+                <div style="
+                    text-align: left;
+                    font-size: 18px;
+                    font-weight: 800;
+                    white-space: nowrap;
+                ">
+                    {team2}
+                </div>
+
+            </div>
+        </div>
+    </div>
+    """
+
+    components.html(html_code, height=420)
+
 
 # =========================================================
 # SPLASHSCREEN
@@ -76,8 +190,10 @@ if not st.session_state.splash_done:
 def get_users():
     return load_users()
 
+
 def show_scoreboard_safe():
     params = inspect.signature(show_scoreboard).parameters
+
     if "matches_df" in params and "official_standings_df" in params:
         show_scoreboard(
             users_df=load_users(),
@@ -93,6 +209,7 @@ def show_scoreboard_safe():
             results_df=load_results(),
         )
 
+
 users_df = get_users()
 cookies = restore_login_from_cookie(users_df)
 
@@ -103,6 +220,7 @@ cookies = restore_login_from_cookie(users_df)
 
 if "main_page" not in st.session_state:
     st.session_state.main_page = "🏠 Hoofdmenu"
+
 
 def go_to(page):
     st.session_state.main_page = page
@@ -170,7 +288,7 @@ footer {
 
 
 # =========================================================
-# TOP NAVIGATIE (HOME KNOP)
+# TOP NAVIGATIE
 # =========================================================
 
 if st.session_state.main_page not in ["🏠 Hoofdmenu", "⚽ Pronostiek", "🎯 Pronostiek scores"]:
@@ -182,7 +300,6 @@ if st.session_state.main_page not in ["🏠 Hoofdmenu", "⚽ Pronostiek", "🎯 
 # PAGINA ROUTING
 # =========================================================
 
-# --- HOOFDMENU ---
 if st.session_state.main_page == "🏠 Hoofdmenu":
     st.markdown('<div class="main-title">⚽ WK 2026 Pronostiek</div>', unsafe_allow_html=True)
     st.markdown('<div class="main-subtitle">Kies wat je wil doen</div>', unsafe_allow_html=True)
@@ -212,56 +329,64 @@ if st.session_state.main_page == "🏠 Hoofdmenu":
         if st.button("🏆 Scoreboard", use_container_width=True):
             go_to("🏆 Scoreboard")
 
-        # Admin Sectie
         if bool(user.get("admin", False)):
             st.write("---")
             st.markdown("### ⚙️ Admin")
+
             if st.button("🏆 Officiële uitslagen invoeren", use_container_width=True):
                 go_to("🏆 Admin uitslagen")
+
             if st.button("🖨️ Stand exporteren (PDF/Print)", use_container_width=True):
                 go_to("🖨️ Stand uitprinten")
 
         st.write("---")
+
         if st.button("🚪 Uitloggen", use_container_width=True):
             logout(cookies)
 
     else:
-        # Gast weergave
         col1, col2 = st.columns(2)
+
         with col1:
             if st.button("🔐 Inloggen", use_container_width=True, type="primary"):
                 go_to("🔐 Inloggen")
+
         with col2:
             if st.button("📝 Registreren", use_container_width=True):
                 go_to("📝 Registreren")
 
         st.info("Log in om deel te nemen aan de pronostiek.")
+
         st.write("---")
+
         if st.button("🏆 Scoreboard bekijken", use_container_width=True):
             go_to("🏆 Scoreboard")
 
-# --- LOGIN & REGISTRATIE ---
+
 elif st.session_state.main_page == "🔐 Inloggen":
     show_login_page(users_df)
+
 
 elif st.session_state.main_page == "📝 Registreren":
     show_register_page(users_df)
 
-# --- PRONOSTIEK (1X2) ---
+
 elif st.session_state.main_page == "⚽ Pronostiek":
     user = require_login()
     if user:
-        show_pronostiek(user_id=str(user["naam"]), standings_df=load_standings())
+        show_pronostiek(
+            user_id=str(user["naam"]),
+            standings_df=load_standings(),
+        )
 
-# --- PRONOSTIEK (SCORES) ---
+
 elif st.session_state.main_page == "🎯 Pronostiek scores":
     user = require_login()
     if user:
-        # FIX: Forceer naam naar string om TypeErrors in de module te voorkomen
         safe_user_id = str(user.get("naam", "Gast"))
         show_pronostiek_scores(user_id=safe_user_id)
 
-# --- STANDEN EN SCOREBOARD ---
+
 elif st.session_state.main_page == "📊 Poulestanden":
     user = require_login()
     if user:
@@ -271,21 +396,27 @@ elif st.session_state.main_page == "📊 Poulestanden":
             predictions_df=load_predictions(user["naam"]),
         )
 
+
 elif st.session_state.main_page == "🏆 Scoreboard":
     show_scoreboard_safe()
 
-# --- ADMIN SECTIES ---
+
 elif st.session_state.main_page == "🏆 Admin uitslagen":
     user = require_login()
+
     if user and bool(user.get("admin", False)):
-        show_admin_results(load_matches(), load_results())
+        show_admin_results(
+            load_matches(),
+            load_results(),
+        )
     else:
         st.error("Toegang geweigerd.")
 
+
 elif st.session_state.main_page == "🖨️ Stand uitprinten":
     user = require_login()
+
     if user and bool(user.get("admin", False)):
-        st.subheader("🖨️ Export")
-        st.info("Deze functie wordt momenteel ontwikkeld.")
+        show_stand_uitprinten()
     else:
         st.error("Toegang geweigerd.")
