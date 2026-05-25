@@ -48,8 +48,9 @@ def load_results_matches():
     header_row_index = None
 
     for i, row in enumerate(values):
-        clean_row = [str(c).strip() for c in row]
-        if "Match No." in clean_row and "Team 1" in clean_row and "Team 2" in clean_row:
+        clean = [str(c).strip() for c in row]
+
+        if "Match No." in clean and "Team 1" in clean and "Team 2" in clean:
             header_row_index = i
             break
 
@@ -58,10 +59,10 @@ def load_results_matches():
         return empty_df
 
     headers = [str(c).strip() for c in values[header_row_index]]
-    data_rows = values[header_row_index + 1:]
+    rows = values[header_row_index + 1:]
 
     fixed_rows = []
-    for row in data_rows:
+    for row in rows:
         row = row[:len(headers)] + [""] * max(0, len(headers) - len(row))
         fixed_rows.append(row)
 
@@ -99,10 +100,10 @@ def load_results_predictions():
         return pd.DataFrame(columns=PREDICTION_HEADERS)
 
     headers = [str(c).strip() for c in values[0]]
-    data_rows = values[1:]
+    rows = values[1:]
 
     fixed_rows = []
-    for row in data_rows:
+    for row in rows:
         row = row[:len(headers)] + [""] * max(0, len(headers) - len(row))
         fixed_rows.append(row)
 
@@ -183,10 +184,7 @@ def init_local_predictions(user_id):
         return
 
     predictions_df = load_results_predictions()
-
-    user_df = predictions_df[
-        predictions_df["user_id"] == str(user_id)
-    ].copy()
+    user_df = predictions_df[predictions_df["user_id"] == str(user_id)].copy()
 
     local = {}
 
@@ -211,91 +209,70 @@ def reset_temp_scores():
     st.session_state.temp_score2 = ""
 
 
-def clear_active_score():
+def clear_active():
     st.session_state.active_match_id = None
     st.session_state.active_prediction = ""
     reset_temp_scores()
 
 
-def score_display(value):
+def add_digit(key_name, digit):
+    value = st.session_state.get(key_name, "")
+
+    if len(value) < 2:
+        st.session_state[key_name] = value + str(digit)
+
+
+def remove_digit(key_name):
+    value = st.session_state.get(key_name, "")
+    st.session_state[key_name] = value[:-1]
+
+
+def clear_digit(key_name):
+    st.session_state[key_name] = ""
+
+
+def score_box(value):
     shown = value if value else "&nbsp;"
+
     st.markdown(
         f"""
-        <div class="score-display">{shown}</div>
+        <div class="score-box">
+            {shown}
+        </div>
         """,
         unsafe_allow_html=True,
     )
 
 
-def add_digit(key_name, digit):
-    current = st.session_state.get(key_name, "")
+def numeric_keyboard(label, key_name, prefix):
+    st.markdown(f"<div class='kbd-label'>{label}</div>", unsafe_allow_html=True)
+    score_box(st.session_state.get(key_name, ""))
 
-    if len(current) < 2:
-        st.session_state[key_name] = current + str(digit)
-
-
-def remove_digit(key_name):
-    current = st.session_state.get(key_name, "")
-    st.session_state[key_name] = current[:-1]
-
-
-def numeric_keyboard(label, key_name, unique_prefix):
-    st.markdown(f"<div class='keyboard-title'>{label}</div>", unsafe_allow_html=True)
-
-    score_display(st.session_state.get(key_name, ""))
-
-    layout = [
+    rows = [
         ["1", "2", "3"],
         ["4", "5", "6"],
         ["7", "8", "9"],
         ["←", "0", "C"],
     ]
 
-    for row_i, row in enumerate(layout):
-        cols = st.columns(3)
+    for r, row in enumerate(rows):
+        cols = st.columns(3, gap="small")
 
-        for col_i, value in enumerate(row):
-            with cols[col_i]:
+        for c, value in enumerate(row):
+            with cols[c]:
                 if st.button(
                     value,
-                    key=f"{unique_prefix}_{key_name}_{row_i}_{col_i}_{value}",
+                    key=f"{prefix}_{key_name}_{r}_{c}_{value}",
                     use_container_width=True,
                 ):
                     if value == "←":
                         remove_digit(key_name)
                     elif value == "C":
-                        st.session_state[key_name] = ""
+                        clear_digit(key_name)
                     else:
                         add_digit(key_name, value)
 
                     st.rerun()
-
-
-def prediction_keyboard(match_id, team1, team2):
-    st.markdown("<div class='keyboard-title'>Kies uitslag</div>", unsafe_allow_html=True)
-
-    c1, cx, c2 = st.columns(3)
-
-    with c1:
-        if st.button("1", key=f"pred_1_{match_id}", use_container_width=True):
-            st.session_state.active_match_id = match_id
-            st.session_state.active_prediction = "1"
-            reset_temp_scores()
-            st.rerun()
-
-    with cx:
-        if st.button("X", key=f"pred_x_{match_id}", use_container_width=True):
-            st.session_state.active_match_id = match_id
-            st.session_state.active_prediction = "X"
-            reset_temp_scores()
-            st.rerun()
-
-    with c2:
-        if st.button("2", key=f"pred_2_{match_id}", use_container_width=True):
-            st.session_state.active_match_id = match_id
-            st.session_state.active_prediction = "2"
-            reset_temp_scores()
-            st.rerun()
 
 
 def show_stand_uitprinten(user_id=None):
@@ -325,48 +302,60 @@ def show_stand_uitprinten(user_id=None):
 
     st.markdown("""
     <style>
+    .block-container {
+        padding-left: 0.45rem !important;
+        padding-right: 0.45rem !important;
+        padding-bottom: 6rem !important;
+    }
+
     .match-card {
-        border: 1px solid rgba(148,163,184,0.45);
-        border-radius: 14px;
-        padding: 12px;
+        border: 1px solid rgba(148,163,184,0.35);
+        border-radius: 12px;
+        padding: 9px 10px;
         margin-bottom: 8px;
         background: rgba(15,23,42,0.35);
     }
 
+    .match-top {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        align-items: center;
+    }
+
     .match-date {
-        font-size: 12px;
+        font-size: 11px;
         color: #94a3b8;
-        margin-bottom: 6px;
-        font-weight: 700;
+        font-weight: 800;
+    }
+
+    .match-score {
+        font-size: 12px;
+        font-weight: 900;
+        color: #0f172a;
+        background: #e0f2fe;
+        border-radius: 999px;
+        padding: 2px 8px;
+        white-space: nowrap;
     }
 
     .match-title {
-        font-size: 15px;
+        margin-top: 5px;
+        font-size: 14px;
+        line-height: 1.2;
         font-weight: 900;
-        margin-bottom: 8px;
+        color: #f8fafc;
     }
 
-    .score-pill {
-        display: inline-block;
-        margin-left: 8px;
-        padding: 2px 8px;
-        border-radius: 999px;
-        background: #e0f2fe;
-        color: #0f172a;
-        font-weight: 900;
-        font-size: 12px;
-    }
-
-    .keyboard-box {
-        border: 1px solid rgba(148,163,184,0.45);
+    .editor-box {
+        border: 1px solid rgba(148,163,184,0.5);
         border-radius: 14px;
-        padding: 12px;
-        margin-top: 10px;
-        margin-bottom: 16px;
-        background: rgba(15,23,42,0.55);
+        padding: 10px;
+        margin: 8px 0 14px 0;
+        background: rgba(15,23,42,0.70);
     }
 
-    .keyboard-title {
+    .editor-title {
         text-align: center;
         font-size: 13px;
         font-weight: 900;
@@ -374,39 +363,75 @@ def show_stand_uitprinten(user_id=None):
         margin-bottom: 8px;
     }
 
-    .score-display {
-        height: 44px;
+    .kbd-label {
+        text-align: center;
+        font-size: 12px;
+        font-weight: 900;
+        color: #cbd5e1;
+        margin-bottom: 4px;
+        min-height: 28px;
+    }
+
+    .score-box {
+        height: 38px;
         border: 2px solid #cbd5e1;
-        border-radius: 10px;
+        border-radius: 9px;
         background: white;
         color: #111827;
         text-align: center;
-        font-size: 26px;
+        font-size: 24px;
         font-weight: 900;
-        line-height: 40px;
-        margin-bottom: 8px;
+        line-height: 34px;
+        margin-bottom: 6px;
     }
 
     div.stButton > button {
-        min-height: 42px;
-        font-size: 18px;
-        font-weight: 900;
+        min-height: 34px !important;
+        height: 34px !important;
+        padding: 0 !important;
+        font-size: 15px !important;
+        font-weight: 900 !important;
+        border-radius: 9px !important;
     }
 
-    .bottom-space {
-        height: 95px;
+    .result-row {
+        margin-top: -4px;
+        margin-bottom: 12px;
+    }
+
+    .save-space {
+        height: 90px;
     }
 
     .save-note {
-        font-size: 13px;
-        color: #94a3b8;
         text-align: center;
-        margin-bottom: 8px;
+        font-size: 12px;
+        color: #94a3b8;
+        margin: 8px 0;
+    }
+
+    @media (max-width: 600px) {
+        .main .block-container {
+            max-width: 100% !important;
+        }
+
+        .match-title {
+            font-size: 13px;
+        }
+
+        div[data-testid="column"] {
+            padding-left: 2px !important;
+            padding-right: 2px !important;
+        }
+
+        div.stButton > button {
+            font-size: 14px !important;
+        }
     }
     </style>
     """, unsafe_allow_html=True)
 
-    st.info("Wijzigingen worden pas naar Google Sheets geschreven wanneer je op OPSLAAN drukt.")
+    st.info("Kies 1/X/2, vul de score in en klik Toepassen. Pas daarna OPSLAAN schrijft naar Google Sheets.")
 
     for _, row in matches_df.iterrows():
         match_id = str(row.get("match_id", "")).strip()
@@ -420,36 +445,70 @@ def show_stand_uitprinten(user_id=None):
         score1 = str(pred.get("score1", "")).strip()
         score2 = str(pred.get("score2", "")).strip()
 
-        prediction_txt = f'<span class="score-pill">{prediction}</span>' if prediction else ""
-        score_txt = f'<span class="score-pill">{score1} - {score2}</span>' if score1 or score2 else ""
+        score_text = ""
+        if prediction or score1 or score2:
+            score_text = f"{prediction} · {score1}-{score2}".strip(" ·-")
+
+        score_html = ""
+        if score_text:
+            score_html = f"<div class='match-score'>{score_text}</div>"
 
         st.markdown(
             f"""
             <div class="match-card">
-                <div class="match-date">{datum_tijd}</div>
-                <div class="match-title">
-                    {team1} vs {team2} {prediction_txt} {score_txt}
+                <div class="match-top">
+                    <div class="match-date">{datum_tijd}</div>
+                    {score_html}
                 </div>
+                <div class="match-title">{team1} vs {team2}</div>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
-        prediction_keyboard(match_id, team1, team2)
+        c1, cx, c2 = st.columns(3, gap="small")
+
+        with c1:
+            if st.button("1", key=f"pick_1_{match_id}", use_container_width=True):
+                st.session_state.active_match_id = match_id
+                st.session_state.active_prediction = "1"
+                reset_temp_scores()
+                st.rerun()
+
+        with cx:
+            if st.button("X", key=f"pick_x_{match_id}", use_container_width=True):
+                st.session_state.active_match_id = match_id
+                st.session_state.active_prediction = "X"
+                reset_temp_scores()
+                st.rerun()
+
+        with c2:
+            if st.button("2", key=f"pick_2_{match_id}", use_container_width=True):
+                st.session_state.active_match_id = match_id
+                st.session_state.active_prediction = "2"
+                reset_temp_scores()
+                st.rerun()
 
         if st.session_state.active_match_id == match_id:
-            st.markdown("<div class='keyboard-box'>", unsafe_allow_html=True)
+            st.markdown("<div class='editor-box'>", unsafe_allow_html=True)
 
             active_prediction = st.session_state.get("active_prediction", "")
 
             if active_prediction == "1":
-                st.success(f"Gekozen: {team1} wint")
+                msg = f"{team1} wint"
             elif active_prediction == "X":
-                st.success("Gekozen: gelijkspel")
+                msg = "Gelijkspel"
             elif active_prediction == "2":
-                st.success(f"Gekozen: {team2} wint")
+                msg = f"{team2} wint"
+            else:
+                msg = ""
 
-            k1, k2 = st.columns(2)
+            st.markdown(
+                f"<div class='editor-title'>Gekozen: {msg}</div>",
+                unsafe_allow_html=True,
+            )
+
+            k1, k2 = st.columns(2, gap="small")
 
             with k1:
                 numeric_keyboard(team1, "temp_score1", match_id)
@@ -457,36 +516,27 @@ def show_stand_uitprinten(user_id=None):
             with k2:
                 numeric_keyboard(team2, "temp_score2", match_id)
 
-            c_apply, c_cancel = st.columns(2)
+            a, b = st.columns(2, gap="small")
 
-            with c_apply:
-                if st.button(
-                    "✅ Toepassen",
-                    key=f"apply_{match_id}",
-                    use_container_width=True,
-                ):
+            with a:
+                if st.button("✅ Toepassen", key=f"apply_{match_id}", use_container_width=True):
                     st.session_state.stand_local_predictions[match_id] = {
                         "prediction": active_prediction,
                         "score1": st.session_state.get("temp_score1", ""),
                         "score2": st.session_state.get("temp_score2", ""),
                     }
 
-                    clear_active_score()
+                    clear_active()
                     st.rerun()
 
-            with c_cancel:
-                if st.button(
-                    "Annuleren",
-                    key=f"cancel_{match_id}",
-                    use_container_width=True,
-                ):
-                    clear_active_score()
+            with b:
+                if st.button("Annuleren", key=f"cancel_{match_id}", use_container_width=True):
+                    clear_active()
                     st.rerun()
 
             st.markdown("</div>", unsafe_allow_html=True)
 
-    st.markdown('<div class="bottom-space"></div>', unsafe_allow_html=True)
-
+    st.markdown('<div class="save-space"></div>', unsafe_allow_html=True)
     st.markdown(
         '<div class="save-note">Pas bij OPSLAAN wordt alles naar Google Sheets geschreven.</div>',
         unsafe_allow_html=True,
