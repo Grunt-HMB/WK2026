@@ -227,22 +227,36 @@ def process_query_actions(user_id):
     if not action:
         return
 
-    if action == "apply":
-        match_id = get_query_value("mid", "")
-        prediction = get_query_value("pred", "")
-        score1 = get_query_value("s1", "")
-        score2 = get_query_value("s2", "")
+    if action == "save_payload":
+        payload = get_query_value("payload", "")
 
-        if match_id:
-            st.session_state.stand_local_predictions[str(match_id)] = {
-                "prediction": str(prediction),
-                "score1": str(score1),
-                "score2": str(score2),
+        try:
+            matches = json.loads(payload)
+        except Exception:
+            matches = []
+
+        local = {}
+
+        for item in matches:
+            match_id = str(item.get("match_id", "")).strip()
+            prediction = str(item.get("prediction", "")).strip()
+            score1 = str(item.get("score1", "")).strip()
+            score2 = str(item.get("score2", "")).strip()
+
+            if not match_id:
+                continue
+
+            if prediction == "" and score1 == "" and score2 == "":
+                continue
+
+            local[match_id] = {
+                "prediction": prediction,
+                "score1": score1,
+                "score2": score2,
             }
 
-            st.session_state.stand_message = "Score toegepast. Nog niet opgeslagen."
+        st.session_state.stand_local_predictions = local
 
-    elif action == "save":
         save_predictions_to_sheet(
             user_id=user_id,
             local_predictions=st.session_state.stand_local_predictions,
@@ -362,6 +376,14 @@ def build_mobile_html(matches_df, local_predictions):
                 background: #f1f5f9;
                 color: #0f172a;
                 cursor: pointer;
+            }}
+
+            .pick-btn:active,
+            .key:active,
+            .apply-btn:active,
+            .cancel-btn:active,
+            .save-btn:active {{
+                transform: scale(0.97);
             }}
 
             .editor {{
@@ -496,7 +518,8 @@ def build_mobile_html(matches_df, local_predictions):
 
     <body>
         <div class="info">
-            Kies 1 / X / 2. Vul de score in. Pas bij <b>OPSLAAN</b> wordt Google Sheets aangepast.
+            Kies 1 / X / 2. Vul de score in. <b>Toepassen</b> werkt zonder refresh.
+            Pas bij <b>OPSLAAN</b> wordt Google Sheets aangepast.
         </div>
 
         <div id="matches"></div>
@@ -530,13 +553,17 @@ def build_mobile_html(matches_df, local_predictions):
                     let badge = "";
 
                     if (m.prediction || m.score1 || m.score2) {{
-                        let score = "";
+                        let parts = [];
 
-                        if (m.score1 || m.score2) {{
-                            score = m.score1 + "-" + m.score2;
+                        if (m.prediction) {{
+                            parts.push(m.prediction);
                         }}
 
-                        badge = `<div class="badge">${{escapeHtml(m.prediction)}} ${{escapeHtml(score)}}</div>`;
+                        if (m.score1 || m.score2) {{
+                            parts.push((m.score1 || "") + "-" + (m.score2 || ""));
+                        }}
+
+                        badge = `<div class="badge">${{escapeHtml(parts.join(" · "))}}</div>`;
                     }}
 
                     output += `
@@ -625,10 +652,16 @@ def build_mobile_html(matches_df, local_predictions):
 
             function closeEditor(matchId) {{
                 const editor = document.getElementById("editor-" + matchId);
+
                 if (editor) {{
                     editor.style.display = "none";
                     editor.innerHTML = "";
                 }}
+
+                activeMatch = null;
+                activePrediction = "";
+                tempScore1 = "";
+                tempScore2 = "";
             }}
 
             function updateDisplays() {{
@@ -671,7 +704,6 @@ def build_mobile_html(matches_df, local_predictions):
 
             function buildOneKeypad(side) {{
                 const nums = ["1","2","3","4","5","6","7","8","9"];
-
                 let output = "";
 
                 nums.forEach(n => {{
@@ -690,6 +722,30 @@ def build_mobile_html(matches_df, local_predictions):
                 document.getElementById("keypad2").innerHTML = buildOneKeypad(2);
             }}
 
+            function applyScore() {{
+                if (!activeMatch) return;
+
+                activeMatch.prediction = activePrediction;
+                activeMatch.score1 = tempScore1;
+                activeMatch.score2 = tempScore2;
+
+                const rememberId = activeMatch.match_id;
+
+                activeMatch = null;
+                activePrediction = "";
+                tempScore1 = "";
+                tempScore2 = "";
+
+                renderMatches();
+
+                setTimeout(() => {{
+                    const card = document.getElementById("card-" + rememberId);
+                    if (card) {{
+                        card.scrollIntoView({{ behavior: "smooth", block: "center" }});
+                    }}
+                }}, 50);
+            }}
+
             function goWithParams(params) {{
                 const query = new URLSearchParams(params).toString();
 
@@ -701,21 +757,16 @@ def build_mobile_html(matches_df, local_predictions):
                 }}
             }}
 
-            function applyScore() {{
-                if (!activeMatch) return;
-
-                goWithParams({{
-                    stand_action: "apply",
-                    mid: activeMatch.match_id,
-                    pred: activePrediction,
-                    s1: tempScore1,
-                    s2: tempScore2
-                }});
-            }}
-
             function saveAll() {{
+                const changed = matches.filter(m => {{
+                    return m.prediction || m.score1 || m.score2;
+                }});
+
+                const payload = JSON.stringify(changed);
+
                 goWithParams({{
-                    stand_action: "save"
+                    stand_action: "save_payload",
+                    payload: payload
                 }});
             }}
 
@@ -752,7 +803,7 @@ def show_stand_uitprinten(user_id=None):
         local_predictions=st.session_state.stand_local_predictions,
     )
 
-    height = max(800, 125 * len(matches_df) + 160)
+    height = max(850, 126 * len(matches_df) + 180)
 
     components.html(
         html_code,
