@@ -1,8 +1,12 @@
-import streamlit as st
-import pandas as pd
-import gspread
-from google.oauth2.service_account import Credentials
+import html
+import json
 from datetime import datetime
+
+import gspread
+import pandas as pd
+import streamlit as st
+import streamlit.components.v1 as components
+from google.oauth2.service_account import Credentials
 
 
 SCOPES = [
@@ -59,16 +63,18 @@ def load_results_matches():
         return empty_df
 
     headers = [str(c).strip() for c in values[header_row_index]]
-    rows = values[header_row_index + 1:]
+    data_rows = values[header_row_index + 1:]
 
     fixed_rows = []
-    for row in rows:
+
+    for row in data_rows:
         row = row[:len(headers)] + [""] * max(0, len(headers) - len(row))
         fixed_rows.append(row)
 
     raw_df = pd.DataFrame(fixed_rows, columns=headers)
 
     date_col = ""
+
     for possible in ["Date (my time)", "Date  (my time)", "datum_tijd", "datum"]:
         if possible in raw_df.columns:
             date_col = possible
@@ -78,7 +84,11 @@ def load_results_matches():
     df["match_id"] = raw_df["Match No."].astype(str).str.strip()
     df["team1"] = raw_df["Team 1"].astype(str).str.strip()
     df["team2"] = raw_df["Team 2"].astype(str).str.strip()
-    df["datum_tijd"] = raw_df[date_col].astype(str).str.strip() if date_col else ""
+
+    if date_col:
+        df["datum_tijd"] = raw_df[date_col].astype(str).str.strip()
+    else:
+        df["datum_tijd"] = ""
 
     df = df[
         (df["match_id"] != "")
@@ -100,10 +110,11 @@ def load_results_predictions():
         return pd.DataFrame(columns=PREDICTION_HEADERS)
 
     headers = [str(c).strip() for c in values[0]]
-    rows = values[1:]
+    data_rows = values[1:]
 
     fixed_rows = []
-    for row in rows:
+
+    for row in data_rows:
         row = row[:len(headers)] + [""] * max(0, len(headers) - len(row))
         fixed_rows.append(row)
 
@@ -118,7 +129,10 @@ def load_results_predictions():
     for col in PREDICTION_HEADERS:
         df[col] = df[col].astype(str).str.strip()
 
-    df = df[(df["user_id"] != "") & (df["match_id"] != "")].copy()
+    df = df[
+        (df["user_id"] != "")
+        & (df["match_id"] != "")
+    ].copy()
 
     return df
 
@@ -184,7 +198,10 @@ def init_local_predictions(user_id):
         return
 
     predictions_df = load_results_predictions()
-    user_df = predictions_df[predictions_df["user_id"] == str(user_id)].copy()
+
+    user_df = predictions_df[
+        predictions_df["user_id"] == str(user_id)
+    ].copy()
 
     local = {}
 
@@ -204,75 +221,553 @@ def init_local_predictions(user_id):
     st.session_state.stand_local_user = user_id
 
 
-def reset_temp_scores():
-    st.session_state.temp_score1 = ""
-    st.session_state.temp_score2 = ""
+def get_query_value(name, default=""):
+    value = st.query_params.get(name, default)
+
+    if isinstance(value, list):
+        if value:
+            return value[0]
+        return default
+
+    return value
 
 
-def clear_active():
-    st.session_state.active_match_id = None
-    st.session_state.active_prediction = ""
-    reset_temp_scores()
+def process_query_actions(user_id):
+    action = get_query_value("stand_action", "")
+
+    if not action:
+        return
+
+    if action == "apply":
+        match_id = get_query_value("mid", "")
+        prediction = get_query_value("pred", "")
+        score1 = get_query_value("s1", "")
+        score2 = get_query_value("s2", "")
+
+        if match_id:
+            st.session_state.stand_local_predictions[str(match_id)] = {
+                "prediction": str(prediction),
+                "score1": str(score1),
+                "score2": str(score2),
+            }
+
+            st.session_state.stand_message = "Score toegepast. Nog niet opgeslagen in Google Sheets."
+
+    elif action == "save":
+        save_predictions_to_sheet(
+            user_id=user_id,
+            local_predictions=st.session_state.stand_local_predictions,
+        )
+
+        st.session_state.stand_message = "Opgeslagen in tabblad 'Predictions'."
+
+    st.query_params.clear()
+    st.rerun()
 
 
-def add_digit(key_name, digit):
-    value = st.session_state.get(key_name, "")
+def build_mobile_html(matches_df, local_predictions):
+    matches = []
 
-    if len(value) < 2:
-        st.session_state[key_name] = value + str(digit)
+    for _, row in matches_df.iterrows():
+        match_id = str(row.get("match_id", "")).strip()
+        datum_tijd = str(row.get("datum_tijd", "")).strip()
+        team1 = str(row.get("team1", "")).strip()
+        team2 = str(row.get("team2", "")).strip()
 
+        pred = local_predictions.get(match_id, {})
 
-def remove_digit(key_name):
-    value = st.session_state.get(key_name, "")
-    st.session_state[key_name] = value[:-1]
+        matches.append({
+            "match_id": match_id,
+            "datum_tijd": datum_tijd,
+            "team1": team1,
+            "team2": team2,
+            "prediction": str(pred.get("prediction", "")).strip(),
+            "score1": str(pred.get("score1", "")).strip(),
+            "score2": str(pred.get("score2", "")).strip(),
+        })
 
+    matches_json = json.dumps(matches, ensure_ascii=False)
 
-def clear_digit(key_name):
-    st.session_state[key_name] = ""
+    html_code = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
+        <style>
+            * {{
+                box-sizing: border-box;
+                -webkit-tap-highlight-color: transparent;
+            }}
 
-def score_box(value):
-    shown = value if value else "&nbsp;"
+            body {{
+                margin: 0;
+                padding: 0 0 86px 0;
+                font-family: Arial, sans-serif;
+                background: transparent;
+                color: #f8fafc;
+            }}
 
-    st.markdown(
-        f"""
-        <div class="score-box">
-            {shown}
+            .info {{
+                background: rgba(30, 64, 175, 0.22);
+                border: 1px solid rgba(147, 197, 253, 0.35);
+                color: #dbeafe;
+                padding: 10px 12px;
+                border-radius: 12px;
+                font-size: 13px;
+                line-height: 1.35;
+                margin-bottom: 10px;
+            }}
+
+            .match-card {{
+                background: rgba(15, 23, 42, 0.70);
+                border: 1px solid rgba(148, 163, 184, 0.35);
+                border-radius: 14px;
+                padding: 10px;
+                margin-bottom: 9px;
+            }}
+
+            .match-top {{
+                display: flex;
+                justify-content: space-between;
+                gap: 8px;
+                align-items: center;
+                margin-bottom: 6px;
+            }}
+
+            .date {{
+                font-size: 11px;
+                color: #94a3b8;
+                font-weight: 700;
+            }}
+
+            .badge {{
+                background: #e0f2fe;
+                color: #0f172a;
+                padding: 3px 8px;
+                border-radius: 999px;
+                font-size: 11px;
+                font-weight: 900;
+                white-space: nowrap;
+            }}
+
+            .teams {{
+                font-size: 14px;
+                font-weight: 900;
+                line-height: 1.25;
+                margin-bottom: 9px;
+            }}
+
+            .pick-row {{
+                display: grid;
+                grid-template-columns: 1fr 1fr 1fr;
+                gap: 6px;
+            }}
+
+            .pick-btn {{
+                height: 38px;
+                border: 0;
+                border-radius: 10px;
+                font-size: 16px;
+                font-weight: 900;
+                background: #f1f5f9;
+                color: #0f172a;
+                cursor: pointer;
+                box-shadow: inset 0 -1px 0 rgba(0,0,0,0.18);
+            }}
+
+            .pick-btn:active {{
+                transform: scale(0.97);
+                background: #bae6fd;
+            }}
+
+            .save-bar {{
+                position: fixed;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                z-index: 1000;
+                padding: 10px;
+                background: rgba(15, 23, 42, 0.97);
+                border-top: 1px solid rgba(255,255,255,0.14);
+            }}
+
+            .save-btn {{
+                width: 100%;
+                height: 48px;
+                border: 0;
+                border-radius: 14px;
+                background: #2563eb;
+                color: white;
+                font-size: 17px;
+                font-weight: 900;
+                cursor: pointer;
+            }}
+
+            .overlay {{
+                position: fixed;
+                inset: 0;
+                z-index: 2000;
+                background: rgba(2, 6, 23, 0.72);
+                display: none;
+                align-items: flex-end;
+                justify-content: center;
+            }}
+
+            .sheet {{
+                width: 100%;
+                max-width: 520px;
+                background: #0f172a;
+                border-radius: 20px 20px 0 0;
+                border: 1px solid rgba(148, 163, 184, 0.35);
+                padding: 14px;
+                box-shadow: 0 -8px 30px rgba(0,0,0,0.35);
+            }}
+
+            .sheet-title {{
+                text-align: center;
+                font-size: 15px;
+                font-weight: 900;
+                margin-bottom: 4px;
+            }}
+
+            .sheet-subtitle {{
+                text-align: center;
+                font-size: 12px;
+                color: #94a3b8;
+                margin-bottom: 10px;
+            }}
+
+            .score-row {{
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 10px;
+                margin-bottom: 10px;
+            }}
+
+            .score-panel {{
+                background: rgba(30, 41, 59, 0.9);
+                border: 1px solid rgba(148, 163, 184, 0.25);
+                border-radius: 14px;
+                padding: 8px;
+            }}
+
+            .team-label {{
+                text-align: center;
+                font-size: 12px;
+                font-weight: 900;
+                color: #cbd5e1;
+                min-height: 30px;
+                margin-bottom: 4px;
+                line-height: 1.2;
+            }}
+
+            .score-display {{
+                height: 42px;
+                background: white;
+                color: #0f172a;
+                border-radius: 10px;
+                text-align: center;
+                font-size: 26px;
+                font-weight: 900;
+                line-height: 42px;
+                margin-bottom: 8px;
+            }}
+
+            .keypad {{
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 5px;
+            }}
+
+            .key {{
+                height: 34px;
+                border: 0;
+                border-radius: 9px;
+                background: #f8fafc;
+                color: #0f172a;
+                font-size: 15px;
+                font-weight: 900;
+                cursor: pointer;
+            }}
+
+            .key.special {{
+                background: #cbd5e1;
+            }}
+
+            .action-row {{
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 8px;
+                margin-top: 10px;
+            }}
+
+            .apply-btn,
+            .cancel-btn {{
+                height: 42px;
+                border: 0;
+                border-radius: 12px;
+                font-size: 15px;
+                font-weight: 900;
+                cursor: pointer;
+            }}
+
+            .apply-btn {{
+                background: #22c55e;
+                color: #052e16;
+            }}
+
+            .cancel-btn {{
+                background: #334155;
+                color: #f8fafc;
+            }}
+
+            @media (max-width: 420px) {{
+                .sheet {{
+                    padding: 12px;
+                }}
+
+                .score-row {{
+                    gap: 7px;
+                }}
+
+                .score-panel {{
+                    padding: 7px;
+                }}
+
+                .key {{
+                    height: 32px;
+                    font-size: 14px;
+                }}
+
+                .teams {{
+                    font-size: 13px;
+                }}
+            }}
+        </style>
+    </head>
+
+    <body>
+        <div class="info">
+            Kies 1 / X / 2. Vul daarna de score in met de twee numerieke toetsenborden.
+            Pas bij <b>OPSLAAN</b> wordt Google Sheets aangepast.
         </div>
-        """,
-        unsafe_allow_html=True,
-    )
 
+        <div id="matches"></div>
 
-def numeric_keyboard(label, key_name, prefix):
-    st.markdown(f"<div class='kbd-label'>{label}</div>", unsafe_allow_html=True)
-    score_box(st.session_state.get(key_name, ""))
+        <div class="save-bar">
+            <button class="save-btn" onclick="saveAll()">💾 OPSLAAN</button>
+        </div>
 
-    rows = [
-        ["1", "2", "3"],
-        ["4", "5", "6"],
-        ["7", "8", "9"],
-        ["←", "0", "C"],
-    ]
+        <div class="overlay" id="overlay">
+            <div class="sheet">
+                <div class="sheet-title" id="sheet-title">Score invullen</div>
+                <div class="sheet-subtitle" id="sheet-subtitle"></div>
 
-    for r, row in enumerate(rows):
-        cols = st.columns(3, gap="small")
+                <div class="score-row">
+                    <div class="score-panel">
+                        <div class="team-label" id="label1"></div>
+                        <div class="score-display" id="score1">&nbsp;</div>
+                        <div class="keypad" id="keypad1"></div>
+                    </div>
 
-        for c, value in enumerate(row):
-            with cols[c]:
-                if st.button(
-                    value,
-                    key=f"{prefix}_{key_name}_{r}_{c}_{value}",
-                    use_container_width=True,
-                ):
-                    if value == "←":
-                        remove_digit(key_name)
-                    elif value == "C":
-                        clear_digit(key_name)
-                    else:
-                        add_digit(key_name, value)
+                    <div class="score-panel">
+                        <div class="team-label" id="label2"></div>
+                        <div class="score-display" id="score2">&nbsp;</div>
+                        <div class="keypad" id="keypad2"></div>
+                    </div>
+                </div>
 
-                    st.rerun()
+                <div class="action-row">
+                    <button class="apply-btn" onclick="applyScore()">✅ Toepassen</button>
+                    <button class="cancel-btn" onclick="closeEditor()">Annuleren</button>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            const matches = {matches_json};
+
+            let activeMatch = null;
+            let activePrediction = "";
+            let tempScore1 = "";
+            let tempScore2 = "";
+
+            function escapeHtml(text) {{
+                return String(text || "")
+                    .replaceAll("&", "&amp;")
+                    .replaceAll("<", "&lt;")
+                    .replaceAll(">", "&gt;")
+                    .replaceAll('"', "&quot;")
+                    .replaceAll("'", "&#039;");
+            }}
+
+            function renderMatches() {{
+                const wrap = document.getElementById("matches");
+                let html = "";
+
+                matches.forEach(m => {{
+                    let badge = "";
+
+                    if (m.prediction || m.score1 || m.score2) {{
+                        let score = "";
+
+                        if (m.score1 || m.score2) {{
+                            score = `${{m.score1}}-${{m.score2}}`;
+                        }}
+
+                        badge = `<div class="badge">${{escapeHtml(m.prediction)}} ${{escapeHtml(score)}}</div>`;
+                    }}
+
+                    html += `
+                        <div class="match-card">
+                            <div class="match-top">
+                                <div class="date">${{escapeHtml(m.datum_tijd)}}</div>
+                                ${{badge}}
+                            </div>
+
+                            <div class="teams">
+                                ${{escapeHtml(m.team1)}} vs ${{escapeHtml(m.team2)}}
+                            </div>
+
+                            <div class="pick-row">
+                                <button class="pick-btn" onclick="openEditor('${{escapeHtml(m.match_id)}}', '1')">1</button>
+                                <button class="pick-btn" onclick="openEditor('${{escapeHtml(m.match_id)}}', 'X')">X</button>
+                                <button class="pick-btn" onclick="openEditor('${{escapeHtml(m.match_id)}}', '2')">2</button>
+                            </div>
+                        </div>
+                    `;
+                }});
+
+                wrap.innerHTML = html;
+            }}
+
+            function findMatch(matchId) {{
+                return matches.find(m => String(m.match_id) === String(matchId));
+            }}
+
+            function openEditor(matchId, prediction) {{
+                activeMatch = findMatch(matchId);
+                activePrediction = prediction;
+
+                tempScore1 = "";
+                tempScore2 = "";
+
+                if (!activeMatch) return;
+
+                let choiceText = "";
+
+                if (prediction === "1") choiceText = activeMatch.team1 + " wint";
+                if (prediction === "X") choiceText = "Gelijkspel";
+                if (prediction === "2") choiceText = activeMatch.team2 + " wint";
+
+                document.getElementById("sheet-title").innerText = activeMatch.team1 + " vs " + activeMatch.team2;
+                document.getElementById("sheet-subtitle").innerText = "Gekozen: " + choiceText;
+
+                document.getElementById("label1").innerText = activeMatch.team1;
+                document.getElementById("label2").innerText = activeMatch.team2;
+
+                updateDisplays();
+                buildKeypads();
+
+                document.getElementById("overlay").style.display = "flex";
+            }}
+
+            function closeEditor() {{
+                document.getElementById("overlay").style.display = "none";
+            }}
+
+            function updateDisplays() {{
+                document.getElementById("score1").innerHTML = tempScore1 || "&nbsp;";
+                document.getElementById("score2").innerHTML = tempScore2 || "&nbsp;";
+            }}
+
+            function addDigit(side, digit) {{
+                if (side === 1) {{
+                    if (tempScore1.length < 2) tempScore1 += digit;
+                }} else {{
+                    if (tempScore2.length < 2) tempScore2 += digit;
+                }}
+
+                updateDisplays();
+            }}
+
+            function backspace(side) {{
+                if (side === 1) {{
+                    tempScore1 = tempScore1.slice(0, -1);
+                }} else {{
+                    tempScore2 = tempScore2.slice(0, -1);
+                }}
+
+                updateDisplays();
+            }}
+
+            function clearScore(side) {{
+                if (side === 1) {{
+                    tempScore1 = "";
+                }} else {{
+                    tempScore2 = "";
+                }}
+
+                updateDisplays();
+            }}
+
+            function buildOneKeypad(side) {{
+                const nums = ["1","2","3","4","5","6","7","8","9"];
+                let html = "";
+
+                nums.forEach(n => {{
+                    html += `<button class="key" onclick="addDigit(${{side}}, '${{n}}')">${{n}}</button>`;
+                }});
+
+                html += `<button class="key special" onclick="backspace(${{side}})">←</button>`;
+                html += `<button class="key" onclick="addDigit(${{side}}, '0')">0</button>`;
+                html += `<button class="key special" onclick="clearScore(${{side}})">C</button>`;
+
+                return html;
+            }}
+
+            function buildKeypads() {{
+                document.getElementById("keypad1").innerHTML = buildOneKeypad(1);
+                document.getElementById("keypad2").innerHTML = buildOneKeypad(2);
+            }}
+
+            function goWithParams(params) {{
+                const query = new URLSearchParams(params).toString();
+
+                try {{
+                    const base = window.parent.location.pathname;
+                    window.parent.location.href = base + "?" + query;
+                }} catch(e) {{
+                    window.location.href = "?" + query;
+                }}
+            }}
+
+            function applyScore() {{
+                if (!activeMatch) return;
+
+                goWithParams({{
+                    stand_action: "apply",
+                    mid: activeMatch.match_id,
+                    pred: activePrediction,
+                    s1: tempScore1,
+                    s2: tempScore2
+                }});
+            }}
+
+            function saveAll() {{
+                goWithParams({{
+                    stand_action: "save"
+                }});
+            }}
+
+            renderMatches();
+        </script>
+    </body>
+    </html>
+    """
+
+    return html_code
 
 
 def show_stand_uitprinten(user_id=None):
@@ -284,6 +779,11 @@ def show_stand_uitprinten(user_id=None):
     user_id = str(user_id)
 
     init_local_predictions(user_id)
+    process_query_actions(user_id)
+
+    if "stand_message" in st.session_state:
+        st.success(st.session_state.stand_message)
+        del st.session_state.stand_message
 
     matches_df = load_results_matches()
 
@@ -291,260 +791,15 @@ def show_stand_uitprinten(user_id=None):
         st.warning("Geen wedstrijden gevonden in tabblad 'Matches'.")
         return
 
-    for key, default in {
-        "active_match_id": None,
-        "active_prediction": "",
-        "temp_score1": "",
-        "temp_score2": "",
-    }.items():
-        if key not in st.session_state:
-            st.session_state[key] = default
-
-    st.markdown("""
-    <style>
-    .block-container {
-        padding-left: 0.45rem !important;
-        padding-right: 0.45rem !important;
-        padding-bottom: 6rem !important;
-    }
-
-    .match-card {
-        border: 1px solid rgba(148,163,184,0.35);
-        border-radius: 12px;
-        padding: 9px 10px;
-        margin-bottom: 8px;
-        background: rgba(15,23,42,0.35);
-    }
-
-    .match-top {
-        display: flex;
-        justify-content: space-between;
-        gap: 8px;
-        align-items: center;
-    }
-
-    .match-date {
-        font-size: 11px;
-        color: #94a3b8;
-        font-weight: 800;
-    }
-
-    .match-score {
-        font-size: 12px;
-        font-weight: 900;
-        color: #0f172a;
-        background: #e0f2fe;
-        border-radius: 999px;
-        padding: 2px 8px;
-        white-space: nowrap;
-    }
-
-    .match-title {
-        margin-top: 5px;
-        font-size: 14px;
-        line-height: 1.2;
-        font-weight: 900;
-        color: #f8fafc;
-    }
-
-    .editor-box {
-        border: 1px solid rgba(148,163,184,0.5);
-        border-radius: 14px;
-        padding: 10px;
-        margin: 8px 0 14px 0;
-        background: rgba(15,23,42,0.70);
-    }
-
-    .editor-title {
-        text-align: center;
-        font-size: 13px;
-        font-weight: 900;
-        color: #cbd5e1;
-        margin-bottom: 8px;
-    }
-
-    .kbd-label {
-        text-align: center;
-        font-size: 12px;
-        font-weight: 900;
-        color: #cbd5e1;
-        margin-bottom: 4px;
-        min-height: 28px;
-    }
-
-    .score-box {
-        height: 38px;
-        border: 2px solid #cbd5e1;
-        border-radius: 9px;
-        background: white;
-        color: #111827;
-        text-align: center;
-        font-size: 24px;
-        font-weight: 900;
-        line-height: 34px;
-        margin-bottom: 6px;
-    }
-
-    div.stButton > button {
-        min-height: 34px !important;
-        height: 34px !important;
-        padding: 0 !important;
-        font-size: 15px !important;
-        font-weight: 900 !important;
-        border-radius: 9px !important;
-    }
-
-    .result-row {
-        margin-top: -4px;
-        margin-bottom: 12px;
-    }
-
-    .save-space {
-        height: 90px;
-    }
-
-    .save-note {
-        text-align: center;
-        font-size: 12px;
-        color: #94a3b8;
-        margin: 8px 0;
-    }
-
-    @media (max-width: 600px) {
-        .main .block-container {
-            max-width: 100% !important;
-        }
-
-        .match-title {
-            font-size: 13px;
-        }
-
-        div[data-testid="column"] {
-            padding-left: 2px !important;
-            padding-right: 2px !important;
-        }
-
-        div.stButton > button {
-            font-size: 14px !important;
-        }
-    }
-    </style>
-    """, unsafe_allow_html=True)
-
-    st.info("Kies 1/X/2, vul de score in en klik Toepassen. Pas daarna OPSLAAN schrijft naar Google Sheets.")
-
-    for _, row in matches_df.iterrows():
-        match_id = str(row.get("match_id", "")).strip()
-        datum_tijd = str(row.get("datum_tijd", "")).strip()
-        team1 = str(row.get("team1", "")).strip()
-        team2 = str(row.get("team2", "")).strip()
-
-        pred = st.session_state.stand_local_predictions.get(match_id, {})
-
-        prediction = str(pred.get("prediction", "")).strip()
-        score1 = str(pred.get("score1", "")).strip()
-        score2 = str(pred.get("score2", "")).strip()
-
-        score_text = ""
-        if prediction or score1 or score2:
-            score_text = f"{prediction} · {score1}-{score2}".strip(" ·-")
-
-        score_html = ""
-        if score_text:
-            score_html = f"<div class='match-score'>{score_text}</div>"
-
-        st.markdown(
-            f"""
-            <div class="match-card">
-                <div class="match-top">
-                    <div class="match-date">{datum_tijd}</div>
-                    {score_html}
-                </div>
-                <div class="match-title">{team1} vs {team2}</div>
-            </div>
-            """,
-            unsafe_allow_html=True,
-        )
-
-        c1, cx, c2 = st.columns(3, gap="small")
-
-        with c1:
-            if st.button("1", key=f"pick_1_{match_id}", use_container_width=True):
-                st.session_state.active_match_id = match_id
-                st.session_state.active_prediction = "1"
-                reset_temp_scores()
-                st.rerun()
-
-        with cx:
-            if st.button("X", key=f"pick_x_{match_id}", use_container_width=True):
-                st.session_state.active_match_id = match_id
-                st.session_state.active_prediction = "X"
-                reset_temp_scores()
-                st.rerun()
-
-        with c2:
-            if st.button("2", key=f"pick_2_{match_id}", use_container_width=True):
-                st.session_state.active_match_id = match_id
-                st.session_state.active_prediction = "2"
-                reset_temp_scores()
-                st.rerun()
-
-        if st.session_state.active_match_id == match_id:
-            st.markdown("<div class='editor-box'>", unsafe_allow_html=True)
-
-            active_prediction = st.session_state.get("active_prediction", "")
-
-            if active_prediction == "1":
-                msg = f"{team1} wint"
-            elif active_prediction == "X":
-                msg = "Gelijkspel"
-            elif active_prediction == "2":
-                msg = f"{team2} wint"
-            else:
-                msg = ""
-
-            st.markdown(
-                f"<div class='editor-title'>Gekozen: {msg}</div>",
-                unsafe_allow_html=True,
-            )
-
-            k1, k2 = st.columns(2, gap="small")
-
-            with k1:
-                numeric_keyboard(team1, "temp_score1", match_id)
-
-            with k2:
-                numeric_keyboard(team2, "temp_score2", match_id)
-
-            a, b = st.columns(2, gap="small")
-
-            with a:
-                if st.button("✅ Toepassen", key=f"apply_{match_id}", use_container_width=True):
-                    st.session_state.stand_local_predictions[match_id] = {
-                        "prediction": active_prediction,
-                        "score1": st.session_state.get("temp_score1", ""),
-                        "score2": st.session_state.get("temp_score2", ""),
-                    }
-
-                    clear_active()
-                    st.rerun()
-
-            with b:
-                if st.button("Annuleren", key=f"cancel_{match_id}", use_container_width=True):
-                    clear_active()
-                    st.rerun()
-
-            st.markdown("</div>", unsafe_allow_html=True)
-
-    st.markdown('<div class="save-space"></div>', unsafe_allow_html=True)
-    st.markdown(
-        '<div class="save-note">Pas bij OPSLAAN wordt alles naar Google Sheets geschreven.</div>',
-        unsafe_allow_html=True,
+    html_code = build_mobile_html(
+        matches_df=matches_df,
+        local_predictions=st.session_state.stand_local_predictions,
     )
 
-    if st.button("💾 OPSLAAN", type="primary", use_container_width=True):
-        save_predictions_to_sheet(
-            user_id=user_id,
-            local_predictions=st.session_state.stand_local_predictions,
-        )
-        st.success("Opgeslagen in tabblad 'Predictions'.")
+    height = max(700, 118 * len(matches_df) + 120)
+
+    components.html(
+        html_code,
+        height=height,
+        scrolling=True,
+    )
