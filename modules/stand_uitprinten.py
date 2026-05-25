@@ -52,6 +52,7 @@ def load_results_matches():
 
     for i, row in enumerate(values):
         clean = [str(c).strip() for c in row]
+
         if "Match No." in clean and "Team 1" in clean and "Team 2" in clean:
             header_row_index = i
             break
@@ -64,6 +65,7 @@ def load_results_matches():
     data_rows = values[header_row_index + 1:]
 
     fixed_rows = []
+
     for row in data_rows:
         row = row[:len(headers)] + [""] * max(0, len(headers) - len(row))
         fixed_rows.append(row)
@@ -71,6 +73,7 @@ def load_results_matches():
     raw_df = pd.DataFrame(fixed_rows, columns=headers)
 
     date_col = ""
+
     for possible in ["Date (my time)", "Date  (my time)", "datum_tijd", "datum"]:
         if possible in raw_df.columns:
             date_col = possible
@@ -80,7 +83,11 @@ def load_results_matches():
     df["match_id"] = raw_df["Match No."].astype(str).str.strip()
     df["team1"] = raw_df["Team 1"].astype(str).str.strip()
     df["team2"] = raw_df["Team 2"].astype(str).str.strip()
-    df["datum_tijd"] = raw_df[date_col].astype(str).str.strip() if date_col else ""
+
+    if date_col:
+        df["datum_tijd"] = raw_df[date_col].astype(str).str.strip()
+    else:
+        df["datum_tijd"] = ""
 
     df = df[
         (df["match_id"] != "")
@@ -105,6 +112,7 @@ def load_results_predictions():
     data_rows = values[1:]
 
     fixed_rows = []
+
     for row in data_rows:
         row = row[:len(headers)] + [""] * max(0, len(headers) - len(row))
         fixed_rows.append(row)
@@ -306,7 +314,7 @@ def build_mobile_html(matches_df, local_predictions):
 
             body {{
                 margin: 0;
-                padding: 0 0 80px 0;
+                padding: 0 0 24px 0;
                 font-family: Arial, sans-serif;
                 color: #f8fafc;
                 background: transparent;
@@ -319,7 +327,28 @@ def build_mobile_html(matches_df, local_predictions):
                 padding: 10px 12px;
                 border-radius: 12px;
                 font-size: 13px;
+                margin-bottom: 8px;
+            }}
+
+            .top-save-bar {{
+                position: sticky;
+                top: 0;
+                z-index: 1000;
+                padding: 8px 0 10px 0;
+                background: rgba(15, 23, 42, 0.97);
                 margin-bottom: 10px;
+            }}
+
+            .save-btn {{
+                width: 100%;
+                height: 48px;
+                border: 0;
+                border-radius: 14px;
+                background: #2563eb;
+                color: white;
+                font-size: 17px;
+                font-weight: 900;
+                cursor: pointer;
             }}
 
             .match-card {{
@@ -490,29 +519,6 @@ def build_mobile_html(matches_df, local_predictions):
                 background: #334155;
                 color: #f8fafc;
             }}
-
-            .save-bar {{
-                position: fixed;
-                left: 0;
-                right: 0;
-                bottom: 0;
-                z-index: 1000;
-                padding: 10px;
-                background: rgba(15, 23, 42, 0.97);
-                border-top: 1px solid rgba(255,255,255,0.14);
-            }}
-
-            .save-btn {{
-                width: 100%;
-                height: 48px;
-                border: 0;
-                border-radius: 14px;
-                background: #2563eb;
-                color: white;
-                font-size: 17px;
-                font-weight: 900;
-                cursor: pointer;
-            }}
         </style>
     </head>
 
@@ -522,11 +528,11 @@ def build_mobile_html(matches_df, local_predictions):
             Pas bij <b>OPSLAAN</b> wordt Google Sheets aangepast.
         </div>
 
-        <div id="matches"></div>
-
-        <div class="save-bar">
+        <div class="top-save-bar">
             <button class="save-btn" onclick="saveAll()">💾 OPSLAAN</button>
         </div>
+
+        <div id="matches"></div>
 
         <script>
             const matches = {matches_json};
