@@ -39,46 +39,65 @@ def load_results_matches():
     sh = connect_results_sheet()
     ws = sh.worksheet(MATCHES_SHEET)
 
-    rows = ws.get_all_records()
+    values = ws.get_all_values()
 
-    df = pd.DataFrame(rows)
+    empty_df = pd.DataFrame(columns=["match_id", "datum_tijd", "team1", "team2"])
 
-    if df.empty:
-        return pd.DataFrame(columns=[
-            "match_id",
-            "datum_tijd",
-            "team1",
-            "team2",
-        ])
+    if not values:
+        return empty_df
 
-    df.columns = [str(c).strip() for c in df.columns]
+    header_row_index = None
 
-    rename_map = {
-        "Match No.": "match_id",
-        "Match No": "match_id",
-        "Team 1": "team1",
-        "Team 2": "team2",
-        "Date (my time)": "datum_tijd",
-        "Date  (my time)": "datum_tijd",
-        "Date (local time host)": "datum_host",
-    }
+    for i, row in enumerate(values):
+        clean_row = [str(c).strip() for c in row]
 
-    df = df.rename(columns=rename_map)
+        if (
+            "Match No." in clean_row
+            and "Team 1" in clean_row
+            and "Team 2" in clean_row
+        ):
+            header_row_index = i
+            break
 
-    needed = ["match_id", "datum_tijd", "team1", "team2"]
+    if header_row_index is None:
+        st.error("Kon de headerregel in tabblad 'Matches' niet vinden.")
+        return empty_df
 
-    for col in needed:
-        if col not in df.columns:
-            df[col] = ""
+    headers = [str(c).strip() for c in values[header_row_index]]
+    data_rows = values[header_row_index + 1:]
 
-    df["match_id"] = df["match_id"].astype(str).str.strip()
-    df["team1"] = df["team1"].astype(str).str.strip()
-    df["team2"] = df["team2"].astype(str).str.strip()
-    df["datum_tijd"] = df["datum_tijd"].astype(str).str.strip()
+    fixed_rows = []
 
-    df = df[df["match_id"] != ""].copy()
+    for row in data_rows:
+        row = row[:len(headers)] + [""] * max(0, len(headers) - len(row))
+        fixed_rows.append(row)
 
-    return df[needed]
+    raw_df = pd.DataFrame(fixed_rows, columns=headers)
+
+    if "Date (my time)" in raw_df.columns:
+        date_col = "Date (my time)"
+    elif "Date  (my time)" in raw_df.columns:
+        date_col = "Date  (my time)"
+    else:
+        date_col = ""
+
+    df = pd.DataFrame()
+    df["match_id"] = raw_df["Match No."].astype(str).str.strip()
+    df["team1"] = raw_df["Team 1"].astype(str).str.strip()
+    df["team2"] = raw_df["Team 2"].astype(str).str.strip()
+
+    if date_col:
+        df["datum_tijd"] = raw_df[date_col].astype(str).str.strip()
+    else:
+        df["datum_tijd"] = ""
+
+    df = df[
+        (df["match_id"] != "")
+        & (df["team1"] != "")
+        & (df["team2"] != "")
+    ].copy()
+
+    return df[["match_id", "datum_tijd", "team1", "team2"]]
 
 
 @st.cache_data(ttl=30)
@@ -86,30 +105,35 @@ def load_results_predictions():
     sh = connect_results_sheet()
     ws = sh.worksheet(PREDICTIONS_SHEET)
 
-    rows = ws.get_all_records(
-        expected_headers=PREDICTION_HEADERS
-    )
+    values = ws.get_all_values()
 
-    df = pd.DataFrame(rows)
-
-    if df.empty:
+    if not values:
         return pd.DataFrame(columns=PREDICTION_HEADERS)
 
-    df.columns = [str(c).strip() for c in df.columns]
+    headers = [str(c).strip() for c in values[0]]
+    data_rows = values[1:]
+
+    fixed_rows = []
+
+    for row in data_rows:
+        row = row[:len(headers)] + [""] * max(0, len(headers) - len(row))
+        fixed_rows.append(row)
+
+    raw_df = pd.DataFrame(fixed_rows, columns=headers)
 
     for col in PREDICTION_HEADERS:
-        if col not in df.columns:
-            df[col] = ""
+        if col not in raw_df.columns:
+            raw_df[col] = ""
 
-    df = df[PREDICTION_HEADERS].copy()
+    df = raw_df[PREDICTION_HEADERS].copy()
 
-    df["user_id"] = df["user_id"].astype(str).str.strip()
-    df["match_id"] = df["match_id"].astype(str).str.strip()
-    df["prediction"] = df["prediction"].astype(str).str.strip()
-    df["score1"] = df["score1"].astype(str).str.strip()
-    df["score2"] = df["score2"].astype(str).str.strip()
-    df["status"] = df["status"].astype(str).str.strip()
-    df["timestamp"] = df["timestamp"].astype(str).str.strip()
+    for col in PREDICTION_HEADERS:
+        df[col] = df[col].astype(str).str.strip()
+
+    df = df[
+        (df["user_id"] != "")
+        & (df["match_id"] != "")
+    ].copy()
 
     return df
 
@@ -118,22 +142,10 @@ def save_predictions_to_sheet(user_id, local_predictions):
     sh = connect_results_sheet()
     ws = sh.worksheet(PREDICTIONS_SHEET)
 
-    existing = ws.get_all_records(
-        expected_headers=PREDICTION_HEADERS
-    )
-
-    existing_df = pd.DataFrame(existing)
+    existing_df = load_results_predictions()
 
     if existing_df.empty:
         existing_df = pd.DataFrame(columns=PREDICTION_HEADERS)
-
-    existing_df.columns = [str(c).strip() for c in existing_df.columns]
-
-    for col in PREDICTION_HEADERS:
-        if col not in existing_df.columns:
-            existing_df[col] = ""
-
-    existing_df = existing_df[PREDICTION_HEADERS].copy()
 
     existing_df["user_id"] = existing_df["user_id"].astype(str).str.strip()
     existing_df["match_id"] = existing_df["match_id"].astype(str).str.strip()
@@ -171,10 +183,10 @@ def save_predictions_to_sheet(user_id, local_predictions):
         ignore_index=True,
     )
 
-    ws.clear()
-    ws.update(
-        [PREDICTION_HEADERS] + final_df.fillna("").values.tolist()
-    )
+    output = [PREDICTION_HEADERS] + final_df.fillna("").values.tolist()
+
+    ws.batch_clear(["A:G"])
+    ws.update("A1", output)
 
     st.cache_data.clear()
 
@@ -213,6 +225,13 @@ def init_local_predictions(user_id):
     st.session_state.stand_local_user = user_id
 
 
+def clear_active_score():
+    st.session_state.active_match_id = None
+    st.session_state.active_prediction = ""
+    st.session_state.temp_score1 = ""
+    st.session_state.temp_score2 = ""
+
+
 def digit_keyboard(label, key_prefix):
     st.markdown(f"**{label}**")
 
@@ -234,7 +253,7 @@ def digit_keyboard(label, key_prefix):
                     st.session_state[key_prefix] += digit
                 st.rerun()
 
-    col_back, col_zero, col_empty = st.columns(3)
+    col_back, col_zero, _ = st.columns(3)
 
     with col_back:
         if st.button(
@@ -255,6 +274,8 @@ def digit_keyboard(label, key_prefix):
                 st.session_state[key_prefix] += "0"
             st.rerun()
 
+    value = st.session_state[key_prefix] or "&nbsp;"
+
     st.markdown(
         f"""
         <div style="
@@ -268,18 +289,11 @@ def digit_keyboard(label, key_prefix):
             background:white;
             color:#111827;
         ">
-            {st.session_state[key_prefix] or "&nbsp;"}
+            {value}
         </div>
         """,
         unsafe_allow_html=True,
     )
-
-
-def clear_active_score():
-    st.session_state.active_match_id = None
-    st.session_state.active_prediction = ""
-    st.session_state.temp_score1 = ""
-    st.session_state.temp_score2 = ""
 
 
 def show_stand_uitprinten(user_id=None):
@@ -344,22 +358,6 @@ def show_stand_uitprinten(user_id=None):
         font-size: 12px;
     }
 
-    .save-footer {
-        position: fixed;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        z-index: 9999;
-        background: rgba(15, 23, 42, 0.96);
-        padding: 10px 12px;
-        border-top: 1px solid rgba(255,255,255,0.15);
-    }
-
-    .save-footer-inner {
-        max-width: 820px;
-        margin: 0 auto;
-    }
-
     .bottom-space {
         height: 90px;
     }
@@ -376,12 +374,9 @@ def show_stand_uitprinten(user_id=None):
         team1 = str(row.get("team1", "")).strip()
         team2 = str(row.get("team2", "")).strip()
 
-        if not match_id:
-            continue
-
         pred = st.session_state.stand_local_predictions.get(match_id, {})
 
-        gekozen = str(pred.get("prediction", "")).strip()
+        prediction = str(pred.get("prediction", "")).strip()
         score1 = str(pred.get("score1", "")).strip()
         score2 = str(pred.get("score2", "")).strip()
 
@@ -390,12 +385,17 @@ def show_stand_uitprinten(user_id=None):
         if score1 != "" or score2 != "":
             score_txt = f'<span class="score-pill">{score1} - {score2}</span>'
 
+        prediction_txt = ""
+
+        if prediction:
+            prediction_txt = f'<span class="score-pill">{prediction}</span>'
+
         st.markdown(
             f"""
             <div class="match-card">
                 <div class="match-date">{datum_tijd}</div>
                 <div class="match-title">
-                    {team1} vs {team2} {score_txt}
+                    {team1} vs {team2} {prediction_txt} {score_txt}
                 </div>
             </div>
             """,
@@ -491,25 +491,9 @@ def show_stand_uitprinten(user_id=None):
 
     st.markdown('<div class="bottom-space"></div>', unsafe_allow_html=True)
 
-    st.markdown(
-        """
-        <div class="save-footer">
-            <div class="save-footer-inner">
-        """,
-        unsafe_allow_html=True,
-    )
-
     if st.button("💾 OPSLAAN", type="primary", use_container_width=True):
         save_predictions_to_sheet(
             user_id=user_id,
             local_predictions=st.session_state.stand_local_predictions,
         )
         st.success("Opgeslagen in tabblad 'Predictions'.")
-
-    st.markdown(
-        """
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
