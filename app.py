@@ -109,7 +109,8 @@ cookies = restore_login_from_cookie(users_df)
 
 if "main_page" not in st.session_state:
     st.session_state.main_page = "🏠 Hoofdmenu"
-
+if st.query_params.get("stand_action"):
+    st.session_state.main_page = "🖨️ Stand uitprinten"
 
 def go_to(page):
     st.session_state.main_page = page
