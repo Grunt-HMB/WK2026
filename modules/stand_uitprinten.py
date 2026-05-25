@@ -1,4 +1,3 @@
-import html
 import json
 from datetime import datetime
 
@@ -53,7 +52,6 @@ def load_results_matches():
 
     for i, row in enumerate(values):
         clean = [str(c).strip() for c in row]
-
         if "Match No." in clean and "Team 1" in clean and "Team 2" in clean:
             header_row_index = i
             break
@@ -66,7 +64,6 @@ def load_results_matches():
     data_rows = values[header_row_index + 1:]
 
     fixed_rows = []
-
     for row in data_rows:
         row = row[:len(headers)] + [""] * max(0, len(headers) - len(row))
         fixed_rows.append(row)
@@ -74,7 +71,6 @@ def load_results_matches():
     raw_df = pd.DataFrame(fixed_rows, columns=headers)
 
     date_col = ""
-
     for possible in ["Date (my time)", "Date  (my time)", "datum_tijd", "datum"]:
         if possible in raw_df.columns:
             date_col = possible
@@ -84,11 +80,7 @@ def load_results_matches():
     df["match_id"] = raw_df["Match No."].astype(str).str.strip()
     df["team1"] = raw_df["Team 1"].astype(str).str.strip()
     df["team2"] = raw_df["Team 2"].astype(str).str.strip()
-
-    if date_col:
-        df["datum_tijd"] = raw_df[date_col].astype(str).str.strip()
-    else:
-        df["datum_tijd"] = ""
+    df["datum_tijd"] = raw_df[date_col].astype(str).str.strip() if date_col else ""
 
     df = df[
         (df["match_id"] != "")
@@ -113,7 +105,6 @@ def load_results_predictions():
     data_rows = values[1:]
 
     fixed_rows = []
-
     for row in data_rows:
         row = row[:len(headers)] + [""] * max(0, len(headers) - len(row))
         fixed_rows.append(row)
@@ -225,9 +216,7 @@ def get_query_value(name, default=""):
     value = st.query_params.get(name, default)
 
     if isinstance(value, list):
-        if value:
-            return value[0]
-        return default
+        return value[0] if value else default
 
     return value
 
@@ -251,7 +240,7 @@ def process_query_actions(user_id):
                 "score2": str(score2),
             }
 
-            st.session_state.stand_message = "Score toegepast. Nog niet opgeslagen in Google Sheets."
+            st.session_state.stand_message = "Score toegepast. Nog niet opgeslagen."
 
     elif action == "save":
         save_predictions_to_sheet(
@@ -262,6 +251,7 @@ def process_query_actions(user_id):
         st.session_state.stand_message = "Opgeslagen in tabblad 'Predictions'."
 
     st.query_params.clear()
+    st.session_state.main_page = "🖨️ Stand uitprinten"
     st.rerun()
 
 
@@ -288,11 +278,11 @@ def build_mobile_html(matches_df, local_predictions):
 
     matches_json = json.dumps(matches, ensure_ascii=False)
 
-    html_code = f"""
+    return f"""
     <!DOCTYPE html>
     <html>
     <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
         <style>
             * {{
@@ -302,10 +292,10 @@ def build_mobile_html(matches_df, local_predictions):
 
             body {{
                 margin: 0;
-                padding: 0 0 86px 0;
+                padding: 0 0 80px 0;
                 font-family: Arial, sans-serif;
-                background: transparent;
                 color: #f8fafc;
+                background: transparent;
             }}
 
             .info {{
@@ -315,7 +305,6 @@ def build_mobile_html(matches_df, local_predictions):
                 padding: 10px 12px;
                 border-radius: 12px;
                 font-size: 13px;
-                line-height: 1.35;
                 margin-bottom: 10px;
             }}
 
@@ -373,12 +362,111 @@ def build_mobile_html(matches_df, local_predictions):
                 background: #f1f5f9;
                 color: #0f172a;
                 cursor: pointer;
-                box-shadow: inset 0 -1px 0 rgba(0,0,0,0.18);
             }}
 
-            .pick-btn:active {{
-                transform: scale(0.97);
-                background: #bae6fd;
+            .editor {{
+                display: none;
+                margin-top: 10px;
+                padding: 10px;
+                border-radius: 14px;
+                background: #0f172a;
+                border: 1px solid rgba(148, 163, 184, 0.45);
+            }}
+
+            .editor-title {{
+                text-align: center;
+                font-size: 14px;
+                font-weight: 900;
+                margin-bottom: 4px;
+            }}
+
+            .editor-subtitle {{
+                text-align: center;
+                font-size: 12px;
+                color: #94a3b8;
+                margin-bottom: 10px;
+            }}
+
+            .score-row {{
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 8px;
+            }}
+
+            .score-panel {{
+                background: rgba(30, 41, 59, 0.9);
+                border-radius: 13px;
+                padding: 7px;
+            }}
+
+            .team-label {{
+                text-align: center;
+                font-size: 11px;
+                font-weight: 900;
+                color: #cbd5e1;
+                min-height: 28px;
+                margin-bottom: 4px;
+                line-height: 1.2;
+            }}
+
+            .score-display {{
+                height: 40px;
+                background: white;
+                color: #0f172a;
+                border-radius: 10px;
+                text-align: center;
+                font-size: 25px;
+                font-weight: 900;
+                line-height: 40px;
+                margin-bottom: 7px;
+            }}
+
+            .keypad {{
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 5px;
+            }}
+
+            .key {{
+                height: 32px;
+                border: 0;
+                border-radius: 8px;
+                background: #f8fafc;
+                color: #0f172a;
+                font-size: 14px;
+                font-weight: 900;
+                cursor: pointer;
+            }}
+
+            .key.special {{
+                background: #cbd5e1;
+            }}
+
+            .action-row {{
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 8px;
+                margin-top: 10px;
+            }}
+
+            .apply-btn,
+            .cancel-btn {{
+                height: 40px;
+                border: 0;
+                border-radius: 12px;
+                font-size: 14px;
+                font-weight: 900;
+                cursor: pointer;
+            }}
+
+            .apply-btn {{
+                background: #22c55e;
+                color: #052e16;
+            }}
+
+            .cancel-btn {{
+                background: #334155;
+                color: #f8fafc;
             }}
 
             .save-bar {{
@@ -403,186 +491,18 @@ def build_mobile_html(matches_df, local_predictions):
                 font-weight: 900;
                 cursor: pointer;
             }}
-
-            .overlay {{
-                position: fixed;
-                inset: 0;
-                z-index: 2000;
-                background: rgba(2, 6, 23, 0.72);
-                display: none;
-                align-items: flex-end;
-                justify-content: center;
-            }}
-
-            .sheet {{
-                width: 100%;
-                max-width: 520px;
-                background: #0f172a;
-                border-radius: 20px 20px 0 0;
-                border: 1px solid rgba(148, 163, 184, 0.35);
-                padding: 14px;
-                box-shadow: 0 -8px 30px rgba(0,0,0,0.35);
-            }}
-
-            .sheet-title {{
-                text-align: center;
-                font-size: 15px;
-                font-weight: 900;
-                margin-bottom: 4px;
-            }}
-
-            .sheet-subtitle {{
-                text-align: center;
-                font-size: 12px;
-                color: #94a3b8;
-                margin-bottom: 10px;
-            }}
-
-            .score-row {{
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-                gap: 10px;
-                margin-bottom: 10px;
-            }}
-
-            .score-panel {{
-                background: rgba(30, 41, 59, 0.9);
-                border: 1px solid rgba(148, 163, 184, 0.25);
-                border-radius: 14px;
-                padding: 8px;
-            }}
-
-            .team-label {{
-                text-align: center;
-                font-size: 12px;
-                font-weight: 900;
-                color: #cbd5e1;
-                min-height: 30px;
-                margin-bottom: 4px;
-                line-height: 1.2;
-            }}
-
-            .score-display {{
-                height: 42px;
-                background: white;
-                color: #0f172a;
-                border-radius: 10px;
-                text-align: center;
-                font-size: 26px;
-                font-weight: 900;
-                line-height: 42px;
-                margin-bottom: 8px;
-            }}
-
-            .keypad {{
-                display: grid;
-                grid-template-columns: repeat(3, 1fr);
-                gap: 5px;
-            }}
-
-            .key {{
-                height: 34px;
-                border: 0;
-                border-radius: 9px;
-                background: #f8fafc;
-                color: #0f172a;
-                font-size: 15px;
-                font-weight: 900;
-                cursor: pointer;
-            }}
-
-            .key.special {{
-                background: #cbd5e1;
-            }}
-
-            .action-row {{
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-                gap: 8px;
-                margin-top: 10px;
-            }}
-
-            .apply-btn,
-            .cancel-btn {{
-                height: 42px;
-                border: 0;
-                border-radius: 12px;
-                font-size: 15px;
-                font-weight: 900;
-                cursor: pointer;
-            }}
-
-            .apply-btn {{
-                background: #22c55e;
-                color: #052e16;
-            }}
-
-            .cancel-btn {{
-                background: #334155;
-                color: #f8fafc;
-            }}
-
-            @media (max-width: 420px) {{
-                .sheet {{
-                    padding: 12px;
-                }}
-
-                .score-row {{
-                    gap: 7px;
-                }}
-
-                .score-panel {{
-                    padding: 7px;
-                }}
-
-                .key {{
-                    height: 32px;
-                    font-size: 14px;
-                }}
-
-                .teams {{
-                    font-size: 13px;
-                }}
-            }}
         </style>
     </head>
 
     <body>
         <div class="info">
-            Kies 1 / X / 2. Vul daarna de score in met de twee numerieke toetsenborden.
-            Pas bij <b>OPSLAAN</b> wordt Google Sheets aangepast.
+            Kies 1 / X / 2. Vul de score in. Pas bij <b>OPSLAAN</b> wordt Google Sheets aangepast.
         </div>
 
         <div id="matches"></div>
 
         <div class="save-bar">
             <button class="save-btn" onclick="saveAll()">💾 OPSLAAN</button>
-        </div>
-
-        <div class="overlay" id="overlay">
-            <div class="sheet">
-                <div class="sheet-title" id="sheet-title">Score invullen</div>
-                <div class="sheet-subtitle" id="sheet-subtitle"></div>
-
-                <div class="score-row">
-                    <div class="score-panel">
-                        <div class="team-label" id="label1"></div>
-                        <div class="score-display" id="score1">&nbsp;</div>
-                        <div class="keypad" id="keypad1"></div>
-                    </div>
-
-                    <div class="score-panel">
-                        <div class="team-label" id="label2"></div>
-                        <div class="score-display" id="score2">&nbsp;</div>
-                        <div class="keypad" id="keypad2"></div>
-                    </div>
-                </div>
-
-                <div class="action-row">
-                    <button class="apply-btn" onclick="applyScore()">✅ Toepassen</button>
-                    <button class="cancel-btn" onclick="closeEditor()">Annuleren</button>
-                </div>
-            </div>
         </div>
 
         <script>
@@ -604,7 +524,7 @@ def build_mobile_html(matches_df, local_predictions):
 
             function renderMatches() {{
                 const wrap = document.getElementById("matches");
-                let html = "";
+                let output = "";
 
                 matches.forEach(m => {{
                     let badge = "";
@@ -613,14 +533,14 @@ def build_mobile_html(matches_df, local_predictions):
                         let score = "";
 
                         if (m.score1 || m.score2) {{
-                            score = `${{m.score1}}-${{m.score2}}`;
+                            score = m.score1 + "-" + m.score2;
                         }}
 
                         badge = `<div class="badge">${{escapeHtml(m.prediction)}} ${{escapeHtml(score)}}</div>`;
                     }}
 
-                    html += `
-                        <div class="match-card">
+                    output += `
+                        <div class="match-card" id="card-${{escapeHtml(m.match_id)}}">
                             <div class="match-top">
                                 <div class="date">${{escapeHtml(m.datum_tijd)}}</div>
                                 ${{badge}}
@@ -635,11 +555,13 @@ def build_mobile_html(matches_df, local_predictions):
                                 <button class="pick-btn" onclick="openEditor('${{escapeHtml(m.match_id)}}', 'X')">X</button>
                                 <button class="pick-btn" onclick="openEditor('${{escapeHtml(m.match_id)}}', '2')">2</button>
                             </div>
+
+                            <div class="editor" id="editor-${{escapeHtml(m.match_id)}}"></div>
                         </div>
                     `;
                 }});
 
-                wrap.innerHTML = html;
+                wrap.innerHTML = output;
             }}
 
             function findMatch(matchId) {{
@@ -647,6 +569,11 @@ def build_mobile_html(matches_df, local_predictions):
             }}
 
             function openEditor(matchId, prediction) {{
+                document.querySelectorAll(".editor").forEach(e => {{
+                    e.style.display = "none";
+                    e.innerHTML = "";
+                }});
+
                 activeMatch = findMatch(matchId);
                 activePrediction = prediction;
 
@@ -661,25 +588,55 @@ def build_mobile_html(matches_df, local_predictions):
                 if (prediction === "X") choiceText = "Gelijkspel";
                 if (prediction === "2") choiceText = activeMatch.team2 + " wint";
 
-                document.getElementById("sheet-title").innerText = activeMatch.team1 + " vs " + activeMatch.team2;
-                document.getElementById("sheet-subtitle").innerText = "Gekozen: " + choiceText;
+                const editor = document.getElementById("editor-" + matchId);
 
-                document.getElementById("label1").innerText = activeMatch.team1;
-                document.getElementById("label2").innerText = activeMatch.team2;
+                editor.innerHTML = `
+                    <div class="editor-title">${{escapeHtml(activeMatch.team1)}} vs ${{escapeHtml(activeMatch.team2)}}</div>
+                    <div class="editor-subtitle">Gekozen: ${{escapeHtml(choiceText)}}</div>
 
-                updateDisplays();
+                    <div class="score-row">
+                        <div class="score-panel">
+                            <div class="team-label">${{escapeHtml(activeMatch.team1)}}</div>
+                            <div class="score-display" id="score1">&nbsp;</div>
+                            <div class="keypad" id="keypad1"></div>
+                        </div>
+
+                        <div class="score-panel">
+                            <div class="team-label">${{escapeHtml(activeMatch.team2)}}</div>
+                            <div class="score-display" id="score2">&nbsp;</div>
+                            <div class="keypad" id="keypad2"></div>
+                        </div>
+                    </div>
+
+                    <div class="action-row">
+                        <button class="apply-btn" onclick="applyScore()">✅ Toepassen</button>
+                        <button class="cancel-btn" onclick="closeEditor('${{escapeHtml(matchId)}}')">Annuleren</button>
+                    </div>
+                `;
+
+                editor.style.display = "block";
                 buildKeypads();
+                updateDisplays();
 
-                document.getElementById("overlay").style.display = "flex";
+                setTimeout(() => {{
+                    editor.scrollIntoView({{ behavior: "smooth", block: "center" }});
+                }}, 50);
             }}
 
-            function closeEditor() {{
-                document.getElementById("overlay").style.display = "none";
+            function closeEditor(matchId) {{
+                const editor = document.getElementById("editor-" + matchId);
+                if (editor) {{
+                    editor.style.display = "none";
+                    editor.innerHTML = "";
+                }}
             }}
 
             function updateDisplays() {{
-                document.getElementById("score1").innerHTML = tempScore1 || "&nbsp;";
-                document.getElementById("score2").innerHTML = tempScore2 || "&nbsp;";
+                const s1 = document.getElementById("score1");
+                const s2 = document.getElementById("score2");
+
+                if (s1) s1.innerHTML = tempScore1 || "&nbsp;";
+                if (s2) s2.innerHTML = tempScore2 || "&nbsp;";
             }}
 
             function addDigit(side, digit) {{
@@ -714,17 +671,18 @@ def build_mobile_html(matches_df, local_predictions):
 
             function buildOneKeypad(side) {{
                 const nums = ["1","2","3","4","5","6","7","8","9"];
-                let html = "";
+
+                let output = "";
 
                 nums.forEach(n => {{
-                    html += `<button class="key" onclick="addDigit(${{side}}, '${{n}}')">${{n}}</button>`;
+                    output += `<button class="key" onclick="addDigit(${{side}}, '${{n}}')">${{n}}</button>`;
                 }});
 
-                html += `<button class="key special" onclick="backspace(${{side}})">←</button>`;
-                html += `<button class="key" onclick="addDigit(${{side}}, '0')">0</button>`;
-                html += `<button class="key special" onclick="clearScore(${{side}})">C</button>`;
+                output += `<button class="key special" onclick="backspace(${{side}})">←</button>`;
+                output += `<button class="key" onclick="addDigit(${{side}}, '0')">0</button>`;
+                output += `<button class="key special" onclick="clearScore(${{side}})">C</button>`;
 
-                return html;
+                return output;
             }}
 
             function buildKeypads() {{
@@ -767,8 +725,6 @@ def build_mobile_html(matches_df, local_predictions):
     </html>
     """
 
-    return html_code
-
 
 def show_stand_uitprinten(user_id=None):
     st.title("🖨️ Stand uitprinten")
@@ -796,10 +752,10 @@ def show_stand_uitprinten(user_id=None):
         local_predictions=st.session_state.stand_local_predictions,
     )
 
-    height = max(700, 118 * len(matches_df) + 120)
+    height = max(800, 125 * len(matches_df) + 160)
 
     components.html(
         html_code,
         height=height,
-        scrolling=True,
+        scrolling=False,
     )
